@@ -144,6 +144,9 @@ function saveGame() {
 
 // ─── Scene Setup ───
 function startGame() {
+  try { _startGame(); } catch(e) { console.error('startGame crashed:', e); alert('CRASH in startGame: ' + e.message + '\n' + (e.stack || '').split('\n').slice(0,5).join('\n')); }
+}
+function _startGame() {
   // Prevent stacked loops
   if (animFrameId) { cancelAnimationFrame(animFrameId); animFrameId = null; }
   
