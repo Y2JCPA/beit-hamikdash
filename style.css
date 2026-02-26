@@ -38,7 +38,7 @@ canvas { display: block; }
 .btn-stone { background: #e8e0d0; color: #1a3c5e; }
 
 /* Modal */
-.modal { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.6); }
+.modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 200; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.6); }
 .modal-content { background: white; border-radius: 20px; padding: 30px; max-width: 400px; width: 90%; text-align: center; }
 .modal-content h2 { color: #1a3c5e; margin-bottom: 16px; }
 .modal-content input { width: 100%; padding: 12px; border: 2px solid #d4c4a8; border-radius: 10px; font-size: 16px; text-align: center; margin-bottom: 16px; }
