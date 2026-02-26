@@ -1335,4 +1335,26 @@ window.addEventListener('pagehide', () => { if (started) saveGame(); });
 // ─── Boot ───
 renderProfiles();
 
+// Login screen buttons (must be wired before any profile loads)
+$('#new-profile-btn').addEventListener('click', () => {
+  $('#new-profile-modal').classList.remove('hidden');
+  $('#profile-name-input').value = '';
+  $('#profile-name-input').focus();
+});
+$('#cancel-profile-btn').addEventListener('click', () => $('#new-profile-modal').classList.add('hidden'));
+$('#create-profile-btn').addEventListener('click', () => {
+  const name = $('#profile-name-input').value.trim();
+  if (!name) return;
+  const levelBtn = document.querySelector('.level-btn.selected');
+  const level = parseInt(levelBtn.dataset.level) || 1;
+  $('#new-profile-modal').classList.add('hidden');
+  createProfile(name, level);
+});
+document.querySelectorAll('.level-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.level-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+  });
+});
+
 })();
