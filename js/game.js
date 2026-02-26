@@ -58,6 +58,10 @@ let elapsedTime = 0;
 // NPCs
 let shimonGroup, leviimGroups = [], fireBoxes = [];
 
+// Waypoint / particle system
+let waypointMesh = null;
+let particles = [];
+
 // Avodah
 let avodahActive = false, avodahStep = 0, avodahKorban = null;
 let avodahMistakes = 0, avodahSteps = [];
@@ -450,6 +454,98 @@ function updateNPCs(t) {
   }
 }
 
+// ─── Waypoint Markers ───
+function showWaypoint(x, y, z, color) {
+  removeWaypoint();
+  const geo = new THREE.BoxGeometry(1, 0.2, 1);
+  const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.6 });
+  waypointMesh = new THREE.Mesh(geo, mat);
+  waypointMesh.position.set(x, y + 0.15, z);
+  scene.add(waypointMesh);
+  
+  // Add a pillar of light
+  const pillar = new THREE.Mesh(
+    new THREE.BoxGeometry(0.15, 4, 0.15),
+    new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.3 })
+  );
+  pillar.position.set(x, y + 2, z);
+  pillar.userData.isPillar = true;
+  scene.add(pillar);
+  waypointMesh.userData.pillar = pillar;
+}
+
+function removeWaypoint() {
+  if (waypointMesh) {
+    scene.remove(waypointMesh);
+    if (waypointMesh.userData.pillar) scene.remove(waypointMesh.userData.pillar);
+    waypointMesh = null;
+  }
+}
+
+function updateWaypoint(t) {
+  if (!waypointMesh) return;
+  waypointMesh.position.y += Math.sin(t * 3) * 0.003;
+  waypointMesh.rotation.y = t * 2;
+  waypointMesh.material.opacity = 0.4 + Math.sin(t * 4) * 0.2;
+  if (waypointMesh.userData.pillar) {
+    waypointMesh.userData.pillar.material.opacity = 0.15 + Math.sin(t * 3) * 0.1;
+  }
+}
+
+function updateAvodahWaypoints() {
+  if (!avodahActive || avodahStep >= avodahSteps.length) { removeWaypoint(); return; }
+  const step = avodahSteps[avodahStep];
+  
+  if (step.id === 'shechita') {
+    if (avodahKorban.slaughterLocation === 'north') {
+      showWaypoint(0, 0, -18, 0xFF4444);  // North zone
+    } else {
+      // Anywhere — show near player's current position
+      showWaypoint(playerPos.x, 0, playerPos.z, 0x44FF44);
+    }
+  } else if (step.id === 'kabbalah') {
+    showWaypoint(playerPos.x, 0, playerPos.z, 0xFFD700);
+  } else if (['holacha', 'zerika', 'haktarah'].includes(step.id)) {
+    showWaypoint(0, 0, KEVESH_END_Z - 2, 0xFF6600);  // Base of ramp
+  }
+}
+
+// ─── Particle Effects ───
+function spawnParticles(x, y, z, color, count) {
+  for (let i = 0; i < count; i++) {
+    const size = 0.08 + Math.random() * 0.12;
+    const mesh = new THREE.Mesh(
+      new THREE.BoxGeometry(size, size, size),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9 })
+    );
+    mesh.position.set(x, y, z);
+    mesh.userData.vel = new THREE.Vector3(
+      (Math.random() - 0.5) * 3,
+      Math.random() * 4 + 1,
+      (Math.random() - 0.5) * 3
+    );
+    mesh.userData.life = 1;
+    scene.add(mesh);
+    particles.push(mesh);
+  }
+}
+
+function updateParticles(dt) {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.userData.life -= dt * 1.5;
+    if (p.userData.life <= 0) {
+      scene.remove(p);
+      particles.splice(i, 1);
+      continue;
+    }
+    p.position.add(p.userData.vel.clone().multiplyScalar(dt));
+    p.userData.vel.y -= 6 * dt;  // gravity
+    p.material.opacity = p.userData.life;
+    p.scale.setScalar(p.userData.life);
+  }
+}
+
 // ─── Audio ───
 function playInstrument(id) {
   const inst = INSTRUMENTS[id];
@@ -727,7 +823,7 @@ function beginAvodah(korbanId) {
   avodahStep = 0;
   avodahSteps = AVODAH_STEPS[korban.type] || AVODAH_STEPS.olah;
   
-  updateHotbar(); updateAvodahHUD();
+  updateHotbar(); updateAvodahHUD(); updateAvodahWaypoints();
   toast(`Beginning ${korban.emoji} ${korban.name}!`);
   
   // First-time guidance
@@ -803,8 +899,17 @@ function advanceAvodah() {
   }
   
   toast(`${step.emoji} ${step.name} — Done!`);
+  
+  // Visual feedback
+  const pColor = step.id === 'shechita' ? 0xFF3333 :
+                 step.id === 'kabbalah' ? 0xFF3333 :
+                 step.id === 'zerika' ? 0xCC0000 :
+                 step.id === 'haktarah' ? 0xFF6600 : 0xFFD700;
+  spawnParticles(playerPos.x, playerPos.y + 1, playerPos.z, pColor, 12);
+  
   avodahStep++;
   updateAvodahHUD();
+  updateAvodahWaypoints();
   
   if (avodahStep >= avodahSteps.length) completeAvodah();
 }
@@ -843,7 +948,11 @@ function completeAvodah() {
   $('#summary-close-btn').addEventListener('click', () => $('#summary-panel').classList.add('hidden'));
   $('#summary-panel').classList.remove('hidden');
   
+  // Victory particles!
+  spawnParticles(playerPos.x, playerPos.y + 1.5, playerPos.z, 0xFFD700, 25);
+  
   avodahKorban = null; avodahSteps = []; avodahStep = 0;
+  removeWaypoint();
   updateAvodahHUD(); updateHUD(); updateHotbar(); saveGame();
 }
 
@@ -989,6 +1098,8 @@ function animate() {
   
   updateFire(elapsedTime);
   updateNPCs(elapsedTime);
+  updateWaypoint(elapsedTime);
+  updateParticles(dt);
   updatePrompt();
   updateCamera();
   
