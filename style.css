@@ -273,3 +273,53 @@ canvas { display: block; }
   border-radius: 8px;
   border: 2px solid #FF4444;
 }
+
+/* ─── World Labels ─── */
+.world-label {
+  position: fixed;
+  transform: translate(-50%, -100%);
+  pointer-events: none;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+  z-index: 5;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  transition: opacity 0.2s;
+}
+.label-npc {
+  background: rgba(100,60,20,0.75);
+  color: #FFD700;
+  border: 1px solid rgba(255,215,0,0.4);
+}
+.label-place {
+  background: rgba(0,0,0,0.5);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.2);
+}
+.label-zone {
+  background: rgba(180,0,0,0.6);
+  color: #fff;
+  border: 1px solid rgba(255,68,68,0.4);
+  font-size: 11px;
+}
+
+/* ─── Edu popup dismiss on click ─── */
+#edu-popup { cursor: pointer; }
+.source {
+  margin-top: 8px;
+  font-size: 0.85em;
+  color: #C0976F;
+  font-style: italic;
+}
+
+/* ─── Shop section title ─── */
+.shop-section-title {
+  font-size: 1em;
+  font-weight: 700;
+  color: #FFD700;
+  margin: 12px 0 6px 0;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(255,215,0,0.3);
+}

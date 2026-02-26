@@ -62,6 +62,9 @@ let shimonGroup, leviimGroups = [], fireBoxes = [];
 let waypointMesh = null;
 let particles = [];
 
+// Labels
+let worldLabels = [];
+
 // Avodah
 let avodahActive = false, avodahStep = 0, avodahKorban = null;
 let avodahMistakes = 0, avodahSteps = [];
@@ -187,6 +190,7 @@ function startGame() {
   updateHUD(); updateHotbar(); updateAvodahHUD();
   if (isMobile) $('#mobile-controls').classList.remove('hidden');
   
+  buildLabels();
   if (!window._inputsBound) { bindInputs(); window._inputsBound = true; }
   
   running = true;
@@ -427,6 +431,67 @@ function buildNPCs() {
     leviimGroups.push(levi);
     // Instrument visual
     addBox(0.4, 0.4, 0.2, x + 0.35, 2.3, DUCHAN_POS.z + 0.3, 0xFFD700);
+  }
+}
+
+// ─── World Labels ───
+function addWorldLabel(text, x, y, z, className) {
+  const div = document.createElement('div');
+  div.className = 'world-label ' + (className || '');
+  div.textContent = text;
+  document.body.appendChild(div);
+  worldLabels.push({ div, pos: new THREE.Vector3(x, y, z) });
+}
+
+function updateWorldLabels() {
+  if (!camera || !renderer) return;
+  const w2 = renderer.domElement.clientWidth / 2;
+  const h2 = renderer.domElement.clientHeight / 2;
+  
+  for (const label of worldLabels) {
+    const v = label.pos.clone().project(camera);
+    if (v.z > 1) { label.div.style.display = 'none'; continue; }
+    const dist = label.pos.distanceTo(camera.position);
+    if (dist > 40) { label.div.style.display = 'none'; continue; }
+    label.div.style.display = 'block';
+    label.div.style.left = ((v.x * w2) + w2) + 'px';
+    label.div.style.top = (-(v.y * h2) + h2) + 'px';
+    label.div.style.opacity = Math.max(0, Math.min(1, 1 - (dist - 25) / 15));
+  }
+}
+
+function buildLabels() {
+  // Clear existing
+  worldLabels.forEach(l => l.div.remove());
+  worldLabels = [];
+  
+  addWorldLabel('🏪 Shimon', SHIMON_POS.x, 3.8, SHIMON_POS.z, 'label-npc');
+  addWorldLabel('🎵 Leviim', DUCHAN_POS.x, 3, DUCHAN_POS.z, 'label-npc');
+  addWorldLabel('🔥 Mizbeach', 0, MIZBEACH_H + 3, 0, 'label-place');
+  addWorldLabel('🚿 Kiyor', KIYOR_POS.x, 3.5, KIYOR_POS.z, 'label-place');
+  addWorldLabel('⬆️ Kevesh', 0, 3, KEVESH_END_Z - 3, 'label-place');
+  addWorldLabel('🔪 North Zone', 0, 1.5, -20, 'label-zone');
+  addWorldLabel('🏛️ Ulam', -(AZARA_HALF - 2), 8, 0, 'label-place');
+}
+
+// ─── Level Up ───
+function checkLevelUp() {
+  if (gameState.level === 1 && gameState.korbanotCompleted >= 5) {
+    gameState.level = 2;
+    playSFX('complete');
+    spawnParticles(playerPos.x, playerPos.y + 2, playerPos.z, 0xFFD700, 30);
+    showEdu(
+      '🎉 LEVEL UP — Kohen Mishamesh!\n\n' +
+      'You\'ve proven yourself with the basics. Now you can:\n' +
+      '• Choose from more Korbanot types (Chatat, Asham, Shelamim)\n' +
+      '• Buy Menachot ingredients from Shimon\n' +
+      '• Location matters: Kodshei Kodashim = NORTH only!\n\n' +
+      'The Avodah gets more complex from here. B\'hatzlacha!',
+      'Zevachim 5:1-8'
+    );
+    updateHUD();
+    saveGame();
+    toast('⬆️ Level 2 Unlocked!');
   }
 }
 
@@ -688,6 +753,7 @@ function bindInputs() {
   $('#close-achieve')?.addEventListener('click', () => $('#achieve-panel').classList.add('hidden'));
   $('#close-korban-select')?.addEventListener('click', () => $('#korban-select-panel').classList.add('hidden'));
   $('#close-summary')?.addEventListener('click', () => $('#summary-panel').classList.add('hidden'));
+  $('#edu-popup')?.addEventListener('click', () => $('#edu-popup').classList.add('hidden'));
   $('#info-btn')?.addEventListener('click', () => {
     const shir = DAILY_SHIR[new Date().getDay()];
     showEdu(`Today is ${shir.day}. The Leviim sing Tehillim ${shir.tehillim}:\n${shir.text}`, 'Tamid 7:4');
@@ -1013,6 +1079,7 @@ function completeAvodah() {
   avodahKorban = null; avodahSteps = []; avodahStep = 0;
   removeWaypoint();
   updateAvodahHUD(); updateHUD(); updateHotbar(); saveGame();
+  checkLevelUp();
 }
 
 // ─── Interaction ───
@@ -1181,6 +1248,7 @@ function animate() {
   updatePrompt();
   updateCompass();
   updateZoneIndicator();
+  updateWorldLabels();
   updateCamera();
   
   renderer.render(scene, camera);
