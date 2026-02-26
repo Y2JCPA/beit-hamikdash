@@ -5,11 +5,15 @@
 (function() {
 'use strict';
 
-// Global error catcher — will show alert on ANY crash
-window.onerror = function(msg, src, line, col, err) {
-  alert('BUG FOUND!\n' + msg + '\nLine: ' + line + ' Col: ' + col);
-  return false;
-};
+// Diagnostic logger
+const _log = [];
+function _dbg(msg) {
+  _log.push(msg);
+  let d = document.getElementById('_dbg');
+  if (!d) { d = document.createElement('div'); d.id='_dbg'; d.style.cssText='position:fixed;top:0;left:0;right:0;background:rgba(0,0,0,0.85);color:#0f0;font:12px monospace;padding:8px;z-index:99999;max-height:50vh;overflow:auto;'; document.body.appendChild(d); }
+  d.innerHTML = _log.join('<br>');
+}
+window.onerror = function(msg, src, line) { _dbg('❌ ERROR: ' + msg + ' (line ' + line + ')'); return false; };
 
 // ─── Constants ───
 const PLAYER_SPEED = 6;
@@ -146,11 +150,13 @@ function saveGame() {
 
 // ─── Scene Setup ───
 function startGame() {
+  _dbg('1. startGame called');
   // Prevent stacked loops
   if (animFrameId) { cancelAnimationFrame(animFrameId); animFrameId = null; }
   
   if (renderer) { renderer.domElement.remove(); renderer.dispose(); }
   
+  _dbg('2. Creating scene...');
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x87CEEB);
   scene.fog = new THREE.Fog(0x87CEEB, 50, 120);
@@ -164,6 +170,7 @@ function startGame() {
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.BasicShadowMap;
   document.body.insertBefore(renderer.domElement, document.body.firstChild);
+  _dbg('3. Renderer created: ' + renderer.domElement.width + 'x' + renderer.domElement.height);
   
   // Lights
   scene.add(new THREE.AmbientLight(0xffffff, 0.5));
@@ -176,19 +183,39 @@ function startGame() {
   sun.shadow.camera.top = 35; sun.shadow.camera.bottom = -35;
   scene.add(sun);
   scene.add(new THREE.HemisphereLight(0x87CEEB, 0xD4C4A8, 0.3));
+  _dbg('4. Lights added');
   
   COLLIDERS.length = 0;
+  _dbg('5. Building world...');
   buildWorld();
+  _dbg('6. World built. Scene children: ' + scene.children.length);
   buildPlayer();
+  _dbg('7. Player built');
   buildNPCs();
+  _dbg('8. NPCs built');
   buildFire();
+  _dbg('9. Fire built');
   
-  playerPos = new THREE.Vector3(0, 0, 20);  // Start south of mizbeach
-  camAngle = Math.PI;  // Face north (toward mizbeach)
+  playerPos = new THREE.Vector3(0, 0, 20);
+  camAngle = Math.PI;
+  
+  // Set camera position immediately
+  camera.position.set(0, 4, 28);
+  camera.lookAt(0, 1, 20);
+  _dbg('10. Camera at (0,4,28) looking at (0,1,20)');
+  
+  // Test render
+  renderer.render(scene, camera);
+  const gl = renderer.getContext();
+  const px = new Uint8Array(4);
+  gl.readPixels(Math.floor(renderer.domElement.width/2), Math.floor(renderer.domElement.height/2), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+  _dbg('11. Test render center pixel: RGBA(' + px[0] + ',' + px[1] + ',' + px[2] + ',' + px[3] + ')');
+  _dbg('    WebGL error: ' + gl.getError());
   
   avodahActive = false; avodahStep = 0; avodahKorban = null;
   
   $('#hud').classList.remove('hidden');
+  _dbg('12. HUD shown');
   updateHUD(); updateHotbar(); updateAvodahHUD();
   if (isMobile) $('#mobile-controls').classList.remove('hidden');
   
