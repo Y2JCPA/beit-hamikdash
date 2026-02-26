@@ -184,6 +184,13 @@ function startGame() {
   playerPos = new THREE.Vector3(0, 0, 20);  // Start south of mizbeach
   camAngle = Math.PI;  // Face north (toward mizbeach)
   
+  // Initialize camera position immediately (no lerp on first frame)
+  const initCX = playerPos.x - Math.sin(camAngle) * CAM_DISTANCE;
+  const initCZ = playerPos.z - Math.cos(camAngle) * CAM_DISTANCE;
+  const initCY = playerPos.y + CAM_HEIGHT_OFFSET;
+  camera.position.set(initCX, initCY, initCZ);
+  camera.lookAt(playerPos.x, playerPos.y + PLAYER_HEIGHT * 0.6, playerPos.z);
+  
   avodahActive = false; avodahStep = 0; avodahKorban = null;
   
   $('#hud').classList.remove('hidden');
