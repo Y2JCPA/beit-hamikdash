@@ -1,29 +1,37 @@
-# Known Issues — V1 MVP
+# Known Issues — V2
 
-## Critical (Gameplay Broken)
-- [ ] **Direction keys inverted** — WASD/arrow keys move opposite direction from expected
-- [ ] **Can't walk up the Kevesh (ramp)** — player stays on ground level, no ramp collision
-- [ ] **Wrong animal = stuck** — if you buy an animal that doesn't match available korbanot at your level, no way to sell/discard it
-- [ ] **Lag/performance** — too many meshes? Need to profile and optimize
+## Fixed in V2 (from V1)
+- [x] Direction keys inverted → Rewrote camera-relative movement math
+- [x] Can't walk up Kevesh → Built step ramp + getGroundHeight() system
+- [x] Wrong animal = stuck → Added sell-back at 50% price
+- [x] Azara too small → Expanded from 38×38 to 66×66 units
+- [x] Lag → Disabled antialias, optimized meshes
+- [x] Stacked animate loops → cancelAnimationFrame before new loop
+- [x] Leg animation broken → Fixed scope (now uses elapsedTime)
+- [x] Korban select only first animal → Shows ALL available korbanot
+- [x] No guidance → Welcome sign + toast + first-avodah guidance
+- [x] NPCs static → Idle animations (bob, sway)
+- [x] No collision → AABB collision system (walls, mizbeach, ulam)
+- [x] No sell-back → Sell section in shop at 50% price
 
-## UX Issues
-- [ ] **Azara too small** — world feels cramped, expand the courtyard significantly
-- [ ] **No sell-back option** — need a way to sell inventory items back to Shimon (at reduced price)
-- [ ] **No clear guidance** — first-time player doesn't know what to do or where to go
-- [ ] **Level 1 guided mode not guided enough** — steps should glow/highlight in the 3D world
+## Needs Testing (may still have issues)
+- [ ] Movement direction — math rewritten, needs user confirmation
+- [ ] Ramp walking — step-based, needs testing on mobile
+- [ ] Korban flow end-to-end — buy → walk north → shechita → kabbalah → holacha → zerika → haktarah
 
-## Visual/Polish
-- [ ] General glitchiness — needs thorough testing and cleanup
-- [ ] Fire effect is basic boxes — could be improved
-- [ ] NPCs are static — no idle animation
-- [ ] No sound effects beyond instruments
+## Minor / Polish
+- [ ] Fire effect could be better (still basic boxes)
+- [ ] No sound effects beyond instruments  
 - [ ] Missing favicon
+- [ ] Camera could be smoother (lerp)
+- [ ] No particle effects for blood service / burning
 
-## Future (V2+)
-- [ ] Menachot system
+## Future (V3+)
+- [ ] Menachot system (Level 2 mechanic)
 - [ ] Heichal interior
-- [ ] Kohen Gadol mode
-- [ ] More NPCs (Yisraelim bringing korbanot)
+- [ ] Kohen Gadol mode (Level 3-4)
+- [ ] More NPCs (Yisraelim with animals)
 - [ ] Day/night cycle tied to Tamid schedule
+- [ ] Glowing waypoints for Level 1 guided mode
 
-*Logged: Feb 26, 2026*
+*Updated: Feb 26, 2026 — V2*
