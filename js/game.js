@@ -176,10 +176,10 @@ function startGame() {
   scene.add(new THREE.HemisphereLight(0x87CEEB, 0xD4C4A8, 0.3));
   
   COLLIDERS.length = 0;
-  buildWorld();
-  buildPlayer();
-  buildNPCs();
-  buildFire();
+  try { buildWorld(); } catch(e) { console.error('buildWorld failed:', e); alert('buildWorld error: ' + e.message); return; }
+  try { buildPlayer(); } catch(e) { console.error('buildPlayer failed:', e); alert('buildPlayer error: ' + e.message); return; }
+  try { buildNPCs(); } catch(e) { console.error('buildNPCs failed:', e); alert('buildNPCs error: ' + e.message); return; }
+  try { buildFire(); } catch(e) { console.error('buildFire failed:', e); alert('buildFire error: ' + e.message); return; }
   
   playerPos = new THREE.Vector3(0, 0, 20);  // Start south of mizbeach
   camAngle = Math.PI;  // Face north (toward mizbeach)
