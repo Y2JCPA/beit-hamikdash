@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>Avodah — Beit HaMikdash</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Login Screen -->
+  <div id="login-screen">
+    <div class="login-box">
+      <h1>🏛️ Avodah</h1>
+      <h2>Beit HaMikdash Simulator</h2>
+      <p class="login-subtitle">Serve as a Kohen. Learn the Korbanot. Hear the Leviim.</p>
+      <div id="profile-list"></div>
+      <button id="new-profile-btn" class="btn btn-gold">+ New Kohen</button>
+    </div>
+  </div>
+
+  <!-- New Profile Modal -->
+  <div id="new-profile-modal" class="modal hidden">
+    <div class="modal-content">
+      <h2>🕊️ New Kohen</h2>
+      <input type="text" id="profile-name-input" placeholder="Enter your name..." maxlength="20">
+      <div class="level-select">
+        <label>Start Level:</label>
+        <button class="level-btn selected" data-level="1">Level 1 — Beginner</button>
+        <button class="level-btn" data-level="2">Level 2 — Intermediate</button>
+      </div>
+      <div class="modal-actions">
+        <button id="create-profile-btn" class="btn btn-gold">Begin Avodah</button>
+        <button id="cancel-profile-btn" class="btn btn-stone">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- HUD -->
+  <div id="hud" class="hidden">
+    <div id="hud-top-left">
+      <div id="coins-display">🪙 <span id="coins-count">0</span></div>
+      <div id="level-display">Level <span id="level-num">1</span></div>
+      <div id="korbanot-display">🔥 <span id="korbanot-count">0</span> Korbanot</div>
+    </div>
+    <div id="hud-top-right">
+      <button class="hud-btn" id="shop-btn">🏪</button>
+      <button class="hud-btn" id="achieve-btn">🏆</button>
+      <button class="hud-btn" id="info-btn">📖</button>
+    </div>
+    <div id="hud-top-center">
+      <div id="interaction-prompt" class="hidden"></div>
+      <div id="avodah-steps" class="hidden"></div>
+    </div>
+    <div id="hotbar"></div>
+  </div>
+
+  <!-- Mobile Controls -->
+  <div id="mobile-controls" class="hidden">
+    <div id="joystick-zone">
+      <div id="joystick-base">
+        <div id="joystick-thumb"></div>
+      </div>
+    </div>
+    <button id="mobile-interact-btn" class="mobile-btn">E</button>
+  </div>
+
+  <!-- Panels -->
+  <div id="shop-panel" class="panel-overlay hidden">
+    <div class="panel">
+      <div class="panel-header">
+        <h2>🏪 Shimon's Korban Stand</h2>
+        <button class="panel-close" id="close-shop">✕</button>
+      </div>
+      <div class="panel-body" id="shop-body"></div>
+    </div>
+  </div>
+
+  <div id="achieve-panel" class="panel-overlay hidden">
+    <div class="panel">
+      <div class="panel-header">
+        <h2>🏆 Achievements</h2>
+        <button class="panel-close" id="close-achieve">✕</button>
+      </div>
+      <div class="panel-body" id="achieve-body"></div>
+    </div>
+  </div>
+
+  <div id="korban-select-panel" class="panel-overlay hidden">
+    <div class="panel">
+      <div class="panel-header">
+        <h2>📜 Choose a Korban</h2>
+        <button class="panel-close" id="close-korban-select">✕</button>
+      </div>
+      <div class="panel-body" id="korban-select-body"></div>
+    </div>
+  </div>
+
+  <div id="summary-panel" class="panel-overlay hidden">
+    <div class="panel">
+      <div class="panel-header">
+        <h2>✅ Avodah Complete!</h2>
+        <button class="panel-close" id="close-summary">✕</button>
+      </div>
+      <div class="panel-body" id="summary-body"></div>
+    </div>
+  </div>
+
+  <div id="edu-popup" class="hidden">
+    <div id="edu-popup-content"></div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast-container"></div>
+
+  <!-- Dog label (reused pattern) -->
+  <div id="npc-label" class="hidden"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>
