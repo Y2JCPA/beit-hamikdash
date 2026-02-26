@@ -58,12 +58,8 @@ let elapsedTime = 0;
 // NPCs
 let shimonGroup, leviimGroups = [], fireBoxes = [];
 
-// Waypoint / particle system
-let waypointMesh = null;
-let particles = [];
-
-// Labels
-let worldLabels = [];
+// Enhanced: waypoints, particles, labels
+let waypointMesh = null, particles = [], worldLabels = [];
 
 // Avodah
 let avodahActive = false, avodahStep = 0, avodahKorban = null;
@@ -144,9 +140,6 @@ function saveGame() {
 
 // ─── Scene Setup ───
 function startGame() {
-  try { _startGame(); } catch(e) { console.error('startGame crashed:', e); alert('CRASH in startGame: ' + e.message + '\n' + (e.stack || '').split('\n').slice(0,5).join('\n')); }
-}
-function _startGame() {
   // Prevent stacked loops
   if (animFrameId) { cancelAnimationFrame(animFrameId); animFrameId = null; }
   
@@ -179,22 +172,17 @@ function _startGame() {
   scene.add(new THREE.HemisphereLight(0x87CEEB, 0xD4C4A8, 0.3));
   
   COLLIDERS.length = 0;
-  try { buildWorld(); } catch(e) { console.error('buildWorld failed:', e); alert('buildWorld error: ' + e.message); return; }
-  try { buildPlayer(); } catch(e) { console.error('buildPlayer failed:', e); alert('buildPlayer error: ' + e.message); return; }
-  try { buildNPCs(); } catch(e) { console.error('buildNPCs failed:', e); alert('buildNPCs error: ' + e.message); return; }
-  try { buildFire(); } catch(e) { console.error('buildFire failed:', e); alert('buildFire error: ' + e.message); return; }
+  buildWorld();
+  buildPlayer();
+  buildNPCs();
+  buildFire();
   
   playerPos = new THREE.Vector3(0, 0, 20);  // Start south of mizbeach
   camAngle = Math.PI;  // Face north (toward mizbeach)
   
-
-  
   avodahActive = false; avodahStep = 0; avodahKorban = null;
   
-  console.log('About to show HUD...');
-  const hudEl = document.getElementById('hud');
-  if (!hudEl) { alert('ERROR: #hud element not found!'); return; }
-  hudEl.classList.remove('hidden');
+  $('#hud').classList.remove('hidden');
   updateHUD(); updateHotbar(); updateAvodahHUD();
   if (isMobile) $('#mobile-controls').classList.remove('hidden');
   
@@ -204,19 +192,9 @@ function _startGame() {
   running = true;
   animate();
   
-  // Show tutorial on very first play (no korbanot done yet)
+  // Tutorial on first play
   if (gameState.korbanotCompleted === 0) {
-    setTimeout(() => {
-      showEdu(
-        '🏛️ Welcome, Kohen!\n\n' +
-        '🖱️ MOUSE DRAG — rotate camera\n' +
-        'WASD / ↑↓←→ — walk\n' +
-        'E — interact\n\n' +
-        '👣 Start by visiting Shimon\'s booth (🏪 southeast) to buy an animal.\n' +
-        'Then walk to the Mizbeach and press E to begin the Avodah!',
-        ''
-      );
-    }, 1000);
+    setTimeout(() => showEdu('🏛️ Welcome, Kohen!\n\n🖱️ DRAG to rotate camera\nWASD/Arrows to walk\nE to interact\n\n👣 Visit Shimon (🏪 southeast) to buy an animal.\nThen walk to the Mizbeach and press E!', ''), 1000);
   }
 }
 
@@ -442,44 +420,141 @@ function buildNPCs() {
   }
 }
 
+// ═══ ENHANCEMENTS ═══
+
+// ─── Sound Effects ───
+function playSFX(type) {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const t = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.connect(gain); gain.connect(audioCtx.destination);
+  if (type === 'step') {
+    osc.type = 'sine'; osc.frequency.value = 660;
+    osc.frequency.exponentialRampToValueAtTime(880, t + 0.15);
+    gain.gain.setValueAtTime(0.2, t);
+    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.3);
+    osc.start(t); osc.stop(t + 0.3);
+  } else if (type === 'complete') {
+    [440, 554, 660, 880].forEach((freq, i) => {
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.type = 'sine'; o.frequency.value = freq;
+      g.gain.setValueAtTime(0.15, t + i * 0.12);
+      g.gain.exponentialRampToValueAtTime(0.01, t + i * 0.12 + 0.4);
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start(t + i * 0.12); o.stop(t + i * 0.12 + 0.4);
+    });
+  } else if (type === 'error') {
+    osc.type = 'square'; osc.frequency.value = 200;
+    osc.frequency.exponentialRampToValueAtTime(100, t + 0.2);
+    gain.gain.setValueAtTime(0.1, t);
+    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.25);
+    osc.start(t); osc.stop(t + 0.25);
+  } else if (type === 'buy') {
+    osc.type = 'sine'; osc.frequency.value = 523;
+    osc.frequency.exponentialRampToValueAtTime(784, t + 0.1);
+    gain.gain.setValueAtTime(0.15, t);
+    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.2);
+    osc.start(t); osc.stop(t + 0.2);
+  }
+}
+
+// ─── Particles ───
+function spawnParticles(x, y, z, color, count) {
+  for (let i = 0; i < count; i++) {
+    const s = 0.08 + Math.random() * 0.12;
+    const m = new THREE.Mesh(
+      new THREE.BoxGeometry(s, s, s),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9 })
+    );
+    m.position.set(x, y, z);
+    m.userData.vel = new THREE.Vector3((Math.random()-0.5)*3, Math.random()*4+1, (Math.random()-0.5)*3);
+    m.userData.life = 1;
+    scene.add(m); particles.push(m);
+  }
+}
+function updateParticles(dt) {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.userData.life -= dt * 1.5;
+    if (p.userData.life <= 0) { scene.remove(p); particles.splice(i, 1); continue; }
+    p.position.add(p.userData.vel.clone().multiplyScalar(dt));
+    p.userData.vel.y -= 6 * dt;
+    p.material.opacity = p.userData.life;
+    p.scale.setScalar(p.userData.life);
+  }
+}
+
+// ─── Waypoints ───
+function showWaypoint(x, y, z, color) {
+  removeWaypoint();
+  waypointMesh = new THREE.Mesh(
+    new THREE.BoxGeometry(1, 0.2, 1),
+    new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.6 })
+  );
+  waypointMesh.position.set(x, y + 0.15, z);
+  scene.add(waypointMesh);
+  const pillar = new THREE.Mesh(
+    new THREE.BoxGeometry(0.15, 4, 0.15),
+    new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.3 })
+  );
+  pillar.position.set(x, y + 2, z);
+  scene.add(pillar);
+  waypointMesh.userData.pillar = pillar;
+}
+function removeWaypoint() {
+  if (waypointMesh) {
+    scene.remove(waypointMesh);
+    if (waypointMesh.userData.pillar) scene.remove(waypointMesh.userData.pillar);
+    waypointMesh = null;
+  }
+}
+function updateWaypoint(t) {
+  if (!waypointMesh) return;
+  waypointMesh.position.y += Math.sin(t * 3) * 0.003;
+  waypointMesh.rotation.y = t * 2;
+  waypointMesh.material.opacity = 0.4 + Math.sin(t * 4) * 0.2;
+  if (waypointMesh.userData.pillar) waypointMesh.userData.pillar.material.opacity = 0.15 + Math.sin(t * 3) * 0.1;
+}
+function updateAvodahWaypoints() {
+  if (!avodahActive || avodahStep >= avodahSteps.length) { removeWaypoint(); return; }
+  const step = avodahSteps[avodahStep];
+  if (step.id === 'shechita') {
+    if (avodahKorban.slaughterLocation === 'north') showWaypoint(0, 0, -18, 0xFF4444);
+    else showWaypoint(playerPos.x, 0, playerPos.z, 0x44FF44);
+  } else if (['holacha','zerika','haktarah'].includes(step.id)) {
+    showWaypoint(0, 0, KEVESH_END_Z - 2, 0xFF6600);
+  }
+}
+
 // ─── World Labels ───
-function addWorldLabel(text, x, y, z, className) {
+function addWorldLabel(text, x, y, z, cls) {
   const div = document.createElement('div');
-  div.className = 'world-label ' + (className || '');
+  div.className = 'world-label ' + (cls || '');
   div.textContent = text;
   document.body.appendChild(div);
   worldLabels.push({ div, pos: new THREE.Vector3(x, y, z) });
 }
-
 function updateWorldLabels() {
   if (!camera || !renderer) return;
-  const w2 = renderer.domElement.clientWidth / 2;
-  const h2 = renderer.domElement.clientHeight / 2;
-  
-  for (const label of worldLabels) {
-    const v = label.pos.clone().project(camera);
-    if (v.z > 1) { label.div.style.display = 'none'; continue; }
-    const dist = label.pos.distanceTo(camera.position);
-    if (dist > 40) { label.div.style.display = 'none'; continue; }
-    label.div.style.display = 'block';
-    label.div.style.left = ((v.x * w2) + w2) + 'px';
-    label.div.style.top = (-(v.y * h2) + h2) + 'px';
-    label.div.style.opacity = Math.max(0, Math.min(1, 1 - (dist - 25) / 15));
+  const w2 = renderer.domElement.clientWidth / 2, h2 = renderer.domElement.clientHeight / 2;
+  for (const l of worldLabels) {
+    const v = l.pos.clone().project(camera);
+    const dist = l.pos.distanceTo(camera.position);
+    if (v.z > 1 || dist > 40) { l.div.style.display = 'none'; continue; }
+    l.div.style.display = 'block';
+    l.div.style.left = ((v.x * w2) + w2) + 'px';
+    l.div.style.top = (-(v.y * h2) + h2) + 'px';
+    l.div.style.opacity = Math.max(0, Math.min(1, 1 - (dist - 25) / 15));
   }
 }
-
 function buildLabels() {
-  // Clear existing
-  worldLabels.forEach(l => l.div.remove());
-  worldLabels = [];
-  
+  worldLabels.forEach(l => l.div.remove()); worldLabels = [];
   addWorldLabel('🏪 Shimon', SHIMON_POS.x, 3.8, SHIMON_POS.z, 'label-npc');
   addWorldLabel('🎵 Leviim', DUCHAN_POS.x, 3, DUCHAN_POS.z, 'label-npc');
   addWorldLabel('🔥 Mizbeach', 0, MIZBEACH_H + 3, 0, 'label-place');
   addWorldLabel('🚿 Kiyor', KIYOR_POS.x, 3.5, KIYOR_POS.z, 'label-place');
-  addWorldLabel('⬆️ Kevesh', 0, 3, KEVESH_END_Z - 3, 'label-place');
   addWorldLabel('🔪 North Zone', 0, 1.5, -20, 'label-zone');
-  addWorldLabel('🏛️ Ulam', -(AZARA_HALF - 2), 8, 0, 'label-place');
 }
 
 // ─── Level Up ───
@@ -488,19 +563,22 @@ function checkLevelUp() {
     gameState.level = 2;
     playSFX('complete');
     spawnParticles(playerPos.x, playerPos.y + 2, playerPos.z, 0xFFD700, 30);
-    showEdu(
-      '🎉 LEVEL UP — Kohen Mishamesh!\n\n' +
-      'You\'ve proven yourself with the basics. Now you can:\n' +
-      '• Choose from more Korbanot types (Chatat, Asham, Shelamim)\n' +
-      '• Buy Menachot ingredients from Shimon\n' +
-      '• Location matters: Kodshei Kodashim = NORTH only!\n\n' +
-      'The Avodah gets more complex from here. B\'hatzlacha!',
-      'Zevachim 5:1-8'
-    );
-    updateHUD();
-    saveGame();
+    showEdu('🎉 LEVEL UP — Kohen Mishamesh!\n\nYou can now:\n• More Korbanot (Chatat, Asham, Shelamim)\n• Buy Menachot from Shimon\n• Location matters: Kodshei Kodashim = NORTH only!', 'Zevachim 5:1-8');
+    updateHUD(); saveGame();
     toast('⬆️ Level 2 Unlocked!');
   }
+}
+
+// ─── Compass + Zone ───
+function updateCompass() {
+  const el = $('#compass-arrow');
+  if (el) el.style.transform = 'rotate(' + camAngle + 'rad)';
+}
+function updateZoneIndicator() {
+  const el = $('#zone-indicator');
+  if (!el) return;
+  el.style.display = (avodahActive && playerPos.z < NORTH_ZONE_Z) ? 'block' : 'none';
+  if (el.style.display === 'block') el.textContent = '🔪 NORTH ZONE — צפון';
 }
 
 function buildFire() {
@@ -539,138 +617,6 @@ function updateNPCs(t) {
   for (let i = 0; i < leviimGroups.length; i++) {
     const l = leviimGroups[i];
     l.rotation.y = Math.sin(t * 1.2 + i) * 0.15;
-  }
-}
-
-// ─── Waypoint Markers ───
-function showWaypoint(x, y, z, color) {
-  removeWaypoint();
-  const geo = new THREE.BoxGeometry(1, 0.2, 1);
-  const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.6 });
-  waypointMesh = new THREE.Mesh(geo, mat);
-  waypointMesh.position.set(x, y + 0.15, z);
-  scene.add(waypointMesh);
-  
-  // Add a pillar of light
-  const pillar = new THREE.Mesh(
-    new THREE.BoxGeometry(0.15, 4, 0.15),
-    new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.3 })
-  );
-  pillar.position.set(x, y + 2, z);
-  pillar.userData.isPillar = true;
-  scene.add(pillar);
-  waypointMesh.userData.pillar = pillar;
-}
-
-function removeWaypoint() {
-  if (waypointMesh) {
-    scene.remove(waypointMesh);
-    if (waypointMesh.userData.pillar) scene.remove(waypointMesh.userData.pillar);
-    waypointMesh = null;
-  }
-}
-
-function updateWaypoint(t) {
-  if (!waypointMesh) return;
-  waypointMesh.position.y += Math.sin(t * 3) * 0.003;
-  waypointMesh.rotation.y = t * 2;
-  waypointMesh.material.opacity = 0.4 + Math.sin(t * 4) * 0.2;
-  if (waypointMesh.userData.pillar) {
-    waypointMesh.userData.pillar.material.opacity = 0.15 + Math.sin(t * 3) * 0.1;
-  }
-}
-
-function updateAvodahWaypoints() {
-  if (!avodahActive || avodahStep >= avodahSteps.length) { removeWaypoint(); return; }
-  const step = avodahSteps[avodahStep];
-  
-  if (step.id === 'shechita') {
-    if (avodahKorban.slaughterLocation === 'north') {
-      showWaypoint(0, 0, -18, 0xFF4444);  // North zone
-    } else {
-      // Anywhere — show near player's current position
-      showWaypoint(playerPos.x, 0, playerPos.z, 0x44FF44);
-    }
-  } else if (step.id === 'kabbalah') {
-    showWaypoint(playerPos.x, 0, playerPos.z, 0xFFD700);
-  } else if (['holacha', 'zerika', 'haktarah'].includes(step.id)) {
-    showWaypoint(0, 0, KEVESH_END_Z - 2, 0xFF6600);  // Base of ramp
-  }
-}
-
-// ─── Particle Effects ───
-function spawnParticles(x, y, z, color, count) {
-  for (let i = 0; i < count; i++) {
-    const size = 0.08 + Math.random() * 0.12;
-    const mesh = new THREE.Mesh(
-      new THREE.BoxGeometry(size, size, size),
-      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9 })
-    );
-    mesh.position.set(x, y, z);
-    mesh.userData.vel = new THREE.Vector3(
-      (Math.random() - 0.5) * 3,
-      Math.random() * 4 + 1,
-      (Math.random() - 0.5) * 3
-    );
-    mesh.userData.life = 1;
-    scene.add(mesh);
-    particles.push(mesh);
-  }
-}
-
-function updateParticles(dt) {
-  for (let i = particles.length - 1; i >= 0; i--) {
-    const p = particles[i];
-    p.userData.life -= dt * 1.5;
-    if (p.userData.life <= 0) {
-      scene.remove(p);
-      particles.splice(i, 1);
-      continue;
-    }
-    p.position.add(p.userData.vel.clone().multiplyScalar(dt));
-    p.userData.vel.y -= 6 * dt;  // gravity
-    p.material.opacity = p.userData.life;
-    p.scale.setScalar(p.userData.life);
-  }
-}
-
-// ─── Sound Effects ───
-function playSFX(type) {
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  const t = audioCtx.currentTime;
-  const osc = audioCtx.createOscillator();
-  const gain = audioCtx.createGain();
-  osc.connect(gain); gain.connect(audioCtx.destination);
-  
-  if (type === 'step_complete') {
-    osc.type = 'sine'; osc.frequency.value = 660;
-    osc.frequency.exponentialRampToValueAtTime(880, t + 0.15);
-    gain.gain.setValueAtTime(0.2, t);
-    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.3);
-    osc.start(t); osc.stop(t + 0.3);
-  } else if (type === 'complete') {
-    // Rising arpeggio
-    [440, 554, 660, 880].forEach((freq, i) => {
-      const o = audioCtx.createOscillator();
-      const g = audioCtx.createGain();
-      o.type = 'sine'; o.frequency.value = freq;
-      g.gain.setValueAtTime(0.15, t + i * 0.12);
-      g.gain.exponentialRampToValueAtTime(0.01, t + i * 0.12 + 0.4);
-      o.connect(g); g.connect(audioCtx.destination);
-      o.start(t + i * 0.12); o.stop(t + i * 0.12 + 0.4);
-    });
-  } else if (type === 'error') {
-    osc.type = 'square'; osc.frequency.value = 200;
-    osc.frequency.exponentialRampToValueAtTime(100, t + 0.2);
-    gain.gain.setValueAtTime(0.1, t);
-    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.25);
-    osc.start(t); osc.stop(t + 0.25);
-  } else if (type === 'buy') {
-    osc.type = 'sine'; osc.frequency.value = 523;
-    osc.frequency.exponentialRampToValueAtTime(784, t + 0.1);
-    gain.gain.setValueAtTime(0.15, t);
-    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.2);
-    osc.start(t); osc.stop(t + 0.2);
   }
 }
 
@@ -1030,15 +976,9 @@ function advanceAvodah() {
   }
   
   toast(`${step.emoji} ${step.name} — Done!`);
-  playSFX('step_complete');
-  
-  // Visual feedback
-  const pColor = step.id === 'shechita' ? 0xFF3333 :
-                 step.id === 'kabbalah' ? 0xFF3333 :
-                 step.id === 'zerika' ? 0xCC0000 :
-                 step.id === 'haktarah' ? 0xFF6600 : 0xFFD700;
+  playSFX('step');
+  const pColor = step.id === 'shechita' ? 0xFF3333 : step.id === 'zerika' ? 0xCC0000 : step.id === 'haktarah' ? 0xFF6600 : 0xFFD700;
   spawnParticles(playerPos.x, playerPos.y + 1, playerPos.z, pColor, 12);
-  
   avodahStep++;
   updateAvodahHUD();
   updateAvodahWaypoints();
@@ -1080,10 +1020,8 @@ function completeAvodah() {
   $('#summary-close-btn').addEventListener('click', () => $('#summary-panel').classList.add('hidden'));
   $('#summary-panel').classList.remove('hidden');
   
-  // Victory!
   playSFX('complete');
   spawnParticles(playerPos.x, playerPos.y + 1.5, playerPos.z, 0xFFD700, 25);
-  
   avodahKorban = null; avodahSteps = []; avodahStep = 0;
   removeWaypoint();
   updateAvodahHUD(); updateHUD(); updateHotbar(); saveGame();
@@ -1203,25 +1141,6 @@ function updatePrompt() {
   }
   if (Math.abs(px) < 3 && Math.abs(pz - 26) < 3) { el.textContent = 'Press E — Read the Welcome Sign'; el.classList.remove('hidden'); return; }
   el.classList.add('hidden');
-}
-
-function updateCompass() {
-  const el = $('#compass-arrow');
-  if (!el) return;
-  // camAngle = angle of camera. North = negative Z direction. 
-  // Arrow should point north = rotate based on camAngle
-  el.style.transform = `rotate(${camAngle}rad)`;
-}
-
-function updateZoneIndicator() {
-  const el = $('#zone-indicator');
-  if (!el) return;
-  if (avodahActive && playerPos.z < NORTH_ZONE_Z) {
-    el.style.display = 'block';
-    el.textContent = '🔪 NORTH ZONE — צפון';
-  } else {
-    el.style.display = 'none';
-  }
 }
 
 function closeAllPanels() {
