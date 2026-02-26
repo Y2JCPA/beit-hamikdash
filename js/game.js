@@ -5,6 +5,12 @@
 (function() {
 'use strict';
 
+// Global error catcher — will show alert on ANY crash
+window.onerror = function(msg, src, line, col, err) {
+  alert('BUG FOUND!\n' + msg + '\nLine: ' + line + ' Col: ' + col);
+  return false;
+};
+
 // ─── Constants ───
 const PLAYER_SPEED = 6;
 const PLAYER_HEIGHT = 1.7;
