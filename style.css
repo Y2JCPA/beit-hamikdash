@@ -226,3 +226,50 @@ canvas { display: block; }
   .slot-emoji { font-size: 18px; }
   #hud-top-left { top: env(safe-area-inset-top, 12px); left: env(safe-area-inset-left, 12px); }
 }
+
+/* ─── Compass ─── */
+#compass {
+  position: fixed;
+  bottom: 100px;
+  right: 16px;
+  width: 50px;
+  height: 50px;
+  background: rgba(0,0,0,0.5);
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.3);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+#compass-arrow {
+  font-size: 20px;
+  line-height: 1;
+  transition: transform 0.1s linear;
+  color: #ff4444;
+}
+#compass-label {
+  font-size: 9px;
+  color: #fff;
+  font-weight: bold;
+  letter-spacing: 1px;
+}
+
+/* ─── Zone Indicator ─── */
+#zone-indicator {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 1.4em;
+  font-weight: 700;
+  color: #FF4444;
+  text-shadow: 0 0 10px rgba(255,68,68,0.8);
+  pointer-events: none;
+  display: none;
+  background: rgba(0,0,0,0.5);
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 2px solid #FF4444;
+}

@@ -191,6 +191,21 @@ function startGame() {
   
   running = true;
   animate();
+  
+  // Show tutorial on very first play (no korbanot done yet)
+  if (gameState.korbanotCompleted === 0) {
+    setTimeout(() => {
+      showEdu(
+        '🏛️ Welcome, Kohen!\n\n' +
+        '🖱️ MOUSE DRAG — rotate camera\n' +
+        'WASD / ↑↓←→ — walk\n' +
+        'E — interact\n\n' +
+        '👣 Start by visiting Shimon\'s booth (🏪 southeast) to buy an animal.\n' +
+        'Then walk to the Mizbeach and press E to begin the Avodah!',
+        ''
+      );
+    }, 1000);
+  }
 }
 
 function onResize() {
@@ -546,6 +561,46 @@ function updateParticles(dt) {
   }
 }
 
+// ─── Sound Effects ───
+function playSFX(type) {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const t = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.connect(gain); gain.connect(audioCtx.destination);
+  
+  if (type === 'step_complete') {
+    osc.type = 'sine'; osc.frequency.value = 660;
+    osc.frequency.exponentialRampToValueAtTime(880, t + 0.15);
+    gain.gain.setValueAtTime(0.2, t);
+    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.3);
+    osc.start(t); osc.stop(t + 0.3);
+  } else if (type === 'complete') {
+    // Rising arpeggio
+    [440, 554, 660, 880].forEach((freq, i) => {
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.type = 'sine'; o.frequency.value = freq;
+      g.gain.setValueAtTime(0.15, t + i * 0.12);
+      g.gain.exponentialRampToValueAtTime(0.01, t + i * 0.12 + 0.4);
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start(t + i * 0.12); o.stop(t + i * 0.12 + 0.4);
+    });
+  } else if (type === 'error') {
+    osc.type = 'square'; osc.frequency.value = 200;
+    osc.frequency.exponentialRampToValueAtTime(100, t + 0.2);
+    gain.gain.setValueAtTime(0.1, t);
+    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.25);
+    osc.start(t); osc.stop(t + 0.25);
+  } else if (type === 'buy') {
+    osc.type = 'sine'; osc.frequency.value = 523;
+    osc.frequency.exponentialRampToValueAtTime(784, t + 0.1);
+    gain.gain.setValueAtTime(0.15, t);
+    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.2);
+    osc.start(t); osc.stop(t + 0.2);
+  }
+}
+
 // ─── Audio ───
 function playInstrument(id) {
   const inst = INSTRUMENTS[id];
@@ -722,6 +777,7 @@ function buyItem(id) {
   gameState.totalSpent += item.price;
   gameState.inventory[id] = (gameState.inventory[id] || 0) + 1;
   toast(`Bought ${item.emoji} ${item.name}!`);
+  playSFX('buy');
   checkAch('big_spender', gameState.totalSpent >= 500);
   updateHUD(); updateHotbar(); saveGame();
   openShop();
@@ -859,6 +915,7 @@ function advanceAvodah() {
   if (step.id === 'shechita') {
     if (avodahKorban.slaughterLocation === 'north' && pz > NORTH_ZONE_Z) {
       avodahMistakes++;
+      playSFX('error');
       showEdu(`⚠️ Wrong location! ${avodahKorban.name} is Kodshei Kodashim — slaughter in the NORTH! (Walk past the stone markers)`, 'Zevachim 5:1');
       return;
     }
@@ -899,6 +956,7 @@ function advanceAvodah() {
   }
   
   toast(`${step.emoji} ${step.name} — Done!`);
+  playSFX('step_complete');
   
   // Visual feedback
   const pColor = step.id === 'shechita' ? 0xFF3333 :
@@ -948,7 +1006,8 @@ function completeAvodah() {
   $('#summary-close-btn').addEventListener('click', () => $('#summary-panel').classList.add('hidden'));
   $('#summary-panel').classList.remove('hidden');
   
-  // Victory particles!
+  // Victory!
+  playSFX('complete');
   spawnParticles(playerPos.x, playerPos.y + 1.5, playerPos.z, 0xFFD700, 25);
   
   avodahKorban = null; avodahSteps = []; avodahStep = 0;
@@ -1071,6 +1130,25 @@ function updatePrompt() {
   el.classList.add('hidden');
 }
 
+function updateCompass() {
+  const el = $('#compass-arrow');
+  if (!el) return;
+  // camAngle = angle of camera. North = negative Z direction. 
+  // Arrow should point north = rotate based on camAngle
+  el.style.transform = `rotate(${camAngle}rad)`;
+}
+
+function updateZoneIndicator() {
+  const el = $('#zone-indicator');
+  if (!el) return;
+  if (avodahActive && playerPos.z < NORTH_ZONE_Z) {
+    el.style.display = 'block';
+    el.textContent = '🔪 NORTH ZONE — צפון';
+  } else {
+    el.style.display = 'none';
+  }
+}
+
 function closeAllPanels() {
   ['shop-panel','achieve-panel','korban-select-panel','summary-panel'].forEach(id => {
     const el = $('#'+id); if (el) el.classList.add('hidden');
@@ -1101,6 +1179,8 @@ function animate() {
   updateWaypoint(elapsedTime);
   updateParticles(dt);
   updatePrompt();
+  updateCompass();
+  updateZoneIndicator();
   updateCamera();
   
   renderer.render(scene, camera);
@@ -1190,7 +1270,10 @@ function updateCamera() {
   const cx = playerPos.x - Math.sin(camAngle) * CAM_DISTANCE;
   const cz = playerPos.z - Math.cos(camAngle) * CAM_DISTANCE;
   const cy = playerPos.y + CAM_HEIGHT_OFFSET;
-  camera.position.set(cx, cy, cz);
+  // Smooth lerp for cinematic feel
+  camera.position.x += (cx - camera.position.x) * 0.08;
+  camera.position.y += (cy - camera.position.y) * 0.08;
+  camera.position.z += (cz - camera.position.z) * 0.08;
   camera.lookAt(playerPos.x, playerPos.y + PLAYER_HEIGHT * 0.6, playerPos.z);
 }
 
