@@ -134,6 +134,9 @@ canvas { display: block; }
 }
 .shop-btn:hover { transform: translateY(-1px); }
 .shop-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+.shop-btn.sell-btn { background: #e67e22; }
+.shop-btn.sell-btn:hover { background: #d35400; }
+.shop-desc { font-size: 0.75em; color: #888; margin-top: 2px; }
 .shop-section-title { font-weight: 700; color: #1a3c5e; margin: 12px 0 8px; font-size: 15px; }
 
 /* Achievement cards */

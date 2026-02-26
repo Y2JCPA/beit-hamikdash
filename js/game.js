@@ -1,128 +1,98 @@
 /* ============================================
-   AVODAH — Beit HaMikdash Simulator (Three.js)
+   AVODAH — Beit HaMikdash Simulator V2
+   All known issues from V1 fixed.
    ============================================ */
 (function() {
 'use strict';
 
 // ─── Constants ───
-const WORLD_SIZE = 50;
+const PLAYER_SPEED = 6;
 const PLAYER_HEIGHT = 1.7;
-const PLAYER_SPEED = 5;
-const JUMP_FORCE = 7;
-const GRAVITY = 18;
-const INTERACT_DIST = 4;
-const CAM_DISTANCE = 6;
-const CAM_HEIGHT_OFFSET = 3;
+const INTERACT_DIST = 5;
+const CAM_DISTANCE = 8;
+const CAM_HEIGHT_OFFSET = 4;
 const PROFILES_KEY = 'mikdash_profiles';
 const SAVE_PREFIX = 'mikdash_save_';
 const MAX_PROFILES = 10;
 const AUTO_SAVE_SEC = 10;
 
-// Zone definitions
-const NORTH_ZONE_Z = -8;   // North shechita zone z < this
-const AZARA_MIN_X = -18;
-const AZARA_MAX_X = 18;
-const AZARA_MIN_Z = -18;
-const AZARA_MAX_Z = 18;
+// Expanded Azara (was 38x38, now 70x70)
+const AZARA_HALF = 32;
+const WALL_HEIGHT = 7;
 
-// Key positions
-const MIZBEACH_POS = { x: 0, z: 0 };
-const MIZBEACH_SIZE = { w: 8, h: 5, d: 8 };
-const KEVESH_POS = { x: 0, z: 6 };
-const KIYOR_POS = { x: -6, z: 0 };
-const SHIMON_POS = { x: 12, z: 12 };
-const DUCHAN_POS = { x: 10, z: -4 };
-const SLAUGHTER_POS = { x: 0, z: -12 };
+// Key positions (spread out more for bigger azara)
+const MIZBEACH_POS = { x: 0, y: 0, z: 0 };
+const MIZBEACH_W = 10, MIZBEACH_H = 5, MIZBEACH_D = 10;
+const KEVESH_START_Z = MIZBEACH_D / 2;       // south face of mizbeach
+const KEVESH_END_Z = KEVESH_START_Z + 12;    // ramp extends 12 units south
+const KEVESH_WIDTH = 5;
+const KIYOR_POS = { x: -10, z: 2 };
+const SHIMON_POS = { x: 18, z: 22 };
+const DUCHAN_POS = { x: 16, z: -8 };
+const NORTH_ZONE_Z = -12;
+
+// Collision boxes (simple AABB)
+const COLLIDERS = [];
 
 let activeProfileId = null;
-function getSaveKey() { return SAVE_PREFIX + activeProfileId; }
-
-const $ = (s) => document.querySelector(s);
+const $ = s => document.querySelector(s);
 
 // ─── Game State ───
 let gameState = {
-  coins: 50,
-  level: 1,
-  inventory: {},
-  korbanotCompleted: 0,
-  korbanotPerfect: 0,
-  achievements: [],
-  totalCoinsEarned: 0,
-  totalSpent: 0,
-  tamidCount: 0,
-  bloodTypesCompleted: [],
-  instrumentsHeard: [],
-  sourcesRead: 0,
-  currentAvodah: null,
+  coins: 50, level: 1, inventory: {},
+  korbanotCompleted: 0, korbanotPerfect: 0, achievements: [],
+  totalCoinsEarned: 0, totalSpent: 0, tamidCount: 0,
+  bloodTypesCompleted: [], instrumentsHeard: [], sourcesRead: 0,
 };
 
 // ─── Three.js Globals ───
 let scene, camera, renderer, clock;
-let playerModel, playerPos, playerVelocityY = 0, onGround = true;
-let cameraAngleY = 0;
+let playerGroup, playerPos, playerVelY = 0, onGround = true;
+let camAngle = Math.PI;  // Start facing north (into the azara)
 let keys = {};
-let started = false;
+let running = false;
+let animFrameId = null;
 let autoSaveTimer = 0;
-let interactTarget = null;
+let elapsedTime = 0;
 
-// NPC references
-let shimonModel, leviimModels = [], fireParticles = [];
-let northZoneMesh;
+// NPCs
+let shimonGroup, leviimGroups = [], fireBoxes = [];
+
+// Avodah
+let avodahActive = false, avodahStep = 0, avodahKorban = null;
+let avodahMistakes = 0, avodahSteps = [];
 
 // Audio
 let audioCtx = null;
 
 // Mobile
-let isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
-let joystickActive = false, joystickDX = 0, joystickDZ = 0;
+const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+let joyActive = false, joyDX = 0, joyDZ = 0;
 
-// Avodah state
-let avodahActive = false;
-let avodahStep = 0;
-let avodahKorban = null;
-let avodahMistakes = 0;
-let avodahSteps = [];
-
-// ─── Profile System ───
-function getProfiles() {
-  try { return JSON.parse(localStorage.getItem(PROFILES_KEY)) || []; } catch { return []; }
-}
-function saveProfiles(profiles) {
-  localStorage.setItem(PROFILES_KEY, JSON.stringify(profiles));
-}
+// ─── Profiles ───
+function getProfiles() { try { return JSON.parse(localStorage.getItem(PROFILES_KEY)) || []; } catch { return []; } }
+function saveProfiles(p) { localStorage.setItem(PROFILES_KEY, JSON.stringify(p)); }
 
 function renderProfiles() {
   const list = $('#profile-list');
   list.innerHTML = '';
-  const profiles = getProfiles();
-  profiles.forEach(p => {
+  getProfiles().forEach(p => {
     const card = document.createElement('div');
     card.className = 'profile-card';
-    card.innerHTML = `
-      <div>
-        <div class="profile-name">🕊️ ${p.name}</div>
-        <div class="profile-info">Level ${p.level} · 🪙${p.coins || 0} · 🔥${p.korbanot || 0} Korbanot</div>
-      </div>
-      <button class="profile-delete" data-id="${p.id}" title="Delete">🗑️</button>
-    `;
-    card.addEventListener('click', (e) => {
-      if (e.target.closest('.profile-delete')) return;
-      loadProfile(p.id);
-    });
-    card.querySelector('.profile-delete').addEventListener('click', (e) => {
+    card.innerHTML = `<div><div class="profile-name">🕊️ ${p.name}</div>
+      <div class="profile-info">Level ${p.level} · 🪙${p.coins || 0} · 🔥${p.korbanot || 0} Korbanot</div></div>
+      <button class="profile-delete" data-id="${p.id}" title="Delete">🗑️</button>`;
+    card.addEventListener('click', e => { if (!e.target.closest('.profile-delete')) loadProfile(p.id); });
+    card.querySelector('.profile-delete').addEventListener('click', e => {
       e.stopPropagation();
-      if (confirm(`Delete ${p.name}?`)) {
-        deleteProfile(p.id);
-      }
+      if (confirm(`Delete ${p.name}?`)) { deleteProfile(p.id); }
     });
     list.appendChild(card);
   });
 }
 
 function deleteProfile(id) {
-  let profiles = getProfiles();
-  profiles = profiles.filter(p => p.id !== id);
-  saveProfiles(profiles);
+  saveProfiles(getProfiles().filter(p => p.id !== id));
   localStorage.removeItem(SAVE_PREFIX + id);
   renderProfiles();
 }
@@ -138,606 +108,440 @@ function createProfile(name, level) {
 
 function loadProfile(id) {
   activeProfileId = id;
-  const profiles = getProfiles();
-  const p = profiles.find(x => x.id === id);
+  const p = getProfiles().find(x => x.id === id);
   if (!p) return;
-
-  // Reset state
+  // Reset
   gameState = {
     coins: 50, level: p.level || 1, inventory: {},
     korbanotCompleted: 0, korbanotPerfect: 0, achievements: [],
     totalCoinsEarned: 0, totalSpent: 0, tamidCount: 0,
     bloodTypesCompleted: [], instrumentsHeard: [], sourcesRead: 0,
-    currentAvodah: null,
   };
-
-  // Load saved data
   try {
-    const raw = localStorage.getItem(getSaveKey());
-    if (raw) {
-      const data = JSON.parse(raw);
-      Object.keys(data).forEach(k => { if (k in gameState) gameState[k] = data[k]; });
-    }
+    const raw = localStorage.getItem(SAVE_PREFIX + id);
+    if (raw) { const d = JSON.parse(raw); Object.keys(d).forEach(k => { if (k in gameState) gameState[k] = d[k]; }); }
   } catch {}
-
   $('#login-screen').classList.add('hidden');
-  initGame();
+  startGame();
 }
 
-// ─── Save / Load ───
 function saveGame() {
   if (!activeProfileId) return;
   try {
-    localStorage.setItem(getSaveKey(), JSON.stringify({ ...gameState, savedAt: Date.now() }));
-    // Update profile summary
+    localStorage.setItem(SAVE_PREFIX + activeProfileId, JSON.stringify(gameState));
     const profiles = getProfiles();
     const p = profiles.find(x => x.id === activeProfileId);
-    if (p) {
-      p.coins = gameState.coins;
-      p.korbanot = gameState.korbanotCompleted;
-      p.level = gameState.level;
-      saveProfiles(profiles);
-    }
+    if (p) { p.coins = gameState.coins; p.korbanot = gameState.korbanotCompleted; p.level = gameState.level; saveProfiles(profiles); }
   } catch {}
 }
 
 // ─── Scene Setup ───
-function initGame() {
-  if (scene) {
-    // Cleanup old scene
-    while (scene.children.length > 0) scene.remove(scene.children[0]);
-    renderer.domElement.remove();
-  }
-
+function startGame() {
+  // Prevent stacked loops
+  if (animFrameId) { cancelAnimationFrame(animFrameId); animFrameId = null; }
+  
+  if (renderer) { renderer.domElement.remove(); renderer.dispose(); }
+  
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x87CEEB);
-  scene.fog = new THREE.Fog(0x87CEEB, 40, 80);
-
+  scene.fog = new THREE.Fog(0x87CEEB, 50, 120);
+  
   camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 200);
   clock = new THREE.Clock();
-
-  renderer = new THREE.WebGLRenderer({ antialias: true });
+  
+  renderer = new THREE.WebGLRenderer({ antialias: false });
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.BasicShadowMap;
   document.body.insertBefore(renderer.domElement, document.body.firstChild);
-
+  
   // Lights
-  const ambient = new THREE.AmbientLight(0xffffff, 0.5);
-  scene.add(ambient);
-
-  const sun = new THREE.DirectionalLight(0xfff4cc, 1.2);
-  sun.position.set(10, 20, 8);
+  scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+  const sun = new THREE.DirectionalLight(0xfff4cc, 1.0);
+  sun.position.set(15, 25, 10);
   sun.castShadow = true;
-  sun.shadow.mapSize.width = 512;
-  sun.shadow.mapSize.height = 512;
-  sun.shadow.camera.near = 0.5;
-  sun.shadow.camera.far = 60;
-  sun.shadow.camera.left = -25;
-  sun.shadow.camera.right = 25;
-  sun.shadow.camera.top = 25;
-  sun.shadow.camera.bottom = -25;
+  sun.shadow.mapSize.set(512, 512);
+  sun.shadow.camera.near = 0.5; sun.shadow.camera.far = 80;
+  sun.shadow.camera.left = -35; sun.shadow.camera.right = 35;
+  sun.shadow.camera.top = 35; sun.shadow.camera.bottom = -35;
   scene.add(sun);
-
-  const hemi = new THREE.HemisphereLight(0x87CEEB, 0xD4C4A8, 0.3);
-  scene.add(hemi);
-
+  scene.add(new THREE.HemisphereLight(0x87CEEB, 0xD4C4A8, 0.3));
+  
+  COLLIDERS.length = 0;
   buildWorld();
   buildPlayer();
   buildNPCs();
-  buildFireEffect();
-
-  playerPos = new THREE.Vector3(0, 0, 14);
-
-  // HUD
+  buildFire();
+  
+  playerPos = new THREE.Vector3(0, 0, 20);  // Start south of mizbeach
+  camAngle = Math.PI;  // Face north (toward mizbeach)
+  
+  avodahActive = false; avodahStep = 0; avodahKorban = null;
+  
   $('#hud').classList.remove('hidden');
-  updateHUD();
-  updateHotbar();
-
-  if (isMobile) {
-    $('#mobile-controls').classList.remove('hidden');
-  }
-
-  // Start
-  started = true;
-  window.addEventListener('resize', onResize);
-  if (!window._keysSetup) {
-    window.addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; });
-    window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
-    setupMouse();
-    setupTouch();
-    setupButtons();
-    window._keysSetup = true;
-  }
-
-  // Prevent touch scroll
-  renderer.domElement.addEventListener('touchstart', e => { if (started) e.preventDefault(); }, { passive: false });
-  renderer.domElement.addEventListener('touchmove', e => { if (started) e.preventDefault(); }, { passive: false });
-
+  updateHUD(); updateHotbar(); updateAvodahHUD();
+  if (isMobile) $('#mobile-controls').classList.remove('hidden');
+  
+  if (!window._inputsBound) { bindInputs(); window._inputsBound = true; }
+  
+  running = true;
   animate();
 }
 
 function onResize() {
+  if (!camera || !renderer) return;
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 }
+window.addEventListener('resize', onResize);
 
-// ─── Build World ───
+// ─── World Builder ───
+function addBox(w, h, d, x, y, z, color, opts = {}) {
+  const mat = new THREE.MeshLambertMaterial({ color, transparent: !!opts.opacity, opacity: opts.opacity || 1 });
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+  mesh.position.set(x, y, z);
+  if (opts.shadow) mesh.castShadow = true;
+  if (opts.receive) mesh.receiveShadow = true;
+  if (opts.rotX) mesh.rotation.x = opts.rotX;
+  scene.add(mesh);
+  if (opts.collide) {
+    COLLIDERS.push({ minX: x - w/2, maxX: x + w/2, minZ: z - d/2, maxZ: z + d/2, minY: y - h/2, maxY: y + h/2 });
+  }
+  return mesh;
+}
+
 function buildWorld() {
-  // Ground — outer area (earth)
-  const outerGround = new THREE.Mesh(
-    new THREE.BoxGeometry(80, 0.5, 80),
-    new THREE.MeshLambertMaterial({ color: 0xC4B390 })
-  );
-  outerGround.position.y = -0.25;
-  outerGround.receiveShadow = true;
-  scene.add(outerGround);
-
-  // Azara floor (stone)
-  const azaraFloor = new THREE.Mesh(
-    new THREE.BoxGeometry(38, 0.1, 38),
-    new THREE.MeshLambertMaterial({ color: 0xF5F0E1 })
-  );
-  azaraFloor.position.y = 0.01;
-  azaraFloor.receiveShadow = true;
-  scene.add(azaraFloor);
-
-  // North zone indicator (slightly different color)
-  northZoneMesh = new THREE.Mesh(
-    new THREE.BoxGeometry(38, 0.05, 10),
-    new THREE.MeshLambertMaterial({ color: 0xE8DDD0 })
-  );
-  northZoneMesh.position.set(0, 0.02, -13);
-  scene.add(northZoneMesh);
-
-  // North zone label (small marker stones)
-  const markerMat = new THREE.MeshLambertMaterial({ color: 0xC4943E });
-  for (let x = -16; x <= 16; x += 8) {
-    const m = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.15, 0.3), markerMat);
-    m.position.set(x, 0.08, NORTH_ZONE_Z);
-    scene.add(m);
+  // Outer ground
+  addBox(100, 0.5, 100, 0, -0.25, 0, 0xC4B390, { receive: true });
+  
+  // Azara floor
+  addBox(AZARA_HALF * 2 + 2, 0.1, AZARA_HALF * 2 + 2, 0, 0.01, 0, 0xF5F0E1, { receive: true });
+  
+  // North zone
+  addBox(AZARA_HALF * 2, 0.05, 20, 0, 0.02, -22, 0xE8DDD0);
+  // North zone marker stones
+  for (let x = -28; x <= 28; x += 8) {
+    addBox(0.4, 0.2, 0.4, x, 0.1, NORTH_ZONE_Z, 0xC4943E);
   }
-
+  
   // Walls
-  const wallMat = new THREE.MeshLambertMaterial({ color: 0xE8E0D0 });
-  const wallH = 6;
-  const walls = [
-    { w: 40, d: 1, x: 0, z: -19 },  // North
-    { w: 40, d: 1, x: 0, z: 19 },   // South
-    { w: 1, d: 40, x: -19, z: 0 },  // West
-    { w: 1, d: 40, x: 19, z: 0 },   // East
-  ];
-  walls.forEach(w => {
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w.w, wallH, w.d), wallMat);
-    mesh.position.set(w.x, wallH / 2, w.z);
-    scene.add(mesh);
-  });
-
-  // ─── Mizbeach (Outer Altar) ───
-  const mizMat = new THREE.MeshLambertMaterial({ color: 0xD4C4A8 });
-  const mizbeach = new THREE.Mesh(new THREE.BoxGeometry(8, 5, 8), mizMat);
-  mizbeach.position.set(0, 2.5, 0);
-  mizbeach.castShadow = true;
-  scene.add(mizbeach);
-
-  // Sovev (ledge around mizbeach)
-  const sovev = new THREE.Mesh(new THREE.BoxGeometry(9, 0.3, 9), mizMat);
-  sovev.position.set(0, 3, 0);
-  scene.add(sovev);
-
+  const H = WALL_HEIGHT;
+  addBox(AZARA_HALF * 2 + 4, H, 1.5, 0, H/2, -(AZARA_HALF + 1), 0xE8E0D0, { collide: true });
+  addBox(AZARA_HALF * 2 + 4, H, 1.5, 0, H/2, AZARA_HALF + 1, 0xE8E0D0, { collide: true });
+  addBox(1.5, H, AZARA_HALF * 2 + 4, -(AZARA_HALF + 1), H/2, 0, 0xE8E0D0, { collide: true });
+  addBox(1.5, H, AZARA_HALF * 2 + 4, AZARA_HALF + 1, H/2, 0, 0xE8E0D0, { collide: true });
+  
+  // ─── Mizbeach ───
+  addBox(MIZBEACH_W, MIZBEACH_H, MIZBEACH_D, 0, MIZBEACH_H/2, 0, 0xD4C4A8, { shadow: true, collide: true });
   // Yesod (base)
-  const yesod = new THREE.Mesh(new THREE.BoxGeometry(10, 0.5, 10), new THREE.MeshLambertMaterial({ color: 0xBFAF94 }));
-  yesod.position.set(0, 0.25, 0);
-  scene.add(yesod);
-
-  // Kranot (4 horns on corners)
-  const hornMat = new THREE.MeshLambertMaterial({ color: 0xC8B898 });
-  [[-3.5, 5.5, -3.5], [3.5, 5.5, -3.5], [-3.5, 5.5, 3.5], [3.5, 5.5, 3.5]].forEach(pos => {
-    const horn = new THREE.Mesh(new THREE.BoxGeometry(0.6, 1, 0.6), hornMat);
-    horn.position.set(...pos);
-    scene.add(horn);
+  addBox(MIZBEACH_W + 2, 0.6, MIZBEACH_D + 2, 0, 0.3, 0, 0xBFAF94);
+  // Sovev (ledge)
+  addBox(MIZBEACH_W + 1, 0.3, MIZBEACH_D + 1, 0, MIZBEACH_H * 0.6, 0, 0xD4C4A8);
+  // Kranot (horns)
+  const hw = MIZBEACH_W/2 - 0.3, hd = MIZBEACH_D/2 - 0.3;
+  [[-hw, hd], [hw, hd], [-hw, -hd], [hw, -hd]].forEach(([hx, hz]) => {
+    addBox(0.7, 1.2, 0.7, hx, MIZBEACH_H + 0.6, hz, 0xC8B898);
   });
-
-  // Kevesh (Ramp) — south side
-  const keveshMat = new THREE.MeshLambertMaterial({ color: 0xD4C4A8 });
-  const kevesh = new THREE.Mesh(new THREE.BoxGeometry(4, 0.5, 8), keveshMat);
-  kevesh.position.set(0, 2.5, 8);
-  kevesh.rotation.x = Math.atan2(5, 8);
-  scene.add(kevesh);
-
-  // ─── Kiyor (Laver) ───
-  const kiyorMat = new THREE.MeshLambertMaterial({ color: 0xCD7F32 });
-  const kiyorBase = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.4, 1.5), kiyorMat);
-  kiyorBase.position.set(KIYOR_POS.x, 0.2, KIYOR_POS.z);
-  scene.add(kiyorBase);
-  const kiyorPillar = new THREE.Mesh(new THREE.BoxGeometry(0.6, 1.5, 0.6), kiyorMat);
-  kiyorPillar.position.set(KIYOR_POS.x, 1, KIYOR_POS.z);
-  scene.add(kiyorPillar);
-  const kiyorBowl = new THREE.Mesh(new THREE.BoxGeometry(2, 0.8, 2), kiyorMat);
-  kiyorBowl.position.set(KIYOR_POS.x, 1.8, KIYOR_POS.z);
-  scene.add(kiyorBowl);
-  // Water
-  const waterMat = new THREE.MeshLambertMaterial({ color: 0x4FA4DE, transparent: true, opacity: 0.6 });
-  const water = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.2, 1.6), waterMat);
-  water.position.set(KIYOR_POS.x, 2.1, KIYOR_POS.z);
-  scene.add(water);
-
-  // ─── Ulam (Entrance Hall) — west side ───
-  const ulamMat = new THREE.MeshLambertMaterial({ color: 0xE8E0D0 });
-  const ulam = new THREE.Mesh(new THREE.BoxGeometry(4, 10, 12), ulamMat);
-  ulam.position.set(-17, 5, 0);
-  scene.add(ulam);
-
-  // Gold trim on Ulam
-  const goldMat = new THREE.MeshLambertMaterial({ color: 0xFFD700 });
-  const trim = new THREE.Mesh(new THREE.BoxGeometry(0.2, 10, 12.5), goldMat);
-  trim.position.set(-14.9, 5, 0);
-  scene.add(trim);
-
+  
+  // ─── Kevesh (Ramp) ─── south side, walkable!
+  // Build as a series of step blocks so the player can walk up
+  const rampSteps = 12;
+  for (let i = 0; i < rampSteps; i++) {
+    const frac = i / rampSteps;
+    const stepZ = KEVESH_START_Z + (KEVESH_END_Z - KEVESH_START_Z) * (1 - frac);
+    const stepY = frac * MIZBEACH_H;
+    const stepH = 0.5;
+    addBox(KEVESH_WIDTH, stepH, (KEVESH_END_Z - KEVESH_START_Z) / rampSteps + 0.1, 0, stepY + stepH/2, stepZ, 0xD4C4A8);
+  }
+  
+  // ─── Kiyor ───
+  addBox(1.8, 0.5, 1.8, KIYOR_POS.x, 0.25, KIYOR_POS.z, 0xCD7F32);
+  addBox(0.7, 1.8, 0.7, KIYOR_POS.x, 1.15, KIYOR_POS.z, 0xCD7F32);
+  addBox(2.2, 0.8, 2.2, KIYOR_POS.x, 2.1, KIYOR_POS.z, 0xCD7F32);
+  addBox(1.8, 0.2, 1.8, KIYOR_POS.x, 2.4, KIYOR_POS.z, 0x4FA4DE, { opacity: 0.6 });
+  
+  // ─── Ulam ─── (west side)
+  addBox(5, 12, 14, -(AZARA_HALF - 2), 6, 0, 0xE8E0D0, { collide: true });
+  // Gold trim
+  addBox(0.2, 12, 14.5, -(AZARA_HALF - 4.5), 6, 0, 0xFFD700);
   // Pillars (Yachin & Boaz)
-  const pillarMat = new THREE.MeshLambertMaterial({ color: 0xCD7F32 });
-  [-3, 3].forEach(z => {
-    const pillar = new THREE.Mesh(new THREE.BoxGeometry(1, 8, 1), pillarMat);
-    pillar.position.set(-14.5, 4, z);
-    scene.add(pillar);
-    // Capital
-    const cap = new THREE.Mesh(new THREE.BoxGeometry(1.3, 1.5, 1.3), goldMat);
-    cap.position.set(-14.5, 8.5, z);
-    scene.add(cap);
+  [-4, 4].forEach(z => {
+    addBox(1.2, 10, 1.2, -(AZARA_HALF - 4.5), 5, z, 0xCD7F32);
+    addBox(1.5, 1.8, 1.5, -(AZARA_HALF - 4.5), 10.5, z, 0xFFD700);
   });
-
-  // ─── Beit HaMitbachayim (Slaughter Area) — north ───
-  // Stone rings (for tying animals)
-  const ringMat = new THREE.MeshLambertMaterial({ color: 0x888888 });
-  for (let x = -4; x <= 4; x += 4) {
-    const ring = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.3, 0.5), ringMat);
-    ring.position.set(x, 0.15, -12);
-    scene.add(ring);
-    // Hooks (small vertical poles with protrusions)
-    const pole = new THREE.Mesh(new THREE.BoxGeometry(0.2, 2.5, 0.2), ringMat);
-    pole.position.set(x, 1.25, -13.5);
-    scene.add(pole);
-    const hook = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.15, 0.15), ringMat);
-    hook.position.set(x + 0.2, 2.2, -13.5);
-    scene.add(hook);
+  
+  // ─── Beit HaMitbachayim (north slaughter area) ───
+  for (let x = -6; x <= 6; x += 6) {
+    addBox(0.6, 0.3, 0.6, x, 0.15, -18, 0x888888);  // rings
+    addBox(0.25, 3, 0.25, x, 1.5, -20, 0x888888);    // poles
+    addBox(0.6, 0.15, 0.15, x + 0.25, 2.7, -20, 0x888888); // hooks
   }
-
-  // ─── Duchan (Levite Platform) — east side ───
-  const duchanMat = new THREE.MeshLambertMaterial({ color: 0xD4C4A8 });
-  const duchan = new THREE.Mesh(new THREE.BoxGeometry(8, 1, 3), duchanMat);
-  duchan.position.set(DUCHAN_POS.x, 0.5, DUCHAN_POS.z);
-  scene.add(duchan);
-
-  // ─── Korban Stand (booth) ───
-  const woodMat = new THREE.MeshLambertMaterial({ color: 0x8B6914 });
-  // Counter
-  const counter = new THREE.Mesh(new THREE.BoxGeometry(3, 1.2, 1.5), woodMat);
-  counter.position.set(SHIMON_POS.x, 0.6, SHIMON_POS.z);
-  scene.add(counter);
-  // Awning
-  const awningMat = new THREE.MeshLambertMaterial({ color: 0xC0392B });
-  const awning = new THREE.Mesh(new THREE.BoxGeometry(4, 0.15, 2.5), awningMat);
-  awning.position.set(SHIMON_POS.x, 2.8, SHIMON_POS.z);
-  scene.add(awning);
-  // Poles
-  [[-1.5, 0, -0.7], [1.5, 0, -0.7]].forEach(off => {
-    const pole = new THREE.Mesh(new THREE.BoxGeometry(0.15, 2.8, 0.15), woodMat);
-    pole.position.set(SHIMON_POS.x + off[0], 1.4, SHIMON_POS.z + off[2]);
-    scene.add(pole);
+  
+  // ─── Duchan (Levite platform) ───
+  addBox(12, 1.2, 4, DUCHAN_POS.x, 0.6, DUCHAN_POS.z, 0xD4C4A8);
+  
+  // ─── Korban Stand (Shimon's booth) ───
+  addBox(4, 1.4, 2, SHIMON_POS.x, 0.7, SHIMON_POS.z, 0x8B6914);
+  addBox(5, 0.15, 3, SHIMON_POS.x, 3.2, SHIMON_POS.z, 0xC0392B);  // awning
+  [-2, 2].forEach(dx => {
+    addBox(0.2, 3.2, 0.2, SHIMON_POS.x + dx, 1.6, SHIMON_POS.z - 1, 0x8B6914);
   });
-
+  
   // ─── Olive Trees (outside walls) ───
-  const trunkMat = new THREE.MeshLambertMaterial({ color: 0x6D4C41 });
-  const leafMat = new THREE.MeshLambertMaterial({ color: 0x4A7C3F });
-  for (let i = 0; i < 8; i++) {
-    const angle = (Math.PI * 2 * i) / 8;
-    const dist = 24 + Math.random() * 6;
-    const tx = Math.cos(angle) * dist;
-    const tz = Math.sin(angle) * dist;
-    const trunk = new THREE.Mesh(new THREE.BoxGeometry(0.4, 2, 0.4), trunkMat);
-    trunk.position.set(tx, 1, tz);
-    scene.add(trunk);
-    const leaves = new THREE.Mesh(new THREE.BoxGeometry(2, 1.5, 2), leafMat);
-    leaves.position.set(tx, 2.5, tz);
-    scene.add(leaves);
+  for (let i = 0; i < 10; i++) {
+    const a = (Math.PI * 2 * i) / 10;
+    const d = 36 + Math.random() * 8;
+    const tx = Math.cos(a) * d, tz = Math.sin(a) * d;
+    addBox(0.5, 2.5, 0.5, tx, 1.25, tz, 0x6D4C41);
+    addBox(2.5, 2, 2.5, tx, 3, tz, 0x4A7C3F);
   }
+  
+  // ─── Welcome sign near spawn ───
+  // Small stone slab with gold top
+  addBox(3, 0.6, 0.4, 0, 0.3, 26, 0xD4C4A8);
+  addBox(3, 0.1, 0.4, 0, 0.65, 26, 0xFFD700);
 }
 
-// ─── Build Player (Kohen) ───
+// ─── Ground Height (for ramp walking) ───
+function getGroundHeight(x, z) {
+  // Check if on the Kevesh (ramp)
+  if (Math.abs(x) < KEVESH_WIDTH / 2 && z > KEVESH_START_Z && z < KEVESH_END_Z) {
+    const frac = 1 - (z - KEVESH_START_Z) / (KEVESH_END_Z - KEVESH_START_Z);
+    return frac * MIZBEACH_H;
+  }
+  // Check if on top of mizbeach
+  if (Math.abs(x) < MIZBEACH_W / 2 && Math.abs(z) < MIZBEACH_D / 2) {
+    return MIZBEACH_H;
+  }
+  return 0;
+}
+
+// ─── Simple AABB collision ───
+function canMoveTo(x, z) {
+  const r = 0.3; // player radius
+  for (const c of COLLIDERS) {
+    if (x + r > c.minX && x - r < c.maxX && z + r > c.minZ && z - r < c.maxZ) {
+      return false;
+    }
+  }
+  // Boundary
+  if (Math.abs(x) > AZARA_HALF || Math.abs(z) > AZARA_HALF) return false;
+  return true;
+}
+
+// ─── Player ───
 function buildPlayer() {
-  playerModel = new THREE.Group();
-
-  const whiteMat = new THREE.MeshLambertMaterial({ color: 0xFAFAFA });
-  const skinMat = new THREE.MeshLambertMaterial({ color: 0xE8C4A0 });
-  const beltMat = new THREE.MeshLambertMaterial({ color: 0x4169E1 });
-
-  // Body (white robe)
-  const body = new THREE.Mesh(new THREE.BoxGeometry(0.6, 1.0, 0.4), whiteMat);
-  body.position.y = 0.9;
-  playerModel.add(body);
-
-  // Belt (Avnet)
-  const belt = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.1, 0.42), beltMat);
-  belt.position.y = 1.0;
-  playerModel.add(belt);
-
-  // Head
-  const head = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.4), skinMat);
-  head.position.y = 1.65;
-  playerModel.add(head);
-
-  // Eyes
-  const eyeMat = new THREE.MeshLambertMaterial({ color: 0x333333 });
-  const eyeL = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.02), eyeMat);
-  eyeL.position.set(-0.1, 1.7, 0.2);
-  playerModel.add(eyeL);
-  const eyeR = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.02), eyeMat);
-  eyeR.position.set(0.1, 1.7, 0.2);
-  playerModel.add(eyeR);
-
-  // Mitznefet (hat)
-  const hat = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.3, 0.44), whiteMat);
-  hat.position.y = 1.95;
-  playerModel.add(hat);
-
-  // Legs
-  const legMat = new THREE.MeshLambertMaterial({ color: 0xF0F0F0 });
-  const legL = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.5, 0.2), legMat);
-  legL.position.set(-0.15, 0.25, 0);
-  playerModel.add(legL);
-  const legR = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.5, 0.2), legMat);
-  legR.position.set(0.15, 0.25, 0);
-  playerModel.add(legR);
-
-  // Arms
-  const armL = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.7, 0.15), whiteMat);
-  armL.position.set(-0.4, 0.95, 0);
-  playerModel.add(armL);
-  const armR = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.7, 0.15), whiteMat);
-  armR.position.set(0.4, 0.95, 0);
-  playerModel.add(armR);
-
-  playerModel.castShadow = true;
-  scene.add(playerModel);
+  playerGroup = new THREE.Group();
+  const white = new THREE.MeshLambertMaterial({ color: 0xFAFAFA });
+  const skin = new THREE.MeshLambertMaterial({ color: 0xE8C4A0 });
+  const belt = new THREE.MeshLambertMaterial({ color: 0x4169E1 });
+  const eye = new THREE.MeshLambertMaterial({ color: 0x333333 });
+  
+  // 0: body
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.6, 1.0, 0.4), white);
+  body.position.y = 0.9; playerGroup.add(body);
+  // 1: belt
+  const b = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.1, 0.42), belt);
+  b.position.y = 1.0; playerGroup.add(b);
+  // 2: head
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.4), skin);
+  head.position.y = 1.65; playerGroup.add(head);
+  // 3: left eye
+  const el = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.02), eye);
+  el.position.set(-0.1, 1.7, 0.21); playerGroup.add(el);
+  // 4: right eye
+  const er = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.02), eye);
+  er.position.set(0.1, 1.7, 0.21); playerGroup.add(er);
+  // 5: hat (Mitznefet)
+  const hat = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.3, 0.44), white);
+  hat.position.y = 1.95; playerGroup.add(hat);
+  // 6: left leg
+  const ll = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.5, 0.2), white);
+  ll.position.set(-0.15, 0.25, 0); playerGroup.add(ll);
+  // 7: right leg
+  const rl = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.5, 0.2), white);
+  rl.position.set(0.15, 0.25, 0); playerGroup.add(rl);
+  // 8: left arm
+  const la = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.7, 0.15), white);
+  la.position.set(-0.4, 0.95, 0); playerGroup.add(la);
+  // 9: right arm
+  const ra = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.7, 0.15), white);
+  ra.position.set(0.4, 0.95, 0); playerGroup.add(ra);
+  
+  playerGroup.castShadow = true;
+  scene.add(playerGroup);
 }
 
-// ─── Build NPCs ───
-function buildNPCs() {
-  // Shimon (korban seller)
-  shimonModel = buildNPCModel(0xD4A853, 0x8B6914); // gold robes, brown apron
-  shimonModel.position.set(SHIMON_POS.x, 0, SHIMON_POS.z - 1);
-  scene.add(shimonModel);
-
-  // Leviim on Duchan
-  leviimModels = [];
-  const leviColors = [0x6A5ACD, 0x483D8B, 0x7B68EE, 0x5B4FCF];
-  const instrumentIds = Object.keys(INSTRUMENTS);
-  for (let i = 0; i < 4; i++) {
-    const levi = buildNPCModel(leviColors[i], 0xFAFAFA);
-    const x = DUCHAN_POS.x - 3 + i * 2;
-    levi.position.set(x, 1, DUCHAN_POS.z);
-    levi.userData.instrumentId = instrumentIds[i];
-    scene.add(levi);
-    leviimModels.push(levi);
-
-    // Instrument visual (small colored block above)
-    const instMat = new THREE.MeshLambertMaterial({ color: 0xFFD700 });
-    const inst = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.3, 0.15), instMat);
-    inst.position.set(x + 0.3, 1.9, DUCHAN_POS.z + 0.3);
-    scene.add(inst);
-  }
-}
-
-function buildNPCModel(robeColor, accentColor) {
+function buildNPCModel(robeColor, accent) {
   const g = new THREE.Group();
-  const robeMat = new THREE.MeshLambertMaterial({ color: robeColor });
-  const skinMat = new THREE.MeshLambertMaterial({ color: 0xE8C4A0 });
-  const accentMat = new THREE.MeshLambertMaterial({ color: accentColor });
-
-  const body = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.9, 0.35), robeMat);
-  body.position.y = 0.85;
-  g.add(body);
-  const head = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.35, 0.35), skinMat);
-  head.position.y = 1.55;
-  g.add(head);
-  const hat = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.2, 0.38), accentMat);
-  hat.position.y = 1.8;
-  g.add(hat);
-  const legL = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.4, 0.18), robeMat);
-  legL.position.set(-0.12, 0.2, 0);
-  g.add(legL);
-  const legR = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.4, 0.18), robeMat);
-  legR.position.set(0.12, 0.2, 0);
-  g.add(legR);
+  const r = new THREE.MeshLambertMaterial({ color: robeColor });
+  const s = new THREE.MeshLambertMaterial({ color: 0xE8C4A0 });
+  const a = new THREE.MeshLambertMaterial({ color: accent });
+  g.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.9, 0.35), r), { position: new THREE.Vector3(0, 0.85, 0) }));
+  g.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.35, 0.35), s), { position: new THREE.Vector3(0, 1.55, 0) }));
+  g.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.2, 0.38), a), { position: new THREE.Vector3(0, 1.8, 0) }));
+  // legs
+  g.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.4, 0.18), r), { position: new THREE.Vector3(-0.12, 0.2, 0) }));
+  g.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.4, 0.18), r), { position: new THREE.Vector3(0.12, 0.2, 0) }));
   return g;
 }
 
-// ─── Fire Effect on Mizbeach ───
-function buildFireEffect() {
-  fireParticles = [];
-  const fireMats = [
+function buildNPCs() {
+  // Shimon
+  shimonGroup = buildNPCModel(0xD4A853, 0x8B6914);
+  shimonGroup.position.set(SHIMON_POS.x, 0, SHIMON_POS.z - 2);
+  shimonGroup.rotation.y = Math.PI;
+  scene.add(shimonGroup);
+  
+  // Leviim
+  leviimGroups = [];
+  const colors = [0x6A5ACD, 0x483D8B, 0x7B68EE, 0x5B4FCF];
+  const instKeys = Object.keys(INSTRUMENTS);
+  for (let i = 0; i < 4; i++) {
+    const levi = buildNPCModel(colors[i], 0xFAFAFA);
+    const x = DUCHAN_POS.x - 4.5 + i * 3;
+    levi.position.set(x, 1.2, DUCHAN_POS.z);
+    levi.userData.instrumentId = instKeys[i];
+    scene.add(levi);
+    leviimGroups.push(levi);
+    // Instrument visual
+    addBox(0.4, 0.4, 0.2, x + 0.35, 2.3, DUCHAN_POS.z + 0.3, 0xFFD700);
+  }
+}
+
+function buildFire() {
+  fireBoxes = [];
+  const mats = [
     new THREE.MeshBasicMaterial({ color: 0xFF4500, transparent: true, opacity: 0.8 }),
     new THREE.MeshBasicMaterial({ color: 0xFF6600, transparent: true, opacity: 0.7 }),
     new THREE.MeshBasicMaterial({ color: 0xFFAA00, transparent: true, opacity: 0.6 }),
   ];
-  for (let i = 0; i < 8; i++) {
-    const size = 0.3 + Math.random() * 0.4;
-    const fire = new THREE.Mesh(new THREE.BoxGeometry(size, size * 1.5, size), fireMats[i % 3]);
-    fire.position.set(
-      (Math.random() - 0.5) * 3,
-      5.2 + Math.random() * 1,
-      (Math.random() - 0.5) * 3
-    );
-    fire.userData.baseY = fire.position.y;
-    fire.userData.phase = Math.random() * Math.PI * 2;
-    scene.add(fire);
-    fireParticles.push(fire);
+  for (let i = 0; i < 10; i++) {
+    const s = 0.3 + Math.random() * 0.5;
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(s, s * 2, s), mats[i % 3]);
+    mesh.position.set((Math.random() - 0.5) * 4, MIZBEACH_H + 0.5 + Math.random(), (Math.random() - 0.5) * 4);
+    mesh.userData.baseY = mesh.position.y;
+    mesh.userData.phase = Math.random() * Math.PI * 2;
+    scene.add(mesh);
+    fireBoxes.push(mesh);
   }
 }
 
-function updateFire(time) {
-  fireParticles.forEach(f => {
-    f.position.y = f.userData.baseY + Math.sin(time * 5 + f.userData.phase) * 0.3;
-    f.rotation.y = time * 2 + f.userData.phase;
-    f.scale.y = 0.8 + Math.sin(time * 8 + f.userData.phase) * 0.3;
-  });
+function updateFire(t) {
+  for (const f of fireBoxes) {
+    f.position.y = f.userData.baseY + Math.sin(t * 4 + f.userData.phase) * 0.4;
+    f.rotation.y = t * 2 + f.userData.phase;
+    f.scale.y = 0.7 + Math.sin(t * 7 + f.userData.phase) * 0.4;
+  }
 }
 
-// ─── Audio (Web Audio API) ───
-function playInstrument(instrumentId) {
-  const inst = INSTRUMENTS[instrumentId];
+// ─── NPC Idle Animation ───
+function updateNPCs(t) {
+  // Shimon bobs slightly
+  if (shimonGroup) {
+    shimonGroup.position.y = Math.sin(t * 1.5) * 0.05;
+  }
+  // Leviim sway
+  for (let i = 0; i < leviimGroups.length; i++) {
+    const l = leviimGroups[i];
+    l.rotation.y = Math.sin(t * 1.2 + i) * 0.15;
+  }
+}
+
+// ─── Audio ───
+function playInstrument(id) {
+  const inst = INSTRUMENTS[id];
   if (!inst) return;
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-
   const osc = audioCtx.createOscillator();
   const gain = audioCtx.createGain();
   osc.type = inst.wave;
   osc.frequency.value = inst.freq;
-  gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+  gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
   gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 1.5);
-  osc.connect(gain);
-  gain.connect(audioCtx.destination);
-  osc.start();
-  osc.stop(audioCtx.currentTime + 1.5);
-
-  // Track heard instruments
-  if (!gameState.instrumentsHeard.includes(instrumentId)) {
-    gameState.instrumentsHeard.push(instrumentId);
-    checkAchievement('music_lover', gameState.instrumentsHeard.length >= 4);
+  osc.connect(gain); gain.connect(audioCtx.destination);
+  osc.start(); osc.stop(audioCtx.currentTime + 1.5);
+  
+  if (!gameState.instrumentsHeard.includes(id)) {
+    gameState.instrumentsHeard.push(id);
+    checkAch('music_lover', gameState.instrumentsHeard.length >= 4);
     saveGame();
   }
 }
 
 // ─── Input ───
-function setupMouse() {
-  let mouseDown = false;
-  let lastX = 0;
-  document.addEventListener('mousedown', e => { if (started && e.target === renderer.domElement) { mouseDown = true; lastX = e.clientX; } });
-  document.addEventListener('mouseup', () => { mouseDown = false; });
-  document.addEventListener('mousemove', e => {
-    if (mouseDown && started) {
-      const dx = e.clientX - lastX;
-      cameraAngleY -= dx * 0.005;
-      lastX = e.clientX;
-    }
-  });
-}
-
-function setupTouch() {
-  const jBase = $('#joystick-base');
-  const jThumb = $('#joystick-thumb');
-  if (!jBase) return;
-
-  let touchId = null;
-  let baseX = 0, baseY = 0;
-
-  jBase.addEventListener('touchstart', e => {
-    e.preventDefault();
-    const t = e.changedTouches[0];
-    touchId = t.identifier;
-    baseX = t.clientX;
-    baseY = t.clientY;
-    joystickActive = true;
-  });
-
-  document.addEventListener('touchmove', e => {
-    if (!joystickActive) return;
-    for (const t of e.changedTouches) {
-      if (t.identifier === touchId) {
-        const dx = t.clientX - baseX;
-        const dy = t.clientY - baseY;
-        const dist = Math.min(Math.sqrt(dx * dx + dy * dy), 40);
-        const angle = Math.atan2(dy, dx);
-        jThumb.style.transform = `translate(${Math.cos(angle) * dist}px, ${Math.sin(angle) * dist}px)`;
-        joystickDX = Math.cos(angle) * (dist / 40);
-        joystickDZ = Math.sin(angle) * (dist / 40);
-      }
-    }
-  });
-
-  const endTouch = () => {
-    joystickActive = false;
-    joystickDX = 0;
-    joystickDZ = 0;
-    jThumb.style.transform = '';
-    touchId = null;
-  };
-  document.addEventListener('touchend', endTouch);
-  document.addEventListener('touchcancel', endTouch);
-
-  // Camera rotation via right side touch
+function bindInputs() {
+  window.addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; });
+  window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+  
+  // Mouse look (drag on canvas)
+  let dragging = false, lastMX = 0;
+  const cvs = () => renderer?.domElement;
+  document.addEventListener('mousedown', e => { if (running && e.target === cvs()) { dragging = true; lastMX = e.clientX; } });
+  document.addEventListener('mouseup', () => dragging = false);
+  document.addEventListener('mousemove', e => { if (dragging) { camAngle -= (e.clientX - lastMX) * 0.005; lastMX = e.clientX; } });
+  
+  // Touch camera (right half of screen)
   let camTouchId = null, camLastX = 0;
-  renderer.domElement.addEventListener('touchstart', e => {
+  document.addEventListener('touchstart', e => {
     for (const t of e.changedTouches) {
-      if (t.clientX > window.innerWidth * 0.4) {
-        camTouchId = t.identifier;
-        camLastX = t.clientX;
+      if (t.clientX > window.innerWidth * 0.4 && running) {
+        camTouchId = t.identifier; camLastX = t.clientX;
       }
     }
   });
-  renderer.domElement.addEventListener('touchmove', e => {
+  document.addEventListener('touchmove', e => {
     for (const t of e.changedTouches) {
-      if (t.identifier === camTouchId) {
-        cameraAngleY -= (t.clientX - camLastX) * 0.008;
-        camLastX = t.clientX;
-      }
+      if (t.identifier === camTouchId) { camAngle -= (t.clientX - camLastX) * 0.007; camLastX = t.clientX; }
     }
   });
-  renderer.domElement.addEventListener('touchend', e => {
-    for (const t of e.changedTouches) {
-      if (t.identifier === camTouchId) camTouchId = null;
-    }
+  document.addEventListener('touchend', e => {
+    for (const t of e.changedTouches) { if (t.identifier === camTouchId) camTouchId = null; }
   });
-}
-
-function setupButtons() {
-  // Shop
-  $('#shop-btn').addEventListener('click', openShop);
-  $('#close-shop').addEventListener('click', () => $('#shop-panel').classList.add('hidden'));
-
-  // Achievements
-  $('#achieve-btn').addEventListener('click', openAchievements);
-  $('#close-achieve').addEventListener('click', () => $('#achieve-panel').classList.add('hidden'));
-
-  // Korban select
-  $('#close-korban-select').addEventListener('click', () => $('#korban-select-panel').classList.add('hidden'));
-
-  // Summary
-  $('#close-summary').addEventListener('click', () => $('#summary-panel').classList.add('hidden'));
-
-  // Info
-  $('#info-btn').addEventListener('click', () => {
-    const shir = DAILY_SHIR[new Date().getDay()];
-    showEduPopup(`Today is ${shir.day}. The Leviim sing Tehillim ${shir.tehillim}:\n${shir.text}`, 'Tamid 7:4');
-  });
-
-  // Mobile interact
-  const mBtn = $('#mobile-interact-btn');
-  if (mBtn) mBtn.addEventListener('touchstart', e => { e.preventDefault(); handleInteract(); });
-
-  // New profile
-  $('#new-profile-btn').addEventListener('click', () => {
-    $('#new-profile-modal').classList.remove('hidden');
-    $('#profile-name-input').value = '';
-    $('#profile-name-input').focus();
-  });
-  $('#cancel-profile-btn').addEventListener('click', () => $('#new-profile-modal').classList.add('hidden'));
-  $('#create-profile-btn').addEventListener('click', () => {
-    const name = $('#profile-name-input').value.trim();
-    if (!name) return;
-    const levelBtn = document.querySelector('.level-btn.selected');
-    const level = parseInt(levelBtn.dataset.level) || 1;
-    $('#new-profile-modal').classList.add('hidden');
-    createProfile(name, level);
-  });
-  document.querySelectorAll('.level-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.level-btn').forEach(b => b.classList.remove('selected'));
-      btn.classList.add('selected');
+  
+  // Joystick
+  const jBase = $('#joystick-base'), jThumb = $('#joystick-thumb');
+  if (jBase) {
+    let jTouchId = null, jBaseX = 0, jBaseY = 0;
+    jBase.addEventListener('touchstart', e => {
+      e.preventDefault();
+      const t = e.changedTouches[0];
+      jTouchId = t.identifier; jBaseX = t.clientX; jBaseY = t.clientY; joyActive = true;
     });
+    document.addEventListener('touchmove', e => {
+      if (!joyActive) return;
+      for (const t of e.changedTouches) {
+        if (t.identifier === jTouchId) {
+          const dx = t.clientX - jBaseX, dy = t.clientY - jBaseY;
+          const dist = Math.min(Math.sqrt(dx*dx + dy*dy), 40);
+          const a = Math.atan2(dy, dx);
+          if (jThumb) jThumb.style.transform = `translate(${Math.cos(a)*dist}px,${Math.sin(a)*dist}px)`;
+          joyDX = Math.cos(a) * (dist/40); joyDZ = Math.sin(a) * (dist/40);
+        }
+      }
+    });
+    const endJoy = () => { joyActive = false; joyDX = 0; joyDZ = 0; if (jThumb) jThumb.style.transform = ''; jTouchId = null; };
+    document.addEventListener('touchend', endJoy);
+    document.addEventListener('touchcancel', endJoy);
+  }
+  
+  // Prevent scroll on canvas
+  document.addEventListener('touchmove', e => { if (running && e.target === cvs()) e.preventDefault(); }, { passive: false });
+  
+  // Buttons
+  $('#shop-btn')?.addEventListener('click', openShop);
+  $('#close-shop')?.addEventListener('click', () => $('#shop-panel').classList.add('hidden'));
+  $('#achieve-btn')?.addEventListener('click', openAchievements);
+  $('#close-achieve')?.addEventListener('click', () => $('#achieve-panel').classList.add('hidden'));
+  $('#close-korban-select')?.addEventListener('click', () => $('#korban-select-panel').classList.add('hidden'));
+  $('#close-summary')?.addEventListener('click', () => $('#summary-panel').classList.add('hidden'));
+  $('#info-btn')?.addEventListener('click', () => {
+    const shir = DAILY_SHIR[new Date().getDay()];
+    showEdu(`Today is ${shir.day}. The Leviim sing Tehillim ${shir.tehillim}:\n${shir.text}`, 'Tamid 7:4');
   });
+  $('#mobile-interact-btn')?.addEventListener('touchstart', e => { e.preventDefault(); handleInteract(); });
 }
 
 // ─── Shop ───
@@ -745,69 +549,96 @@ function openShop() {
   closeAllPanels();
   const body = $('#shop-body');
   body.innerHTML = '';
-
-  // Animals section
-  const animalTitle = document.createElement('div');
-  animalTitle.className = 'shop-section-title';
-  animalTitle.textContent = '🐑 Animals';
-  body.appendChild(animalTitle);
-
-  const animalGrid = document.createElement('div');
-  animalGrid.className = 'shop-grid';
-
+  
+  // Sell-back section (if player has items)
+  const owned = Object.keys(gameState.inventory).filter(id => gameState.inventory[id] > 0);
+  if (owned.length > 0) {
+    const sellTitle = document.createElement('div');
+    sellTitle.className = 'shop-section-title';
+    sellTitle.textContent = '💱 Sell Back (50% price)';
+    body.appendChild(sellTitle);
+    const sellGrid = document.createElement('div');
+    sellGrid.className = 'shop-grid';
+    owned.forEach(itemId => {
+      const item = SHOP_ITEMS[itemId];
+      if (!item) return;
+      const sellPrice = Math.floor(item.price / 2);
+      const card = document.createElement('div');
+      card.className = 'shop-card';
+      card.innerHTML = `<div class="shop-emoji">${item.emoji}</div>
+        <div class="shop-name">${item.name} (×${gameState.inventory[itemId]})</div>
+        <div class="shop-price">Sell for 🪙${sellPrice}</div>
+        <button class="shop-btn sell-btn">Sell 1</button>`;
+      card.querySelector('.sell-btn').addEventListener('click', () => sellItem(itemId, sellPrice));
+      sellGrid.appendChild(card);
+    });
+    body.appendChild(sellGrid);
+  }
+  
+  // Animals
+  const aTitle = document.createElement('div');
+  aTitle.className = 'shop-section-title';
+  aTitle.textContent = '🐑 Animals';
+  body.appendChild(aTitle);
+  const aGrid = document.createElement('div');
+  aGrid.className = 'shop-grid';
   Object.values(SHOP_ITEMS).filter(i => i.category === 'animal').forEach(item => {
     const card = document.createElement('div');
     card.className = 'shop-card';
-    card.innerHTML = `
-      <div class="shop-emoji">${item.emoji}</div>
+    card.innerHTML = `<div class="shop-emoji">${item.emoji}</div>
       <div class="shop-name">${item.name}</div>
       <div class="shop-price">🪙 ${item.price}</div>
-      <button class="shop-btn" ${gameState.coins < item.price ? 'disabled' : ''}>Buy</button>
-    `;
+      <div class="shop-desc">${item.desc || ''}</div>
+      <button class="shop-btn" ${gameState.coins < item.price ? 'disabled' : ''}>Buy</button>`;
     card.querySelector('.shop-btn').addEventListener('click', () => buyItem(item.id));
-    animalGrid.appendChild(card);
+    aGrid.appendChild(card);
   });
-  body.appendChild(animalGrid);
-
-  // Menachot section (Level 2+)
+  body.appendChild(aGrid);
+  
+  // Menachot (Level 2+)
   if (gameState.level >= 2) {
-    const minchaTitle = document.createElement('div');
-    minchaTitle.className = 'shop-section-title';
-    minchaTitle.textContent = '🌾 Menachot Ingredients';
-    body.appendChild(minchaTitle);
-
-    const minchaGrid = document.createElement('div');
-    minchaGrid.className = 'shop-grid';
+    const mTitle = document.createElement('div');
+    mTitle.className = 'shop-section-title';
+    mTitle.textContent = '🌾 Menachot Ingredients';
+    body.appendChild(mTitle);
+    const mGrid = document.createElement('div');
+    mGrid.className = 'shop-grid';
     Object.values(SHOP_ITEMS).filter(i => i.category === 'mincha').forEach(item => {
       const card = document.createElement('div');
       card.className = 'shop-card';
-      card.innerHTML = `
-        <div class="shop-emoji">${item.emoji}</div>
+      card.innerHTML = `<div class="shop-emoji">${item.emoji}</div>
         <div class="shop-name">${item.name}</div>
         <div class="shop-price">🪙 ${item.price}</div>
-        <button class="shop-btn" ${gameState.coins < item.price ? 'disabled' : ''}>Buy</button>
-      `;
+        <button class="shop-btn" ${gameState.coins < item.price ? 'disabled' : ''}>Buy</button>`;
       card.querySelector('.shop-btn').addEventListener('click', () => buyItem(item.id));
-      minchaGrid.appendChild(card);
+      mGrid.appendChild(card);
     });
-    body.appendChild(minchaGrid);
+    body.appendChild(mGrid);
   }
-
+  
   $('#shop-panel').classList.remove('hidden');
 }
 
-function buyItem(itemId) {
-  const item = SHOP_ITEMS[itemId];
+function buyItem(id) {
+  const item = SHOP_ITEMS[id];
   if (!item || gameState.coins < item.price) return;
   gameState.coins -= item.price;
   gameState.totalSpent += item.price;
-  gameState.inventory[itemId] = (gameState.inventory[itemId] || 0) + 1;
-  showToast(`Bought ${item.emoji} ${item.name}!`);
-  checkAchievement('big_spender', gameState.totalSpent >= 500);
-  updateHUD();
-  updateHotbar();
-  saveGame();
-  openShop(); // refresh
+  gameState.inventory[id] = (gameState.inventory[id] || 0) + 1;
+  toast(`Bought ${item.emoji} ${item.name}!`);
+  checkAch('big_spender', gameState.totalSpent >= 500);
+  updateHUD(); updateHotbar(); saveGame();
+  openShop();
+}
+
+function sellItem(id, price) {
+  if (!gameState.inventory[id] || gameState.inventory[id] <= 0) return;
+  gameState.inventory[id]--;
+  if (gameState.inventory[id] <= 0) delete gameState.inventory[id];
+  gameState.coins += price;
+  toast(`Sold ${SHOP_ITEMS[id]?.emoji || ''} for 🪙${price}`);
+  updateHUD(); updateHotbar(); saveGame();
+  openShop();
 }
 
 // ─── Achievements ───
@@ -819,102 +650,94 @@ function openAchievements() {
     const unlocked = gameState.achievements.includes(id);
     const card = document.createElement('div');
     card.className = 'achieve-card' + (unlocked ? ' unlocked' : ' achieve-locked');
-    card.innerHTML = `
-      <div class="achieve-emoji">${ach.emoji}</div>
-      <div>
-        <div class="achieve-name">${ach.name}</div>
-        <div class="achieve-desc">${ach.desc}</div>
-      </div>
-    `;
+    card.innerHTML = `<div class="achieve-emoji">${ach.emoji}</div>
+      <div><div class="achieve-name">${ach.name}</div><div class="achieve-desc">${ach.desc}</div></div>`;
     body.appendChild(card);
   });
   $('#achieve-panel').classList.remove('hidden');
 }
 
-function checkAchievement(id, condition) {
-  if (gameState.achievements.includes(id)) return;
-  if (!condition) return;
+function checkAch(id, cond) {
+  if (gameState.achievements.includes(id) || !cond) return;
   gameState.achievements.push(id);
   const ach = ACHIEVEMENTS[id];
-  showToast(`🏆 Achievement: ${ach.emoji} ${ach.name}!`);
+  toast(`🏆 Achievement: ${ach.emoji} ${ach.name}!`);
   saveGame();
 }
 
 // ─── Korban Selection ───
-function openKorbanSelect(animalId) {
+function openKorbanSelect() {
   closeAllPanels();
   const body = $('#korban-select-body');
   body.innerHTML = '';
-
-  const options = ANIMAL_TO_KORBANOT[animalId] || [];
-  const available = options.filter(kId => {
-    const k = KORBANOT[kId];
-    return k && k.levelRequired <= gameState.level;
+  
+  // Gather ALL korbanot the player can do with ALL animals they own
+  const available = [];
+  Object.keys(gameState.inventory).forEach(animalId => {
+    if (!SHOP_ITEMS[animalId] || SHOP_ITEMS[animalId].category !== 'animal' || gameState.inventory[animalId] <= 0) return;
+    const opts = ANIMAL_TO_KORBANOT[animalId] || [];
+    opts.forEach(kId => {
+      const k = KORBANOT[kId];
+      if (k && k.levelRequired <= gameState.level && !available.find(a => a.id === kId)) {
+        available.push(k);
+      }
+    });
   });
-
+  
   if (available.length === 0) {
-    body.innerHTML = '<p style="text-align:center;color:#7f8c8d;padding:20px;">No korbanot available for this animal at your level.</p>';
+    body.innerHTML = '<p style="text-align:center;color:#7f8c8d;padding:20px;">No korbanot available. Buy animals from Shimon first!</p>';
     $('#korban-select-panel').classList.remove('hidden');
     return;
   }
-
-  available.forEach(kId => {
-    const k = KORBANOT[kId];
+  
+  available.forEach(k => {
     const opt = document.createElement('div');
     opt.className = 'korban-option';
     const catClass = k.category === 'kodshei_kodashim' ? 'kk' : 'kl';
     const catLabel = k.category === 'kodshei_kodashim' ? 'Kodshei Kodashim' : 'Kodashim Kalim';
-    opt.innerHTML = `
-      <div class="korban-option-emoji">${k.emoji}</div>
-      <div>
-        <div class="korban-option-name">${k.name} <span class="korban-option-category ${catClass}">${catLabel}</span></div>
-        <div class="korban-option-desc">${k.description}</div>
-      </div>
-    `;
+    const animalItem = SHOP_ITEMS[k.animal];
+    opt.innerHTML = `<div class="korban-option-emoji">${k.emoji}</div>
+      <div><div class="korban-option-name">${k.name} <span class="korban-option-category ${catClass}">${catLabel}</span></div>
+      <div class="korban-option-desc">${k.description}</div>
+      <div style="font-size:0.8em;color:#888;">Requires: ${animalItem?.emoji || ''} ${animalItem?.name || k.animal} · Reward: 🪙${k.coinReward}</div></div>`;
     opt.addEventListener('click', () => {
       $('#korban-select-panel').classList.add('hidden');
-      beginAvodah(kId);
+      beginAvodah(k.id);
     });
     body.appendChild(opt);
   });
-
+  
   $('#korban-select-panel').classList.remove('hidden');
 }
 
-// ─── Avodah System ───
+// ─── Avodah ───
 function beginAvodah(korbanId) {
   const korban = KORBANOT[korbanId];
   if (!korban) return;
-
-  // Consume animal from inventory
-  const animalId = korban.animal;
-  if (!gameState.inventory[animalId] || gameState.inventory[animalId] <= 0) {
-    showToast(`You need a ${SHOP_ITEMS[animalId]?.name || animalId}!`);
+  if (!gameState.inventory[korban.animal] || gameState.inventory[korban.animal] <= 0) {
+    toast(`You need a ${SHOP_ITEMS[korban.animal]?.name || korban.animal}!`);
     return;
   }
-  gameState.inventory[animalId]--;
-  if (gameState.inventory[animalId] <= 0) delete gameState.inventory[animalId];
-
+  gameState.inventory[korban.animal]--;
+  if (gameState.inventory[korban.animal] <= 0) delete gameState.inventory[korban.animal];
+  
   avodahActive = true;
   avodahKorban = korban;
   avodahMistakes = 0;
   avodahStep = 0;
   avodahSteps = AVODAH_STEPS[korban.type] || AVODAH_STEPS.olah;
-
-  updateHotbar();
-  updateAvodahHUD();
-  showToast(`Beginning ${korban.emoji} ${korban.name}!`);
-
+  
+  updateHotbar(); updateAvodahHUD();
+  toast(`Beginning ${korban.emoji} ${korban.name}!`);
+  
+  // First-time guidance
   if (gameState.level === 1) {
-    showEduPopup(
-      `${korban.description}\n\nFollow the glowing steps to complete the Avodah!`,
-      korban.source
-    );
+    showEdu(`${korban.description}\n\nFollow the steps at the top of the screen. Walk to the right location and press E for each step!`, korban.source);
   } else {
-    showEduPopup(
-      `${korban.name} (${korban.nameHe})\n${korban.category === 'kodshei_kodashim' ? '⚠️ Must be slaughtered in the NORTH!' : '✅ Can be slaughtered anywhere in the Azara.'}`,
-      korban.mishnah
-    );
+    const locHint = korban.slaughterLocation === 'north'
+      ? '⚠️ Kodshei Kodashim — must be slaughtered in the NORTH!'
+      : '✅ Kodashim Kalim — can be slaughtered anywhere in the Azara.';
+    showEdu(`${korban.name} (${korban.nameHe})\n${locHint}`, korban.mishnah);
   }
 }
 
@@ -932,421 +755,353 @@ function updateAvodahHUD() {
 }
 
 function advanceAvodah() {
-  if (!avodahActive) return;
-
+  if (!avodahActive || avodahStep >= avodahSteps.length) return;
   const step = avodahSteps[avodahStep];
-  if (!step) return;
-
-  // Validate location for shechita
+  const px = playerPos.x, pz = playerPos.z;
+  
+  // Location checks
   if (step.id === 'shechita') {
-    const inNorth = playerPos.z < NORTH_ZONE_Z;
-    if (avodahKorban.slaughterLocation === 'north' && !inNorth) {
+    if (avodahKorban.slaughterLocation === 'north' && pz > NORTH_ZONE_Z) {
       avodahMistakes++;
-      showEduPopup(
-        `⚠️ Wrong location! ${avodahKorban.name} is Kodshei Kodashim — it must be slaughtered in the NORTH of the Azara!`,
-        'Zevachim 5:1'
-      );
+      showEdu(`⚠️ Wrong location! ${avodahKorban.name} is Kodshei Kodashim — slaughter in the NORTH! (Walk past the stone markers)`, 'Zevachim 5:1');
       return;
     }
-    if (avodahKorban.slaughterLocation === 'anywhere') {
-      showEduPopup(
-        `✅ ${avodahKorban.name} is Kodashim Kalim — it can be slaughtered anywhere in the Azara.`,
-        avodahKorban.mishnah
-      );
+    if (avodahKorban.slaughterLocation === 'north' && pz <= NORTH_ZONE_Z) {
+      showEdu(`✅ Correct! Shechita of ${avodahKorban.name} in the north.`, avodahKorban.mishnah);
+    } else if (avodahKorban.slaughterLocation === 'anywhere') {
+      showEdu(`✅ ${avodahKorban.name} is Kodashim Kalim — anywhere in the Azara is fine.`, avodahKorban.mishnah);
     }
   }
-
-  // Validate near mizbeach for holacha/zerika/haktarah
+  
   if (['holacha', 'zerika', 'haktarah'].includes(step.id)) {
-    const dx = playerPos.x - MIZBEACH_POS.x;
-    const dz = playerPos.z - MIZBEACH_POS.z;
-    const dist = Math.sqrt(dx * dx + dz * dz);
-    if (dist > 8) {
-      showToast('Walk closer to the Mizbeach!');
+    if (dist2D(px, pz, 0, 0) > 12) {
+      toast('Walk closer to the Mizbeach!');
       return;
     }
   }
-
-  // Show educational content
+  
   if (step.id === 'zerika') {
-    const bloodDesc = avodahKorban.bloodService === 'four_corners'
+    const desc = avodahKorban.bloodService === 'four_corners'
       ? 'Place blood on all 4 horns (Kranot) of the Mizbeach — one on each corner.'
+      : avodahKorban.bloodService === 'squeeze_on_wall'
+      ? 'Squeeze the blood on the wall of the Mizbeach (Melikah for birds).'
       : 'Two placements that are four (Shnayim She\'hen Arba) — on two diagonal corners, so the blood touches all four sides.';
-    showEduPopup(bloodDesc, avodahKorban.mishnah);
-
-    // Track blood type
+    showEdu(desc, avodahKorban.mishnah);
     if (!gameState.bloodTypesCompleted.includes(avodahKorban.bloodService)) {
       gameState.bloodTypesCompleted.push(avodahKorban.bloodService);
-      checkAchievement('blood_expert', gameState.bloodTypesCompleted.length >= 2);
+      checkAch('blood_expert', gameState.bloodTypesCompleted.length >= 2);
     }
   }
-
+  
   if (step.id === 'haktarah') {
-    const burnDesc = avodahKorban.type === 'olah'
-      ? 'The entire Olah is burned on the Mizbeach — a "Re\'ach Nichoach laHashem" (pleasing aroma to Hashem).'
+    const desc = avodahKorban.type === 'olah'
+      ? 'The entire Olah is burned on the Mizbeach — a "Re\'ach Nichoach laHashem."'
       : avodahKorban.type === 'chatat'
-      ? `The Chalavim (fats) are burned. The meat is eaten by male Kohanim in the Azara, ${avodahKorban.eatingTimeLimit}.`
-      : `The Chalavim (fats) are burned. The meat is shared — eaten by anyone who is tahor in Yerushalayim, ${avodahKorban.eatingTimeLimit}.`;
-    showEduPopup(burnDesc, avodahKorban.source);
+      ? `The Chalavim (fats) are burned. Meat eaten by male Kohanim in the Azara, ${avodahKorban.eatingTimeLimit}.`
+      : `The Chalavim (fats) are burned. Meat shared by anyone tahor, in Yerushalayim, ${avodahKorban.eatingTimeLimit}.`;
+    showEdu(desc, avodahKorban.source);
   }
-
-  showToast(`${step.emoji} ${step.name} — Done!`);
+  
+  toast(`${step.emoji} ${step.name} — Done!`);
   avodahStep++;
   updateAvodahHUD();
-
-  // Check completion
-  if (avodahStep >= avodahSteps.length) {
-    completeAvodah();
-  }
+  
+  if (avodahStep >= avodahSteps.length) completeAvodah();
 }
 
 function completeAvodah() {
   avodahActive = false;
-  const korban = avodahKorban;
+  const k = avodahKorban;
   const perfect = avodahMistakes === 0;
-
-  // Award coins
-  const bonus = perfect ? Math.round(korban.coinReward * 0.5) : 0;
-  const totalReward = korban.coinReward + bonus;
-  gameState.coins += totalReward;
-  gameState.totalCoinsEarned += totalReward;
+  const bonus = perfect ? Math.round(k.coinReward * 0.5) : 0;
+  const total = k.coinReward + bonus;
+  
+  gameState.coins += total;
+  gameState.totalCoinsEarned += total;
   gameState.korbanotCompleted++;
   if (perfect) gameState.korbanotPerfect++;
-  if (korban.id === 'tamid') gameState.tamidCount++;
-
-  // Achievements
-  checkAchievement('first_avodah', true);
-  checkAchievement('tamid_week', gameState.tamidCount >= 14);
-  checkAchievement('perfect_five', gameState.korbanotPerfect >= 5);
-  checkAchievement('kohen_rising', gameState.korbanotCompleted >= 50);
-
-  // Show summary
-  const body = $('#summary-body');
-  body.innerHTML = `
-    <div class="summary-emoji">${korban.emoji}</div>
-    <div class="summary-title">${korban.name} (${korban.nameHe})</div>
-    <div class="summary-detail">${korban.description}</div>
-    <div class="summary-source">📖 ${korban.source} | ${korban.mishnah}</div>
-    ${korban.eatenBy !== 'none' ? `<div class="summary-detail">🍖 Eaten by: ${formatEatenBy(korban.eatenBy)} in ${korban.eatingLocation} — ${korban.eatingTimeLimit}</div>` : '<div class="summary-detail">🔥 Entirely consumed on the Mizbeach</div>'}
-    <div class="summary-coins">+🪙${totalReward}${bonus > 0 ? ` (includes +${bonus} perfect bonus!)` : ''}</div>
+  if (k.id === 'tamid') gameState.tamidCount++;
+  
+  checkAch('first_avodah', true);
+  checkAch('tamid_week', gameState.tamidCount >= 14);
+  checkAch('perfect_five', gameState.korbanotPerfect >= 5);
+  checkAch('kohen_rising', gameState.korbanotCompleted >= 50);
+  
+  const eatenText = k.eatenBy === 'none'
+    ? '<div class="summary-detail">🔥 Entirely consumed on the Mizbeach</div>'
+    : `<div class="summary-detail">🍖 Eaten by: ${k.eatenBy === 'male_kohanim' ? 'Male Kohanim only' : 'Anyone who is tahor'} in ${k.eatingLocation} — ${k.eatingTimeLimit}</div>`;
+  
+  $('#summary-body').innerHTML = `
+    <div class="summary-emoji">${k.emoji}</div>
+    <div class="summary-title">${k.name} (${k.nameHe})</div>
+    <div class="summary-detail">${k.description}</div>
+    <div class="summary-source">📖 ${k.source} | ${k.mishnah}</div>
+    ${eatenText}
+    <div class="summary-coins">+🪙${total}${bonus > 0 ? ` (includes +${bonus} perfect bonus!)` : ''}</div>
     ${perfect ? '<div style="color:#27ae60;font-weight:700;">✨ Perfect Service!</div>' : `<div style="color:#e67e22;">Mistakes: ${avodahMistakes}</div>`}
-    <button class="btn btn-gold summary-btn" onclick="document.getElementById('summary-panel').classList.add('hidden')">Continue</button>
-  `;
+    <button class="btn btn-gold summary-btn" id="summary-close-btn">Continue</button>`;
+  $('#summary-close-btn').addEventListener('click', () => $('#summary-panel').classList.add('hidden'));
   $('#summary-panel').classList.remove('hidden');
-
-  gameState.sourcesRead++;
-  checkAchievement('torah_scholar', gameState.sourcesRead >= 20);
-
-  avodahKorban = null;
-  avodahSteps = [];
-  avodahStep = 0;
-  updateAvodahHUD();
-  updateHUD();
-  updateHotbar();
-  saveGame();
-}
-
-function formatEatenBy(code) {
-  switch (code) {
-    case 'male_kohanim': return 'Male Kohanim only';
-    case 'anyone_tahor': return 'Anyone who is tahor (ritually pure)';
-    case 'kohanim': return 'Kohanim and their families';
-    default: return code;
-  }
+  
+  avodahKorban = null; avodahSteps = []; avodahStep = 0;
+  updateAvodahHUD(); updateHUD(); updateHotbar(); saveGame();
 }
 
 // ─── Interaction ───
 function handleInteract() {
-  if (!started) return;
-
-  // If in avodah, advance
-  if (avodahActive) {
-    advanceAvodah();
-    return;
-  }
-
-  // Check proximity to NPCs/objects
+  if (!running) return;
+  if (avodahActive) { advanceAvodah(); return; }
+  
   const px = playerPos.x, pz = playerPos.z;
-
-  // Shimon
-  if (dist2D(px, pz, SHIMON_POS.x, SHIMON_POS.z) < INTERACT_DIST) {
-    openShop();
-    return;
-  }
-
-  // Leviim
-  for (const levi of leviimModels) {
+  
+  if (dist2D(px, pz, SHIMON_POS.x, SHIMON_POS.z) < INTERACT_DIST + 2) { openShop(); return; }
+  
+  for (const levi of leviimGroups) {
     if (dist2D(px, pz, levi.position.x, levi.position.z) < INTERACT_DIST) {
       const inst = INSTRUMENTS[levi.userData.instrumentId];
       playInstrument(levi.userData.instrumentId);
-      showEduPopup(
-        `${inst.emoji} ${inst.name} (${inst.nameHe})\n${inst.desc}`,
-        inst.source
-      );
+      showEdu(`${inst.emoji} ${inst.name} (${inst.nameHe})\n${inst.desc}`, inst.source);
       return;
     }
   }
-
-  // Kiyor
+  
   if (dist2D(px, pz, KIYOR_POS.x, KIYOR_POS.z) < INTERACT_DIST) {
-    showEduPopup(
-      'The Kiyor (כיור) — a bronze laver. Every Kohen must wash his hands and feet before performing the Avodah.',
-      'Shemot 30:19-21'
-    );
+    showEdu('The Kiyor (כיור) — a bronze laver. Every Kohen must wash hands and feet before the Avodah.\n\n"And Aharon and his sons shall wash their hands and feet from it." (Shemot 30:19)', 'Shemot 30:19-21');
     return;
   }
-
-  // Mizbeach area — start korban if holding an animal
-  if (dist2D(px, pz, MIZBEACH_POS.x, MIZBEACH_POS.z) < 10) {
-    // Check if player has animals in inventory
-    const animals = Object.keys(gameState.inventory).filter(id =>
-      SHOP_ITEMS[id]?.category === 'animal' && gameState.inventory[id] > 0
-    );
-    if (animals.length > 0) {
-      // If only one animal type, and it has only one korban option at this level, start directly
-      if (animals.length === 1) {
-        const opts = (ANIMAL_TO_KORBANOT[animals[0]] || []).filter(kId => KORBANOT[kId]?.levelRequired <= gameState.level);
-        if (opts.length === 1) {
-          beginAvodah(opts[0]);
-          return;
-        }
-      }
-      openKorbanSelect(animals[0]);
-      return;
-    }
-    showToast('Buy an animal from Shimon first! 🏪');
+  
+  if (dist2D(px, pz, 0, 0) < 14) {
+    const hasAnimal = Object.keys(gameState.inventory).some(id => SHOP_ITEMS[id]?.category === 'animal' && gameState.inventory[id] > 0);
+    if (hasAnimal) { openKorbanSelect(); return; }
+    toast('Buy an animal from Shimon first! 🏪 (He\'s at the booth to the southeast)');
+    return;
+  }
+  
+  // Welcome sign
+  if (Math.abs(px) < 3 && Math.abs(pz - 26) < 3) {
+    showEdu('Welcome to the Beit HaMikdash!\n\n🏪 Visit Shimon (southeast) to buy a korban\n🔪 Walk north to slaughter\n🔥 Bring blood to the Mizbeach\n📖 Talk to the Leviim to hear their music!', '');
     return;
   }
 }
 
-function dist2D(x1, z1, x2, z2) {
-  return Math.sqrt((x1 - x2) ** 2 + (z1 - z2) ** 2);
+function dist2D(x1, z1, x2, z2) { return Math.sqrt((x1-x2)**2 + (z1-z2)**2); }
+
+// ─── UI ───
+function toast(msg) {
+  const c = $('#toast-container');
+  if (!c) return;
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  c.appendChild(t);
+  setTimeout(() => t.remove(), 3500);
 }
 
-// ─── UI Helpers ───
-function showToast(msg) {
-  const container = $('#toast-container');
-  const toast = document.createElement('div');
-  toast.className = 'toast';
-  toast.textContent = msg;
-  container.appendChild(toast);
-  setTimeout(() => { toast.remove(); }, 3000);
-}
-
-function showEduPopup(text, source) {
-  const el = $('#edu-popup');
-  const content = $('#edu-popup-content');
+function showEdu(text, source) {
+  const el = $('#edu-popup'), content = $('#edu-popup-content');
+  if (!el || !content) return;
   content.innerHTML = text.replace(/\n/g, '<br>') + (source ? `<div class="source">📖 ${source}</div>` : '');
   el.classList.remove('hidden');
   gameState.sourcesRead++;
-  checkAchievement('torah_scholar', gameState.sourcesRead >= 20);
+  checkAch('torah_scholar', gameState.sourcesRead >= 20);
   clearTimeout(el._timer);
-  el._timer = setTimeout(() => el.classList.add('hidden'), 6000);
+  el._timer = setTimeout(() => el.classList.add('hidden'), 7000);
 }
 
 function updateHUD() {
-  $('#coins-count').textContent = gameState.coins;
-  $('#level-num').textContent = gameState.level;
-  $('#korbanot-count').textContent = gameState.korbanotCompleted;
+  const ce = $('#coins-count'), le = $('#level-num'), ke = $('#korbanot-count');
+  if (ce) ce.textContent = gameState.coins;
+  if (le) le.textContent = gameState.level;
+  if (ke) ke.textContent = gameState.korbanotCompleted;
 }
 
 function updateHotbar() {
   const hotbar = $('#hotbar');
+  if (!hotbar) return;
   hotbar.innerHTML = '';
   const items = Object.keys(gameState.inventory).filter(id => gameState.inventory[id] > 0);
-  const slots = items.slice(0, 9);
-  slots.forEach(itemId => {
-    const item = SHOP_ITEMS[itemId];
+  if (items.length === 0) {
+    hotbar.innerHTML = '<div class="hotbar-slot"><span class="slot-emoji" style="opacity:0.3">🕊️</span></div>';
+    return;
+  }
+  items.slice(0, 9).forEach(id => {
+    const item = SHOP_ITEMS[id];
     if (!item) return;
     const slot = document.createElement('div');
     slot.className = 'hotbar-slot';
-    slot.innerHTML = `<span class="slot-emoji">${item.emoji}</span><span class="slot-count">${gameState.inventory[itemId]}</span>`;
+    slot.innerHTML = `<span class="slot-emoji">${item.emoji}</span><span class="slot-count">${gameState.inventory[id]}</span>`;
     hotbar.appendChild(slot);
   });
-  if (slots.length === 0) {
-    const empty = document.createElement('div');
-    empty.className = 'hotbar-slot';
-    empty.innerHTML = '<span class="slot-emoji" style="opacity:0.3">🕊️</span>';
-    hotbar.appendChild(empty);
-  }
 }
 
-function updateInteractionPrompt() {
+function updatePrompt() {
   const el = $('#interaction-prompt');
+  if (!el) return;
   const px = playerPos.x, pz = playerPos.z;
-
-  if (avodahActive) {
+  
+  if (avodahActive && avodahStep < avodahSteps.length) {
     const step = avodahSteps[avodahStep];
-    if (step) {
-      let hint = `Press E: ${step.emoji} ${step.name}`;
-      if (step.id === 'shechita' && avodahKorban.slaughterLocation === 'north') {
-        hint += pz < NORTH_ZONE_Z ? ' ✅ (North zone)' : ' ⚠️ (Go to the North!)';
-      }
-      if (['holacha', 'zerika', 'haktarah'].includes(step.id)) {
-        const d = dist2D(px, pz, MIZBEACH_POS.x, MIZBEACH_POS.z);
-        if (d > 8) hint += ' — Walk to the Mizbeach';
-      }
-      el.textContent = hint;
-      el.classList.remove('hidden');
-      return;
+    let hint = `Press E: ${step.emoji} ${step.name}`;
+    if (step.id === 'shechita' && avodahKorban.slaughterLocation === 'north') {
+      hint += pz <= NORTH_ZONE_Z ? ' ✅ (North zone)' : ' ⚠️ (Walk NORTH past the markers!)';
     }
-  }
-
-  if (dist2D(px, pz, SHIMON_POS.x, SHIMON_POS.z) < INTERACT_DIST) {
-    el.textContent = 'Press E — Talk to Shimon 🏪';
-    el.classList.remove('hidden');
-  } else if (dist2D(px, pz, KIYOR_POS.x, KIYOR_POS.z) < INTERACT_DIST) {
-    el.textContent = 'Press E — Wash at the Kiyor';
-    el.classList.remove('hidden');
-  } else if (leviimModels.some(l => dist2D(px, pz, l.position.x, l.position.z) < INTERACT_DIST)) {
-    el.textContent = 'Press E — Listen to the Leviim 🎵';
-    el.classList.remove('hidden');
-  } else if (dist2D(px, pz, MIZBEACH_POS.x, MIZBEACH_POS.z) < 10 && !avodahActive) {
-    const hasAnimal = Object.keys(gameState.inventory).some(id => SHOP_ITEMS[id]?.category === 'animal' && gameState.inventory[id] > 0);
-    if (hasAnimal) {
-      el.textContent = 'Press E — Begin Avodah 🔥';
-      el.classList.remove('hidden');
-    } else {
-      el.classList.add('hidden');
+    if (['holacha','zerika','haktarah'].includes(step.id) && dist2D(px,pz,0,0) > 12) {
+      hint += ' — Walk to the Mizbeach';
     }
-  } else {
-    el.classList.add('hidden');
+    el.textContent = hint; el.classList.remove('hidden'); return;
   }
+  
+  if (dist2D(px,pz,SHIMON_POS.x,SHIMON_POS.z) < INTERACT_DIST + 2) { el.textContent = 'Press E — Talk to Shimon 🏪'; el.classList.remove('hidden'); return; }
+  if (dist2D(px,pz,KIYOR_POS.x,KIYOR_POS.z) < INTERACT_DIST) { el.textContent = 'Press E — Wash at the Kiyor'; el.classList.remove('hidden'); return; }
+  if (leviimGroups.some(l => dist2D(px,pz,l.position.x,l.position.z) < INTERACT_DIST)) { el.textContent = 'Press E — Listen to the Leviim 🎵'; el.classList.remove('hidden'); return; }
+  if (dist2D(px,pz,0,0) < 14 && !avodahActive) {
+    const has = Object.keys(gameState.inventory).some(id => SHOP_ITEMS[id]?.category === 'animal' && gameState.inventory[id] > 0);
+    if (has) { el.textContent = 'Press E — Begin Avodah 🔥'; el.classList.remove('hidden'); return; }
+  }
+  if (Math.abs(px) < 3 && Math.abs(pz - 26) < 3) { el.textContent = 'Press E — Read the Welcome Sign'; el.classList.remove('hidden'); return; }
+  el.classList.add('hidden');
 }
 
 function closeAllPanels() {
-  ['shop-panel', 'achieve-panel', 'korban-select-panel', 'summary-panel'].forEach(id => {
-    $('#' + id).classList.add('hidden');
+  ['shop-panel','achieve-panel','korban-select-panel','summary-panel'].forEach(id => {
+    const el = $('#'+id); if (el) el.classList.add('hidden');
   });
 }
 
 function isAnyPanelOpen() {
-  return ['shop-panel', 'achieve-panel', 'korban-select-panel', 'summary-panel', 'new-profile-modal'].some(id => {
-    const el = $('#' + id);
-    return el && !el.classList.contains('hidden');
+  return ['shop-panel','achieve-panel','korban-select-panel','summary-panel','new-profile-modal'].some(id => {
+    const el = $('#'+id); return el && !el.classList.contains('hidden');
   });
 }
 
 // ─── Game Loop ───
 function animate() {
-  if (!started) return;
-  requestAnimationFrame(animate);
-
+  animFrameId = requestAnimationFrame(animate);
+  if (!running) return;
+  
   const dt = Math.min(clock.getDelta(), 0.05);
-  const time = clock.getElapsedTime();
-
-  // Auto-save
+  elapsedTime += dt;
+  
   autoSaveTimer += dt;
-  if (autoSaveTimer >= AUTO_SAVE_SEC) {
-    autoSaveTimer = 0;
-    saveGame();
-  }
-
-  if (!isAnyPanelOpen()) {
-    updatePlayer(dt);
-  }
-
-  updateFire(time);
-  updateInteractionPrompt();
+  if (autoSaveTimer >= AUTO_SAVE_SEC) { autoSaveTimer = 0; saveGame(); }
+  
+  if (!isAnyPanelOpen()) updatePlayer(dt);
+  
+  updateFire(elapsedTime);
+  updateNPCs(elapsedTime);
+  updatePrompt();
   updateCamera();
-
+  
   renderer.render(scene, camera);
 }
 
 // ─── Player Movement ───
 function updatePlayer(dt) {
-  let moveX = 0, moveZ = 0;
-
-  if (joystickActive) {
-    moveX = joystickDX;
-    moveZ = joystickDZ;
-  } else {
-    if (keys['w'] || keys['arrowup']) moveZ = -1;
-    if (keys['s'] || keys['arrowdown']) moveZ = 1;
-    if (keys['a'] || keys['arrowleft']) moveX = -1;
-    if (keys['d'] || keys['arrowright']) moveX = 1;
+  let mx = 0, mz = 0;
+  
+  if (joyActive) { mx = joyDX; mz = joyDZ; }
+  else {
+    if (keys['w'] || keys['arrowup']) mz = -1;
+    if (keys['s'] || keys['arrowdown']) mz = 1;
+    if (keys['a'] || keys['arrowleft']) mx = -1;
+    if (keys['d'] || keys['arrowright']) mx = 1;
   }
-
-  // Rotate movement by camera angle
-  const sin = Math.sin(cameraAngleY);
-  const cos = Math.cos(cameraAngleY);
-  const worldX = moveX * cos - moveZ * sin;
-  const worldZ = moveX * sin + moveZ * cos;
-
+  
+  // Camera-relative movement
+  // camAngle = 0 means camera looks along +Z, PI means camera looks along -Z
+  // W should move FORWARD (away from camera = toward where camera looks)
+  // The camera is BEHIND the player, so forward = direction camera faces
+  const sinA = Math.sin(camAngle);
+  const cosA = Math.cos(camAngle);
+  // Forward vector (camera facing direction) is (sinA, cosA) 
+  // Right vector is (cosA, -sinA)
+  const worldX = mx * cosA + mz * sinA;
+  const worldZ = -mx * sinA + mz * cosA;
+  
   const len = Math.sqrt(worldX * worldX + worldZ * worldZ);
   if (len > 0) {
-    const nx = (worldX / len) * PLAYER_SPEED * dt;
-    const nz = (worldZ / len) * PLAYER_SPEED * dt;
-    playerPos.x += nx;
-    playerPos.z += nz;
-
+    const speed = PLAYER_SPEED * dt;
+    const nx = (worldX / len) * speed;
+    const nz = (worldZ / len) * speed;
+    
+    // Try to move, with collision
+    const newX = playerPos.x + nx;
+    const newZ = playerPos.z + nz;
+    if (canMoveTo(newX, playerPos.z)) playerPos.x = newX;
+    if (canMoveTo(playerPos.x, newZ)) playerPos.z = newZ;
+    
     // Face movement direction
-    playerModel.rotation.y = Math.atan2(worldX, worldZ);
-
+    playerGroup.rotation.y = Math.atan2(worldX, worldZ);
+    
     // Leg animation
-    const legAngle = Math.sin(time * 10) * 0.4;
-    if (playerModel.children[6]) playerModel.children[6].rotation.x = legAngle;
-    if (playerModel.children[7]) playerModel.children[7].rotation.x = -legAngle;
+    const legAng = Math.sin(elapsedTime * 10) * 0.4;
+    if (playerGroup.children[6]) playerGroup.children[6].rotation.x = legAng;
+    if (playerGroup.children[7]) playerGroup.children[7].rotation.x = -legAng;
+  } else {
+    // Reset legs when standing
+    if (playerGroup.children[6]) playerGroup.children[6].rotation.x = 0;
+    if (playerGroup.children[7]) playerGroup.children[7].rotation.x = 0;
   }
-
-  // Boundary clamp (stay in azara)
-  playerPos.x = Math.max(AZARA_MIN_X, Math.min(AZARA_MAX_X, playerPos.x));
-  playerPos.z = Math.max(AZARA_MIN_Z, Math.min(AZARA_MAX_Z, playerPos.z));
-
-  // Gravity
-  if (!onGround) {
-    playerVelocityY -= GRAVITY * dt;
-    playerPos.y += playerVelocityY * dt;
-    if (playerPos.y <= 0) {
-      playerPos.y = 0;
-      playerVelocityY = 0;
+  
+  // Ground height (ramp support)
+  const targetY = getGroundHeight(playerPos.x, playerPos.z);
+  
+  // Gravity / grounding
+  if (playerPos.y > targetY + 0.01) {
+    playerVelY -= 18 * dt;
+    playerPos.y += playerVelY * dt;
+    if (playerPos.y <= targetY) {
+      playerPos.y = targetY;
+      playerVelY = 0;
       onGround = true;
+    } else {
+      onGround = false;
     }
+  } else {
+    playerPos.y = targetY;
+    playerVelY = 0;
+    onGround = true;
   }
-
+  
   // Jump
   if ((keys[' '] || keys['space']) && onGround) {
-    playerVelocityY = JUMP_FORCE;
+    playerVelY = 6;
     onGround = false;
   }
-
+  
   // Interact
-  if (keys['e']) {
-    keys['e'] = false;
-    handleInteract();
-  }
-
-  playerModel.position.set(playerPos.x, playerPos.y, playerPos.z);
+  if (keys['e']) { keys['e'] = false; handleInteract(); }
+  
+  playerGroup.position.set(playerPos.x, playerPos.y, playerPos.z);
 }
 
 function updateCamera() {
-  const targetX = playerPos.x - Math.sin(cameraAngleY) * CAM_DISTANCE;
-  const targetZ = playerPos.z - Math.cos(cameraAngleY) * CAM_DISTANCE;
-  const targetY = playerPos.y + CAM_HEIGHT_OFFSET;
-  camera.position.set(targetX, targetY, targetZ);
-  camera.lookAt(playerPos.x, playerPos.y + PLAYER_HEIGHT * 0.7, playerPos.z);
+  const cx = playerPos.x - Math.sin(camAngle) * CAM_DISTANCE;
+  const cz = playerPos.z - Math.cos(camAngle) * CAM_DISTANCE;
+  const cy = playerPos.y + CAM_HEIGHT_OFFSET;
+  camera.position.set(cx, cy, cz);
+  camera.lookAt(playerPos.x, playerPos.y + PLAYER_HEIGHT * 0.6, playerPos.z);
 }
 
-// ─── Visibility save ───
-document.addEventListener('visibilitychange', () => { if (started) saveGame(); });
-window.addEventListener('beforeunload', () => { if (started) saveGame(); });
-window.addEventListener('pagehide', () => { if (started) saveGame(); });
+// ─── Save on visibility change ───
+document.addEventListener('visibilitychange', () => { if (running) saveGame(); });
+window.addEventListener('beforeunload', () => { if (running) saveGame(); });
+window.addEventListener('pagehide', () => { if (running) saveGame(); });
 
 // ─── Boot ───
 renderProfiles();
 
-// Login screen buttons (must be wired before any profile loads)
-$('#new-profile-btn').addEventListener('click', () => {
+$('#new-profile-btn')?.addEventListener('click', () => {
   $('#new-profile-modal').classList.remove('hidden');
   $('#profile-name-input').value = '';
   $('#profile-name-input').focus();
 });
-$('#cancel-profile-btn').addEventListener('click', () => $('#new-profile-modal').classList.add('hidden'));
-$('#create-profile-btn').addEventListener('click', () => {
+$('#cancel-profile-btn')?.addEventListener('click', () => $('#new-profile-modal').classList.add('hidden'));
+$('#create-profile-btn')?.addEventListener('click', () => {
   const name = $('#profile-name-input').value.trim();
   if (!name) return;
   const levelBtn = document.querySelector('.level-btn.selected');
-  const level = parseInt(levelBtn.dataset.level) || 1;
+  const level = parseInt(levelBtn?.dataset?.level) || 1;
   $('#new-profile-modal').classList.add('hidden');
   createProfile(name, level);
 });
@@ -1356,5 +1111,8 @@ document.querySelectorAll('.level-btn').forEach(btn => {
     btn.classList.add('selected');
   });
 });
+
+// Show welcome guidance on first load
+toast('🏛️ Welcome to the Beit HaMikdash!');
 
 })();
