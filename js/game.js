@@ -191,7 +191,10 @@ function _startGame() {
   
   avodahActive = false; avodahStep = 0; avodahKorban = null;
   
-  $('#hud').classList.remove('hidden');
+  console.log('About to show HUD...');
+  const hudEl = document.getElementById('hud');
+  if (!hudEl) { alert('ERROR: #hud element not found!'); return; }
+  hudEl.classList.remove('hidden');
   updateHUD(); updateHotbar(); updateAvodahHUD();
   if (isMobile) $('#mobile-controls').classList.remove('hidden');
   
