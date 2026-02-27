@@ -348,23 +348,25 @@ function buildWorld() {
 
 // ─── Ground Height (for ramp walking) ───
 function getGroundHeight(x, z) {
-  // Check if on the Kevesh (ramp)
-  if (Math.abs(x) < KEVESH_WIDTH / 2 && z > KEVESH_START_Z && z < KEVESH_END_Z) {
+  // Check if on the Kevesh (ramp) — use >= to close the seam at z=KEVESH_START_Z
+  if (Math.abs(x) < KEVESH_WIDTH / 2 && z >= KEVESH_START_Z && z < KEVESH_END_Z) {
     const frac = 1 - (z - KEVESH_START_Z) / (KEVESH_END_Z - KEVESH_START_Z);
     return frac * MIZBEACH_H;
   }
-  // Check if on top of mizbeach
-  if (Math.abs(x) < MIZBEACH_W / 2 && Math.abs(z) < MIZBEACH_D / 2) {
+  // Check if on top of mizbeach — use <= to include boundaries
+  if (Math.abs(x) <= MIZBEACH_W / 2 && Math.abs(z) <= MIZBEACH_D / 2) {
     return MIZBEACH_H;
   }
   return 0;
 }
 
-// ─── Simple AABB collision ───
-function canMoveTo(x, z) {
+// ─── Simple AABB collision (height-aware) ───
+function canMoveTo(x, z, playerY) {
   const r = 0.3; // player radius
   for (const c of COLLIDERS) {
     if (x + r > c.minX && x - r < c.maxX && z + r > c.minZ && z - r < c.maxZ) {
+      // If the player is standing on top of this collider, don't block
+      if (playerY !== undefined && playerY >= c.maxY - 0.1) continue;
       return false;
     }
   }
@@ -544,7 +546,8 @@ function removeWaypoint() {
 }
 function updateWaypoint(t) {
   if (!waypointMesh) return;
-  waypointMesh.position.y += Math.sin(t * 3) * 0.003;
+  if (waypointMesh.userData.baseY === undefined) waypointMesh.userData.baseY = waypointMesh.position.y;
+  waypointMesh.position.y = waypointMesh.userData.baseY + Math.sin(t * 3) * 0.3;
   waypointMesh.rotation.y = t * 2;
   waypointMesh.material.opacity = 0.4 + Math.sin(t * 4) * 0.2;
   if (waypointMesh.userData.pillar) waypointMesh.userData.pillar.material.opacity = 0.15 + Math.sin(t * 3) * 0.1;
@@ -686,9 +689,10 @@ function bindInputs() {
   document.addEventListener('mouseup', () => dragging = false);
   document.addEventListener('mousemove', e => { if (dragging) { camAngle -= (e.clientX - lastMX) * 0.005; lastMX = e.clientX; } });
   
-  // Touch camera (right half of screen)
+  // Touch camera (right half of screen, excluding UI buttons)
   let camTouchId = null, camLastX = 0;
   document.addEventListener('touchstart', e => {
+    if (e.target.closest('button, .panel-overlay, #mobile-interact-btn, #hud-top-right')) return;
     for (const t of e.changedTouches) {
       if (t.clientX > window.innerWidth * 0.4 && running) {
         camTouchId = t.identifier; camLastX = t.clientX;
@@ -725,7 +729,16 @@ function bindInputs() {
         }
       }
     });
-    const endJoy = () => { joyActive = false; joyDX = 0; joyDZ = 0; if (jThumb) jThumb.style.transform = ''; jTouchId = null; };
+    const endJoy = (e) => {
+      for (const t of e.changedTouches) {
+        if (t.identifier === jTouchId) {
+          joyActive = false; joyDX = 0; joyDZ = 0;
+          if (jThumb) jThumb.style.transform = '';
+          jTouchId = null;
+          break;
+        }
+      }
+    };
     document.addEventListener('touchend', endJoy);
     document.addEventListener('touchcancel', endJoy);
   }
@@ -1227,15 +1240,15 @@ function updatePlayer(dt) {
   }
   
   // Camera-relative movement
-  // camAngle = 0 means camera looks along +Z, PI means camera looks along -Z
-  // W should move FORWARD (away from camera = toward where camera looks)
-  // The camera is BEHIND the player, so forward = direction camera faces
+  // Camera is BEHIND the player at angle camAngle
+  // Forward (camera look direction) = (sin(camAngle), cos(camAngle))
+  // Right (camera screen-right) = (-cos(camAngle), sin(camAngle))
   const sinA = Math.sin(camAngle);
   const cosA = Math.cos(camAngle);
-  // Forward vector (camera facing direction) is (sinA, cosA) 
-  // Right vector is (cosA, -sinA)
-  const worldX = mx * cosA + mz * sinA;
-  const worldZ = -mx * sinA + mz * cosA;
+  // mz = -1 for W (forward), so negate it to get forward contribution
+  // mx = +1 for D (right)
+  const worldX = mx * (-cosA) + (-mz) * sinA;
+  const worldZ = mx * sinA + (-mz) * cosA;
   
   const len = Math.sqrt(worldX * worldX + worldZ * worldZ);
   if (len > 0) {
@@ -1243,11 +1256,11 @@ function updatePlayer(dt) {
     const nx = (worldX / len) * speed;
     const nz = (worldZ / len) * speed;
     
-    // Try to move, with collision
+    // Try to move, with collision (height-aware)
     const newX = playerPos.x + nx;
     const newZ = playerPos.z + nz;
-    if (canMoveTo(newX, playerPos.z)) playerPos.x = newX;
-    if (canMoveTo(playerPos.x, newZ)) playerPos.z = newZ;
+    if (canMoveTo(newX, playerPos.z, playerPos.y)) playerPos.x = newX;
+    if (canMoveTo(playerPos.x, newZ, playerPos.y)) playerPos.z = newZ;
     
     // Face movement direction
     playerGroup.rotation.y = Math.atan2(worldX, worldZ);
