@@ -421,12 +421,12 @@ function buildNPCModel(robeColor, accent) {
   const r = new THREE.MeshLambertMaterial({ color: robeColor });
   const s = new THREE.MeshLambertMaterial({ color: 0xE8C4A0 });
   const a = new THREE.MeshLambertMaterial({ color: accent });
-  g.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.9, 0.35), r), { position: new THREE.Vector3(0, 0.85, 0) }));
-  g.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.35, 0.35), s), { position: new THREE.Vector3(0, 1.55, 0) }));
-  g.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.2, 0.38), a), { position: new THREE.Vector3(0, 1.8, 0) }));
+  g.add((() => { const m = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.9, 0.35), r); m.position.set(0, 0.85, 0); return m; })());
+  g.add((() => { const m = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.35, 0.35), s); m.position.set(0, 1.55, 0); return m; })());
+  g.add((() => { const m = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.2, 0.38), a); m.position.set(0, 1.8, 0); return m; })());
   // legs
-  g.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.4, 0.18), r), { position: new THREE.Vector3(-0.12, 0.2, 0) }));
-  g.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.4, 0.18), r), { position: new THREE.Vector3(0.12, 0.2, 0) }));
+  g.add((() => { const m = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.4, 0.18), r); m.position.set(-0.12, 0.2, 0); return m; })());
+  g.add((() => { const m = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.4, 0.18), r); m.position.set(0.12, 0.2, 0); return m; })());
   return g;
 }
 
