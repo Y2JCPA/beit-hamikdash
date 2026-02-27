@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Menachot 47 — Daf Yomi Visual Guide</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Georgia', serif; background: #1a1a2e; color: #e0e0e0; }
+  .slide {
+    min-height: 100vh; padding: 40px 5%; display: flex; flex-direction: column;
+    justify-content: center; align-items: center; border-bottom: 3px solid #c9a84c;
+    position: relative;
+  }
+  .slide-num {
+    position: absolute; top: 20px; right: 30px; font-size: 14px; color: #c9a84c; opacity: 0.7;
+  }
+  h1 { font-size: 2.8em; color: #c9a84c; text-align: center; margin-bottom: 10px; }
+  h2 { font-size: 2em; color: #c9a84c; text-align: center; margin-bottom: 30px; }
+  h3 { font-size: 1.4em; color: #daa520; margin-bottom: 15px; }
+  .subtitle { font-size: 1.2em; color: #aaa; text-align: center; margin-bottom: 40px; }
+  .hebrew { font-family: 'David', 'Times New Roman', serif; direction: rtl; font-size: 1.1em; color: #e8d5a3; }
+  
+  /* Flow chart styles */
+  .flowchart {
+    display: flex; flex-direction: column; align-items: center; gap: 0; max-width: 700px; width: 100%;
+  }
+  .flow-box {
+    background: #16213e; border: 2px solid #c9a84c; border-radius: 12px;
+    padding: 16px 24px; text-align: center; min-width: 280px; max-width: 500px;
+    font-size: 1em; line-height: 1.5;
+  }
+  .flow-box.action { background: #1a3a5c; border-color: #4a90d9; }
+  .flow-box.result-good { background: #1a4a2a; border-color: #4caf50; }
+  .flow-box.result-bad { background: #4a1a1a; border-color: #e74c3c; }
+  .flow-box.result-partial { background: #4a3a1a; border-color: #f39c12; }
+  .flow-box.question { background: #3a1a4a; border-color: #9b59b6; }
+  .flow-arrow {
+    font-size: 28px; color: #c9a84c; line-height: 1; padding: 4px 0;
+  }
+  .flow-branch {
+    display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; width: 100%;
+  }
+  .flow-branch .flow-col {
+    display: flex; flex-direction: column; align-items: center; gap: 0; flex: 1; min-width: 200px;
+  }
+  .flow-label { font-size: 0.85em; color: #aaa; font-style: italic; padding: 2px 0; }
+
+  /* Table styles */
+  table {
+    border-collapse: collapse; margin: 20px auto; max-width: 800px; width: 100%;
+  }
+  th { background: #c9a84c; color: #1a1a2e; padding: 12px 16px; font-size: 0.95em; }
+  td { padding: 10px 16px; border-bottom: 1px solid #333; font-size: 0.95em; text-align: center; }
+  tr:nth-child(even) { background: #16213e; }
+  tr:nth-child(odd) { background: #1a1a2e; }
+  .check { color: #4caf50; font-size: 1.3em; }
+  .cross { color: #e74c3c; font-size: 1.3em; }
+  .partial { color: #f39c12; font-size: 1.3em; }
+
+  /* Comparison boxes */
+  .compare-row {
+    display: flex; gap: 24px; justify-content: center; flex-wrap: wrap; max-width: 900px; width: 100%;
+  }
+  .compare-box {
+    flex: 1; min-width: 260px; max-width: 400px; background: #16213e;
+    border-radius: 12px; padding: 24px; border-top: 4px solid #c9a84c;
+  }
+  .compare-box h3 { text-align: center; }
+  .compare-box ul { list-style: none; padding: 0; }
+  .compare-box li { padding: 6px 0; border-bottom: 1px solid #333; font-size: 0.95em; }
+  .compare-box li:last-child { border-bottom: none; }
+
+  /* Timeline / process diagram */
+  .process-bar {
+    display: flex; align-items: center; gap: 0; max-width: 800px; width: 100%;
+    justify-content: center; flex-wrap: wrap; margin: 20px 0;
+  }
+  .process-step {
+    background: #16213e; border: 2px solid #c9a84c; border-radius: 50%;
+    width: 100px; height: 100px; display: flex; align-items: center; justify-content: center;
+    text-align: center; font-size: 0.85em; padding: 8px; line-height: 1.2;
+  }
+  .process-arrow { font-size: 24px; color: #c9a84c; padding: 0 6px; }
+  .process-step.highlight { border-color: #4caf50; background: #1a4a2a; }
+
+  /* Key concept callout */
+  .callout {
+    background: #16213e; border-left: 5px solid #c9a84c; padding: 20px 24px;
+    max-width: 700px; width: 100%; margin: 20px 0; border-radius: 0 8px 8px 0;
+    font-size: 1.05em; line-height: 1.6;
+  }
+  .callout strong { color: #c9a84c; }
+
+  /* Back-and-forth debate */
+  .debate {
+    max-width: 650px; width: 100%;
+  }
+  .debate-line {
+    display: flex; gap: 12px; margin-bottom: 12px; align-items: flex-start;
+  }
+  .debate-line.right { flex-direction: row-reverse; text-align: right; }
+  .speaker {
+    background: #c9a84c; color: #1a1a2e; border-radius: 50%; width: 40px; height: 40px;
+    display: flex; align-items: center; justify-content: center; font-weight: bold;
+    font-size: 0.75em; flex-shrink: 0;
+  }
+  .speech {
+    background: #16213e; border-radius: 12px; padding: 12px 16px; max-width: 500px;
+    line-height: 1.5; font-size: 0.95em;
+  }
+  .debate-line.right .speech { background: #1a3a5c; }
+  .emoji { font-size: 1.3em; }
+</style>
+</head>
+<body>
+
+<!-- SLIDE 1: Title -->
+<div class="slide" style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);">
+  <div class="slide-num">1 / 8</div>
+  <div style="font-size: 3em; margin-bottom: 20px;">📜</div>
+  <h1>Menachot 47</h1>
+  <div class="subtitle">Daf Yomi Visual Guide</div>
+  <div class="hebrew" style="font-size: 1.3em; margin: 20px 0;">מנחות מ״ז</div>
+  <div style="margin-top: 30px; text-align: center; max-width: 600px; line-height: 1.8; color: #aaa;">
+    <strong style="color: #c9a84c;">Key Topics:</strong><br>
+    🐑 How the Two Lambs consecrate the Two Loaves on Shavuot<br>
+    🔪 Shechitah vs. Zerikah — which action is Mekadesh?<br>
+    🤔 "Kadosh v'Eino Kadosh" — Abaye vs. Rava<br>
+    ⚖️ Piggul, Yotzei, and the effectiveness of Zerikah<br>
+    🔄 Lishmah / Lo Lishmah — the Todah & Pesach comparisons
+  </div>
+</div>
+
+<!-- SLIDE 2: The Shavuot Offering — What are we dealing with? -->
+<div class="slide">
+  <div class="slide-num">2 / 8</div>
+  <h2>🏛️ The Shavuot Korban — Overview</h2>
+  <div class="process-bar">
+    <div class="process-step">🌾<br>Two<br>Loaves</div>
+    <div class="process-arrow">+</div>
+    <div class="process-step">🐑🐑<br>Two<br>Lambs</div>
+    <div class="process-arrow">→</div>
+    <div class="process-step highlight">🔪<br>Shechitah</div>
+    <div class="process-arrow">→</div>
+    <div class="process-step">🩸<br>Zerikah<br>(Blood)</div>
+    <div class="process-arrow">→</div>
+    <div class="process-step">✅<br>Loaves<br>Consecrated</div>
+  </div>
+  <div class="callout">
+    <strong>Core Question of the Daf:</strong> The two lambs of Shavuot consecrate the two loaves — 
+    but <em>which sacrificial action</em> actually does the consecrating? Is it the <strong>Shechitah</strong> (slaughter) alone, 
+    or do you also need the <strong>Zerikah</strong> (sprinkling of blood)?
+  </div>
+  <div class="hebrew" style="margin-top: 10px; text-align: center;">
+    כִּבְשֵׂי עֲצֶרֶת אֵין מְקַדְּשִׁין אֶת הַלֶּחֶם אֶלָּא בִּשְׁחִיטָה
+  </div>
+</div>
+
+<!-- SLIDE 3: The Four Scenarios -->
+<div class="slide">
+  <div class="slide-num">3 / 8</div>
+  <h2>📊 Four Scenarios: Lishmah & Lo Lishmah</h2>
+  <table>
+    <tr>
+      <th>Shechitah</th>
+      <th>Zerikah</th>
+      <th>Loaves Status</th>
+      <th>All Agree?</th>
+    </tr>
+    <tr>
+      <td>✅ Lishmah</td>
+      <td>✅ Lishmah</td>
+      <td style="color: #4caf50; font-weight: bold;">Fully Kadosh</td>
+      <td><span class="check">✓</span> Yes</td>
+    </tr>
+    <tr>
+      <td>❌ Lo Lishmah</td>
+      <td>❌ Lo Lishmah</td>
+      <td style="color: #e74c3c; font-weight: bold;">Not Kadosh</td>
+      <td><span class="check">✓</span> Yes</td>
+    </tr>
+    <tr>
+      <td>✅ Lishmah</td>
+      <td>❌ Lo Lishmah</td>
+      <td style="color: #f39c12; font-weight: bold;">Kadosh v'Eino Kadosh ⚡</td>
+      <td><span class="cross">✗</span> Machlokes!</td>
+    </tr>
+    <tr>
+      <td>❌ Lo Lishmah</td>
+      <td>✅ Lishmah</td>
+      <td style="color: #e74c3c; font-weight: bold;">Not Kadosh</td>
+      <td><span class="check">✓</span> Yes</td>
+    </tr>
+  </table>
+  <div class="callout" style="margin-top: 20px;">
+    <strong>The fight is Scenario 3:</strong> Shechitah was Lishmah ✅ but Zerikah was Lo Lishmah ❌.<br>
+    <strong>Rebbi</strong> says: "Kadosh v'Eino Kadosh" (partially consecrated).<br>
+    <strong>R' Elazar b'R' Shimon</strong> says: Not Kadosh at all — you need BOTH actions Lishmah.
+  </div>
+</div>
+
+<!-- SLIDE 4: Rebbi vs R' Elazar b'R' Shimon -->
+<div class="slide">
+  <div class="slide-num">4 / 8</div>
+  <h2>⚔️ Rebbi vs. R' Elazar b'R' Shimon</h2>
+  <div style="margin-bottom: 15px; color: #aaa; text-align: center;">Source: Bamidbar 6:17 — <span class="hebrew">וְאֶת הָאַיִל יַעֲשֶׂה זֶבַח שְׁלָמִים לַה׳ עַל סַל הַמַּצּוֹת</span></div>
+  <div class="compare-row">
+    <div class="compare-box" style="border-top-color: #4a90d9;">
+      <h3 style="color: #4a90d9;">Rebbi (R' Yehuda HaNasi)</h3>
+      <ul>
+        <li>🔪 <strong>Shechitah alone</strong> is Mekadesh the loaves</li>
+        <li>📖 Reads: "Ya'aseh <strong>Zevach</strong>" → By what means? <em>By slaughter!</em></li>
+        <li>💡 Shechitah = the defining act of consecration</li>
+        <li>⚡ If Zerikah is Lo Lishmah → loaves are partially Kadosh</li>
+      </ul>
+    </div>
+    <div class="compare-box" style="border-top-color: #e74c3c;">
+      <h3 style="color: #e74c3c;">R' Elazar b'R' Shimon</h3>
+      <ul>
+        <li>🔪🩸 <strong>Both Shechitah + Zerikah</strong> needed</li>
+        <li>📖 Reads: "<strong>Ya'aseh</strong>" → Until ALL actions are done</li>
+        <li>💡 "Zevach" teaches R' Yochanan's rule: loaves must exist at Shechitah time</li>
+        <li>⚡ If Zerikah is Lo Lishmah → loaves are NOT Kadosh at all</li>
+      </ul>
+    </div>
+  </div>
+  <div class="callout" style="margin-top: 20px;">
+    <strong>R' Yochanan — Everyone agrees:</strong> The loaves must be present (in the Azarah) at the time of Shechitah, even if Shechitah alone doesn't fully consecrate them.
+  </div>
+</div>
+
+<!-- SLIDE 5: "Kadosh v'Eino Kadosh" — Abaye vs Rava -->
+<div class="slide">
+  <div class="slide-num">5 / 8</div>
+  <h2>🤔 What is "Kadosh v'Eino Kadosh"?</h2>
+  <div style="margin-bottom: 20px; text-align: center; color: #aaa;">According to Rebbi — when Shechitah was Lishmah but Zerikah was Lo Lishmah</div>
+  <div class="compare-row">
+    <div class="compare-box" style="border-top-color: #9b59b6;">
+      <h3 style="color: #9b59b6;">Abaye</h3>
+      <ul>
+        <li>📌 "Kadosh but <strong>not fully</strong> Kadosh"</li>
+        <li>💰 Does NOT transfer Kedushah to redemption money</li>
+        <li>🚪 IS disqualified if it leaves the Azarah (Yotzei)</li>
+        <li>🍽️ NOT permitted to be eaten</li>
+      </ul>
+    </div>
+    <div class="compare-box" style="border-top-color: #2ecc71;">
+      <h3 style="color: #2ecc71;">Rava</h3>
+      <ul>
+        <li>📌 "Fully Kadosh but <strong>not permitted</strong>"</li>
+        <li>💰 DOES transfer Kedushah to redemption money</li>
+        <li>🚪 IS disqualified if it leaves the Azarah (Yotzei)</li>
+        <li>🍽️ NOT permitted to be eaten</li>
+      </ul>
+    </div>
+  </div>
+  <table style="margin-top: 30px;">
+    <tr>
+      <th>Nafka Mina (Practical Diff)</th>
+      <th>Abaye</th>
+      <th>Rava</th>
+    </tr>
+    <tr>
+      <td>Can eat the loaves?</td>
+      <td><span class="cross">✗</span> No</td>
+      <td><span class="cross">✗</span> No</td>
+    </tr>
+    <tr>
+      <td>Tofes Pidyono (transfers to redemption $)?</td>
+      <td><span class="cross">✗</span> No</td>
+      <td><span class="check">✓</span> Yes</td>
+    </tr>
+    <tr>
+      <td>Nifsal b'Yotzei (disqualified if leaves Azarah)?</td>
+      <td><span class="check">✓</span> Yes</td>
+      <td><span class="check">✓</span> Yes</td>
+    </tr>
+  </table>
+</div>
+
+<!-- SLIDE 6: R' Eliezer vs R' Akiva — Piggul & Yotzei -->
+<div class="slide">
+  <div class="slide-num">6 / 8</div>
+  <h2>⚖️ Piggul & Yotzei — R' Eliezer vs R' Akiva</h2>
+  <div style="text-align: center; color: #aaa; margin-bottom: 20px;">
+    Case: Loaves left the Azarah between Shechitah and Zerikah.<br>
+    Zerikah was done with intent of Chutz li'Zmano (Piggul intent).
+  </div>
+  <div class="flowchart">
+    <div class="flow-box action">🔪 Shechitah Lishmah<br><small>(Loaves present — all agree Shechitah is Mekadesh per Rebbi)</small></div>
+    <div class="flow-arrow">↓</div>
+    <div class="flow-box" style="border-color: #e74c3c;">🚪 Loaves LEAVE the Azarah</div>
+    <div class="flow-arrow">↓</div>
+    <div class="flow-box action">🩸 Zerikah with Piggul intent (Chutz li'Zmano)</div>
+    <div class="flow-arrow">↓</div>
+    <div class="flow-branch">
+      <div class="flow-col">
+        <div class="flow-label">R' Eliezer</div>
+        <div class="flow-box result-bad">
+          ❌ Loaves are NOT Piggul<br>
+          <small>Zerikah doesn't work on Yotzei.<br>Already disqualified when they left.</small>
+        </div>
+      </div>
+      <div class="flow-col">
+        <div class="flow-label">R' Akiva</div>
+        <div class="flow-box result-partial">
+          ⚠️ Loaves ARE Piggul<br>
+          <small>Zerikah IS effective on Yotzei.<br>It "reaches" the loaves even outside.</small>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="callout" style="margin-top: 20px;">
+    <strong>Rav Sheshes:</strong> Both hold like Rebbi (Shechitah is Mekadesh). They argue about the 
+    general principle: <em>does Zerikah take effect on something that left the Azarah?</em>
+  </div>
+</div>
+
+<!-- SLIDE 7: R' Yirmeyah's Dilemma — the Todah / Pesach comparison -->
+<div class="slide">
+  <div class="slide-num">7 / 8</div>
+  <h2>🔄 Can You Switch to "Lo Lishmah"?</h2>
+  <div style="text-align: center; color: #aaa; margin-bottom: 20px;">
+    R' Yirmeyah's dilemma to R' Zeira (47b): Shechitah was Lishmah, then the loaves were lost.<br>
+    Can you do Zerikah Lo Lishmah (as a plain Shelamim) to permit the meat?
+  </div>
+  <div class="debate">
+    <div class="debate-line">
+      <div class="speaker" style="background: #4a90d9;">RZ</div>
+      <div class="speech">Can anything be Pasul Lishmah yet Kosher Lo Lishmah? That doesn't make sense!</div>
+    </div>
+    <div class="debate-line right">
+      <div class="speaker" style="background: #e67e22;">RY</div>
+      <div class="speech"><span class="emoji">🐑</span> What about Korban Pesach before midday? It's Pasul Lishmah but Kosher as a Shelamim!</div>
+    </div>
+    <div class="debate-line">
+      <div class="speaker" style="background: #4a90d9;">RZ</div>
+      <div class="speech">I meant: something that WAS fit Lishmah, then got rejected, and now you want Lo Lishmah to work?</div>
+    </div>
+    <div class="debate-line right">
+      <div class="speaker" style="background: #e67e22;">RY</div>
+      <div class="speech"><span class="emoji">🐑</span> Pesach after its time! It was fit, got rejected, Pasul Lishmah, Kosher as Shelamim!</div>
+    </div>
+    <div class="debate-line">
+      <div class="speaker" style="background: #4a90d9;">RZ</div>
+      <div class="speech">I meant: was fit, was SLAUGHTERED Lishmah, then rejected — can Lo Lishmah still work?</div>
+    </div>
+    <div class="debate-line right">
+      <div class="speaker" style="background: #e67e22;">RY</div>
+      <div class="speech"><span class="emoji">🙏</span> What about Todah! Slaughtered Lishmah, loaves broke, Zerikah as Shelamim works!</div>
+    </div>
+    <div class="debate-line">
+      <div class="speaker" style="background: #4a90d9;">RZ</div>
+      <div class="speech">Todah is different — the Torah itself calls it "Shelamim." That's why it works. Our case is not the same. <span class="emoji">🏁</span></div>
+    </div>
+  </div>
+  <div class="callout" style="margin-top: 20px;">
+    <strong>Bottom line:</strong> R' Zeira rejects the comparison. Kivsei Atzeres that lost their loaves 
+    CANNOT be saved by switching to Lo Lishmah — unlike Todah, which the Torah calls Shelamim.
+  </div>
+</div>
+
+<!-- SLIDE 8: Summary -->
+<div class="slide">
+  <div class="slide-num">8 / 8</div>
+  <h2>📋 Menachot 47 — Summary Map</h2>
+  <div class="flowchart" style="max-width: 800px;">
+    <div class="flow-box" style="background: #2a1a3e; border-color: #c9a84c; font-size: 1.1em;">
+      <strong>Central Question:</strong> What consecrates the Two Loaves of Shavuot?
+    </div>
+    <div class="flow-arrow">↓</div>
+    <div class="flow-branch">
+      <div class="flow-col">
+        <div class="flow-box" style="border-color: #4a90d9;">
+          <strong>Rebbi:</strong><br>Shechitah alone
+        </div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-box" style="border-color: #9b59b6; font-size: 0.9em;">
+          "Kadosh v'Eino Kadosh"<br>
+          Abaye: not fully Kadosh<br>
+          Rava: Kadosh but not permitted
+        </div>
+      </div>
+      <div class="flow-col">
+        <div class="flow-box" style="border-color: #e74c3c;">
+          <strong>R' Elazar b'R'S:</strong><br>Shechitah + Zerikah
+        </div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-box" style="border-color: #e74c3c; font-size: 0.9em;">
+          Without both Lishmah<br>→ Not Kadosh at all
+        </div>
+      </div>
+    </div>
+    <div class="flow-arrow">↓</div>
+    <div class="flow-box question">
+      <strong>Side issues explored:</strong><br>
+      🔹 Piggul on Yotzei — R' Eliezer vs R' Akiva<br>
+      🔹 Can Lo Lishmah save lost loaves? — R' Yirmeyah vs R' Zeira<br>
+      🔹 Todah as Shelamim — unique Torah designation
+    </div>
+    <div class="flow-arrow">↓</div>
+    <div class="flow-box result-good" style="font-size: 1.05em;">
+      🎓 <strong>Key Principle:</strong> The relationship between the lambs and loaves 
+      is defined by intent at critical moments — Shechitah is the anchor point, 
+      but the Tanna'im disagree whether it alone is sufficient.
+    </div>
+  </div>
+  <div style="margin-top: 30px; text-align: center; color: #666; font-size: 0.85em;">
+    Menachot 47a-47b · Daf Yomi · Sources: Sefaria (William Davidson Edition), DafYomi.co.il
+  </div>
+</div>
+
+</body>
+</html>
