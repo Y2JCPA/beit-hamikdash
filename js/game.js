@@ -30,6 +30,14 @@ const PLAYER_SPRINT_MULT = 1.35;
 const MAX_ACTIVE_PARTICLES = 120;
 const KAVANAH_WINDOW_SEC = 6;
 const TAHARAH_BUFF_SEC = 45;
+const FRAME_DT_MAX = 0.05;
+const FRAME_DT_SMOOTH_ALPHA = 0.2;
+const MOVE_ACCEL = 30;
+const MOVE_DECEL = 24;
+const ENABLE_CAMERA_SMOOTHING = true;
+const CAMERA_LERP_STRENGTH = 10;
+const INTERACT_DEBOUNCE_SEC = 0.18;
+const INTERACT_RANGE_BONUS = 0.4;
 
 // Expanded Azara (was 38x38, now 70x70)
 const AZARA_HALF = 32;
@@ -63,6 +71,7 @@ let gameState = {
 // ─── Three.js Globals ───
 let scene, camera, renderer, clock;
 let playerGroup, playerPos, playerVelY = 0, onGround = true;
+let playerVelX = 0, playerVelZ = 0;
 let camAngle = Math.PI;  // Start facing north (into the azara)
 let keys = {};
 let running = false;
@@ -70,6 +79,10 @@ let animFrameId = null;
 let autoSaveTimer = 0;
 let elapsedTime = 0;
 let uiRefreshTimer = 0;
+let smoothedDt = 1 / 60;
+let lastInteractAt = -999;
+let hasAnimalForAvodah = false;
+let inventoryDirty = true;
 
 // NPCs
 let shimonGroup, leviimGroups = [], fireBoxes = [];
@@ -78,6 +91,10 @@ let shimonGroup, leviimGroups = [], fireBoxes = [];
 let waypointMesh = null, particles = [], particlePool = [], worldLabels = [];
 let particleGeometry = null;
 let worldLabelProjectVec = null;
+let cameraTargetPos = null;
+let cameraLookTarget = null;
+let cameraLookCurrent = null;
+const PANEL_IDS = ['shop-panel','achieve-panel','korban-select-panel','summary-panel','new-profile-modal'];
 
 // Avodah
 let avodahActive = false, avodahStep = 0, avodahKorban = null;
@@ -145,6 +162,7 @@ function loadProfile(id) {
     const raw = localStorage.getItem(SAVE_PREFIX + id);
     if (raw) { const d = JSON.parse(raw); Object.keys(d).forEach(k => { if (k in gameState) gameState[k] = d[k]; }); }
   } catch {}
+  markInventoryDirty();
   $('#login-screen').classList.add('hidden');
   startGame();
 }
@@ -157,6 +175,18 @@ function saveGame() {
     const p = profiles.find(x => x.id === activeProfileId);
     if (p) { p.coins = gameState.coins; p.korbanot = gameState.korbanotCompleted; p.level = gameState.level; saveProfiles(profiles); }
   } catch {}
+}
+
+function markInventoryDirty() {
+  inventoryDirty = true;
+}
+
+function refreshInventoryDerivedState() {
+  if (!inventoryDirty) return;
+  hasAnimalForAvodah = Object.keys(gameState.inventory).some(
+    id => SHOP_ITEMS[id]?.category === 'animal' && gameState.inventory[id] > 0
+  );
+  inventoryDirty = false;
 }
 
 function disposeMaterial(mat) {
@@ -204,6 +234,9 @@ function teardownScene() {
   camera = null;
   particleGeometry = null;
   worldLabelProjectVec = null;
+  cameraTargetPos = null;
+  cameraLookTarget = null;
+  cameraLookCurrent = null;
 }
 
 // ─── Scene Setup ───
@@ -260,11 +293,20 @@ function startGame() {
   _dbg('9. Fire built');
   
   playerPos = new THREE.Vector3(0, 0, 20);
+  playerVelX = 0;
+  playerVelZ = 0;
+  playerVelY = 0;
+  smoothedDt = 1 / 60;
+  lastInteractAt = -999;
   camAngle = Math.PI;
+  refreshInventoryDerivedState();
   
   // Set camera position immediately
   camera.position.set(0, 4, 28);
   camera.lookAt(0, 1, 20);
+  cameraTargetPos = new THREE.Vector3(0, 4, 28);
+  cameraLookTarget = new THREE.Vector3(0, 1, 20);
+  cameraLookCurrent = new THREE.Vector3(0, 1, 20);
   _dbg('10. Camera at (0,4,28) looking at (0,1,20)');
   
   // Test render
@@ -924,6 +966,7 @@ function buyItem(id) {
   gameState.coins -= item.price;
   gameState.totalSpent += item.price;
   gameState.inventory[id] = (gameState.inventory[id] || 0) + 1;
+  markInventoryDirty();
   toast(`Bought ${item.emoji} ${item.name}!`);
   playSFX('buy');
   checkAch('big_spender', gameState.totalSpent >= 500);
@@ -935,6 +978,7 @@ function sellItem(id, price) {
   if (!gameState.inventory[id] || gameState.inventory[id] <= 0) return;
   gameState.inventory[id]--;
   if (gameState.inventory[id] <= 0) delete gameState.inventory[id];
+  markInventoryDirty();
   gameState.coins += price;
   toast(`Sold ${SHOP_ITEMS[id]?.emoji || ''} for 🪙${price}`);
   updateHUD(); updateHotbar(); saveGame();
@@ -1020,6 +1064,7 @@ function beginAvodah(korbanId) {
   }
   gameState.inventory[korban.animal]--;
   if (gameState.inventory[korban.animal] <= 0) delete gameState.inventory[korban.animal];
+  markInventoryDirty();
   
   avodahActive = true;
   avodahKorban = korban;
@@ -1174,24 +1219,57 @@ function completeAvodah() {
 }
 
 // ─── Interaction ───
-function handleInteract() {
-  if (!running) return;
-  if (avodahActive) { advanceAvodah(); return; }
-  
+function getInteractionContext() {
   const px = playerPos.x, pz = playerPos.z;
-  
-  if (isWithinDist(px, pz, SHIMON_POS.x, SHIMON_POS.z, INTERACT_DIST + 2)) { openShop(); return; }
-  
+  const shimonDist = INTERACT_DIST + 2 + INTERACT_RANGE_BONUS;
+  if (isWithinDist(px, pz, SHIMON_POS.x, SHIMON_POS.z, shimonDist)) return { type: 'shimon' };
+
+  let nearestLevi = null;
+  let nearestLeviDistSq = Infinity;
+  const leviRange = INTERACT_DIST + INTERACT_RANGE_BONUS;
+  const leviRangeSq = leviRange * leviRange;
   for (const levi of leviimGroups) {
-    if (isWithinDist(px, pz, levi.position.x, levi.position.z, INTERACT_DIST)) {
-      const inst = INSTRUMENTS[levi.userData.instrumentId];
-      playInstrument(levi.userData.instrumentId);
-      showEdu(`${inst.emoji} ${inst.name} (${inst.nameHe})\n${inst.desc}`, inst.source);
-      return;
+    const dx = px - levi.position.x;
+    const dz = pz - levi.position.z;
+    const d2 = dx * dx + dz * dz;
+    if (d2 <= leviRangeSq && d2 < nearestLeviDistSq) {
+      nearestLevi = levi;
+      nearestLeviDistSq = d2;
     }
   }
-  
-  if (isWithinDist(px, pz, KIYOR_POS.x, KIYOR_POS.z, INTERACT_DIST)) {
+  if (nearestLevi) return { type: 'levi', levi: nearestLevi };
+
+  if (isWithinDist(px, pz, KIYOR_POS.x, KIYOR_POS.z, INTERACT_DIST + INTERACT_RANGE_BONUS)) return { type: 'kiyor' };
+
+  if (isWithinDist(px, pz, 0, 0, 14 + INTERACT_RANGE_BONUS)) {
+    refreshInventoryDerivedState();
+    if (hasAnimalForAvodah) return { type: 'mizbeach' };
+    return { type: 'mizbeach-no-animal' };
+  }
+
+  if (Math.abs(px) < 3.2 && Math.abs(pz - 26) < 3.2) return { type: 'sign' };
+  return null;
+}
+
+function handleInteract() {
+  if (!running) return;
+  if (elapsedTime - lastInteractAt < INTERACT_DEBOUNCE_SEC) return;
+  lastInteractAt = elapsedTime;
+  if (avodahActive) { advanceAvodah(); return; }
+
+  const ctx = getInteractionContext();
+  if (!ctx) return;
+
+  if (ctx.type === 'shimon') { openShop(); return; }
+
+  if (ctx.type === 'levi') {
+    const inst = INSTRUMENTS[ctx.levi.userData.instrumentId];
+    playInstrument(ctx.levi.userData.instrumentId);
+    showEdu(`${inst.emoji} ${inst.name} (${inst.nameHe})\n${inst.desc}`, inst.source);
+    return;
+  }
+
+  if (ctx.type === 'kiyor') {
     if (taharahBuffUntil - elapsedTime < 8) {
       taharahBuffUntil = elapsedTime + TAHARAH_BUFF_SEC;
       spawnParticles(KIYOR_POS.x, 2.5, KIYOR_POS.z, 0x5AB7FF, 16);
@@ -1201,16 +1279,18 @@ function handleInteract() {
     showEdu('The Kiyor (כיור) — a bronze laver. Every Kohen must wash hands and feet before the Avodah.\n\n"And Aharon and his sons shall wash their hands and feet from it." (Shemot 30:19)', 'Shemot 30:19-21');
     return;
   }
-  
-  if (isWithinDist(px, pz, 0, 0, 14)) {
-    const hasAnimal = Object.keys(gameState.inventory).some(id => SHOP_ITEMS[id]?.category === 'animal' && gameState.inventory[id] > 0);
-    if (hasAnimal) { openKorbanSelect(); return; }
+
+  if (ctx.type === 'mizbeach') {
+    openKorbanSelect();
+    return;
+  }
+
+  if (ctx.type === 'mizbeach-no-animal') {
     toast('Buy an animal from Shimon first! 🏪 (He\'s at the booth to the southeast)');
     return;
   }
-  
-  // Welcome sign
-  if (Math.abs(px) < 3 && Math.abs(pz - 26) < 3) {
+
+  if (ctx.type === 'sign') {
     showEdu('Welcome to the Beit HaMikdash!\n\n🏪 Visit Shimon (southeast) to buy a korban\n🔪 Walk north to slaughter\n🔥 Bring blood to the Mizbeach\n📖 Talk to the Leviim to hear their music!', '');
     return;
   }
@@ -1219,7 +1299,7 @@ function handleInteract() {
 function isWithinDist(x1, z1, x2, z2, maxDist) {
   const dx = x1 - x2;
   const dz = z1 - z2;
-  return dx * dx + dz * dz < maxDist * maxDist;
+  return dx * dx + dz * dz <= maxDist * maxDist;
 }
 
 // ─── UI ───
@@ -1301,26 +1381,24 @@ function updatePrompt() {
     }
     el.textContent = hint; el.classList.remove('hidden'); return;
   }
-  
-  if (isWithinDist(px, pz, SHIMON_POS.x, SHIMON_POS.z, INTERACT_DIST + 2)) { el.textContent = 'Press E — Talk to Shimon 🏪'; el.classList.remove('hidden'); return; }
-  if (isWithinDist(px, pz, KIYOR_POS.x, KIYOR_POS.z, INTERACT_DIST)) { el.textContent = 'Press E — Wash at the Kiyor'; el.classList.remove('hidden'); return; }
-  if (leviimGroups.some(l => isWithinDist(px, pz, l.position.x, l.position.z, INTERACT_DIST))) { el.textContent = 'Press E — Listen to the Leviim 🎵'; el.classList.remove('hidden'); return; }
-  if (isWithinDist(px, pz, 0, 0, 14) && !avodahActive) {
-    const has = Object.keys(gameState.inventory).some(id => SHOP_ITEMS[id]?.category === 'animal' && gameState.inventory[id] > 0);
-    if (has) { el.textContent = 'Press E — Begin Avodah 🔥'; el.classList.remove('hidden'); return; }
-  }
-  if (Math.abs(px) < 3 && Math.abs(pz - 26) < 3) { el.textContent = 'Press E — Read the Welcome Sign'; el.classList.remove('hidden'); return; }
+
+  const ctx = getInteractionContext();
+  if (ctx?.type === 'shimon') { el.textContent = 'Press E — Talk to Shimon 🏪'; el.classList.remove('hidden'); return; }
+  if (ctx?.type === 'kiyor') { el.textContent = 'Press E — Wash at the Kiyor'; el.classList.remove('hidden'); return; }
+  if (ctx?.type === 'levi') { el.textContent = 'Press E — Listen to the Leviim 🎵'; el.classList.remove('hidden'); return; }
+  if (ctx?.type === 'mizbeach') { el.textContent = 'Press E — Begin Avodah 🔥'; el.classList.remove('hidden'); return; }
+  if (ctx?.type === 'sign') { el.textContent = 'Press E — Read the Welcome Sign'; el.classList.remove('hidden'); return; }
   el.classList.add('hidden');
 }
 
 function closeAllPanels() {
-  ['shop-panel','achieve-panel','korban-select-panel','summary-panel'].forEach(id => {
+  PANEL_IDS.slice(0, 4).forEach(id => {
     const el = $('#'+id); if (el) el.classList.add('hidden');
   });
 }
 
 function isAnyPanelOpen() {
-  return ['shop-panel','achieve-panel','korban-select-panel','summary-panel','new-profile-modal'].some(id => {
+  return PANEL_IDS.some(id => {
     const el = $('#'+id); return el && !el.classList.contains('hidden');
   });
 }
@@ -1329,8 +1407,11 @@ function isAnyPanelOpen() {
 function animate() {
   animFrameId = requestAnimationFrame(animate);
   if (!running) return;
-  
-  const dt = Math.min(clock.getDelta(), 0.05);
+
+  const rawDt = clock.getDelta();
+  const clampedDt = Math.min(rawDt, FRAME_DT_MAX);
+  smoothedDt += (clampedDt - smoothedDt) * FRAME_DT_SMOOTH_ALPHA;
+  const dt = smoothedDt;
   elapsedTime += dt;
   
   autoSaveTimer += dt;
@@ -1345,13 +1426,14 @@ function animate() {
   uiRefreshTimer += dt;
   if (uiRefreshTimer >= UI_REFRESH_SEC) {
     uiRefreshTimer = 0;
+    refreshInventoryDerivedState();
     updatePrompt();
     updateCompass();
     updateZoneIndicator();
     updateStatusEffects();
     updateWorldLabels();
   }
-  updateCamera();
+  updateCamera(dt);
   
   renderer.render(scene, camera);
 }
@@ -1378,28 +1460,39 @@ function updatePlayer(dt) {
   // Right vector is (cosA, -sinA)
   const worldX = mx * cosA + mz * sinA;
   const worldZ = -mx * sinA + mz * cosA;
-  
-  const len = Math.sqrt(worldX * worldX + worldZ * worldZ);
-  if (len > 0) {
-    const speed = PLAYER_SPEED * (keys.shift ? PLAYER_SPRINT_MULT : 1) * dt;
-    const nx = (worldX / len) * speed;
-    const nz = (worldZ / len) * speed;
-    
-    // Try to move, with collision
-    const newX = playerPos.x + nx;
-    const newZ = playerPos.z + nz;
-    if (canMoveTo(newX, playerPos.z)) playerPos.x = newX;
-    if (canMoveTo(playerPos.x, newZ)) playerPos.z = newZ;
-    
-    // Face movement direction
-    playerGroup.rotation.y = Math.atan2(worldX, worldZ);
-    
-    // Leg animation
-    const legAng = Math.sin(elapsedTime * 10) * 0.4;
+
+  const len = Math.hypot(worldX, worldZ);
+  const speedMul = keys.shift ? PLAYER_SPRINT_MULT : 1;
+  const targetSpeed = PLAYER_SPEED * speedMul;
+  let targetVelX = 0;
+  let targetVelZ = 0;
+  if (len > 0.0001) {
+    targetVelX = (worldX / len) * targetSpeed;
+    targetVelZ = (worldZ / len) * targetSpeed;
+  }
+
+  const accel = len > 0.0001 ? MOVE_ACCEL : MOVE_DECEL;
+  const t = Math.min(1, accel * dt);
+  playerVelX += (targetVelX - playerVelX) * t;
+  playerVelZ += (targetVelZ - playerVelZ) * t;
+
+  // Try to move, with collision
+  const nx = playerVelX * dt;
+  const nz = playerVelZ * dt;
+  const newX = playerPos.x + nx;
+  const newZ = playerPos.z + nz;
+  if (canMoveTo(newX, playerPos.z)) playerPos.x = newX;
+  else playerVelX = 0;
+  if (canMoveTo(playerPos.x, newZ)) playerPos.z = newZ;
+  else playerVelZ = 0;
+
+  const movingSpeedSq = playerVelX * playerVelX + playerVelZ * playerVelZ;
+  if (movingSpeedSq > 0.01) {
+    playerGroup.rotation.y = Math.atan2(playerVelX, playerVelZ);
+    const legAng = Math.sin(elapsedTime * (8 + speedMul * 2)) * 0.4;
     if (playerGroup.children[6]) playerGroup.children[6].rotation.x = legAng;
     if (playerGroup.children[7]) playerGroup.children[7].rotation.x = -legAng;
   } else {
-    // Reset legs when standing
     if (playerGroup.children[6]) playerGroup.children[6].rotation.x = 0;
     if (playerGroup.children[7]) playerGroup.children[7].rotation.x = 0;
   }
@@ -1436,12 +1529,26 @@ function updatePlayer(dt) {
   playerGroup.position.set(playerPos.x, playerPos.y, playerPos.z);
 }
 
-function updateCamera() {
+function updateCamera(dt) {
   const cx = playerPos.x - Math.sin(camAngle) * CAM_DISTANCE;
   const cz = playerPos.z - Math.cos(camAngle) * CAM_DISTANCE;
   const cy = playerPos.y + CAM_HEIGHT_OFFSET;
-  camera.position.set(cx, cy, cz);
-  camera.lookAt(playerPos.x, playerPos.y + PLAYER_HEIGHT * 0.6, playerPos.z);
+  const lx = playerPos.x;
+  const ly = playerPos.y + PLAYER_HEIGHT * 0.6;
+  const lz = playerPos.z;
+
+  if (!ENABLE_CAMERA_SMOOTHING) {
+    camera.position.set(cx, cy, cz);
+    camera.lookAt(lx, ly, lz);
+    return;
+  }
+
+  cameraTargetPos.set(cx, cy, cz);
+  cameraLookTarget.set(lx, ly, lz);
+  const lerpT = 1 - Math.exp(-CAMERA_LERP_STRENGTH * dt);
+  camera.position.lerp(cameraTargetPos, lerpT);
+  cameraLookCurrent.lerp(cameraLookTarget, lerpT);
+  camera.lookAt(cameraLookCurrent);
 }
 
 // ─── Save on visibility change ───

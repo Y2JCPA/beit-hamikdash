@@ -26,6 +26,13 @@ Coming soon at: https://y2jcpa.github.io/beit-hamikdash/
 - Gameplay polish: `Taharah Focus` buff from the Kiyor (+10% coin rewards for 45s)
 - Added sprint movement with `Shift` for smoother traversal in the larger Azara
 
+## 🎯 Feel Pass v2
+- Added frame-time smoothing + hard dt clamp to reduce spike jitter on unstable frame rates
+- Smoothed player acceleration/deceleration for less abrupt starts/stops
+- Added optional camera follow smoothing (small lerp) for steadier third-person motion
+- Improved interaction reliability with shared prompt/use targeting, nearest-target selection, range buffer, and short debounce
+- Reduced repeated per-frame work by caching inventory-derived interaction state and reusing panel id lists
+
 ## 📚 Sources
 - Vayikra 1-7 (Laws of Korbanot)
 - Mishnah Zevachim Ch. 5 (Eizehu Mekoman)
