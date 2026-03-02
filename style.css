@@ -84,6 +84,16 @@ canvas { display: block; }
 }
 .avodah-step.active { background: rgba(212,168,83,0.9); color: white; transform: scale(1.1); }
 .avodah-step.done { background: rgba(39,174,96,0.9); color: white; }
+#status-effects {
+  margin-top: 8px;
+  background: rgba(26, 60, 94, 0.8);
+  color: #e7f8ff;
+  border: 1px solid rgba(90, 183, 255, 0.55);
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 5px 10px;
+}
 
 #hotbar {
   position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%);

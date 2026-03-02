@@ -17,6 +17,15 @@ Coming soon at: https://y2jcpa.github.io/beit-hamikdash/
 - Mobile + desktop
 - No frameworks, no dependencies
 
+## ⚡ Performance & Gameplay improvements
+- Added scene teardown/disposal between runs to prevent renderer/mesh/material leaks
+- Optimized particle system: capped active particles, pooled particle meshes, removed per-frame vector cloning
+- Reduced frame-time overhead: throttled HUD/label DOM updates, avoided per-frame world-label allocations, replaced hot distance checks with squared-distance math
+- Hardened input handling: key repeat guard on interact, prevented browser scroll/input conflicts for movement keys
+- Gameplay polish: `Kavanah Streak` bonus for chaining Avodah steps quickly
+- Gameplay polish: `Taharah Focus` buff from the Kiyor (+10% coin rewards for 45s)
+- Added sprint movement with `Shift` for smoother traversal in the larger Azara
+
 ## 📚 Sources
 - Vayikra 1-7 (Laws of Korbanot)
 - Mishnah Zevachim Ch. 5 (Eizehu Mekoman)

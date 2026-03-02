@@ -25,6 +25,11 @@ const PROFILES_KEY = 'mikdash_profiles';
 const SAVE_PREFIX = 'mikdash_save_';
 const MAX_PROFILES = 10;
 const AUTO_SAVE_SEC = 10;
+const UI_REFRESH_SEC = 0.05;
+const PLAYER_SPRINT_MULT = 1.35;
+const MAX_ACTIVE_PARTICLES = 120;
+const KAVANAH_WINDOW_SEC = 6;
+const TAHARAH_BUFF_SEC = 45;
 
 // Expanded Azara (was 38x38, now 70x70)
 const AZARA_HALF = 32;
@@ -64,16 +69,22 @@ let running = false;
 let animFrameId = null;
 let autoSaveTimer = 0;
 let elapsedTime = 0;
+let uiRefreshTimer = 0;
 
 // NPCs
 let shimonGroup, leviimGroups = [], fireBoxes = [];
 
 // Enhanced: waypoints, particles, labels
-let waypointMesh = null, particles = [], worldLabels = [];
+let waypointMesh = null, particles = [], particlePool = [], worldLabels = [];
+let particleGeometry = null;
+let worldLabelProjectVec = null;
 
 // Avodah
 let avodahActive = false, avodahStep = 0, avodahKorban = null;
 let avodahMistakes = 0, avodahSteps = [];
+let kavanahStreak = 0;
+let lastAvodahStepAt = 0;
+let taharahBuffUntil = 0;
 
 // Audio
 let audioCtx = null;
@@ -148,13 +159,63 @@ function saveGame() {
   } catch {}
 }
 
+function disposeMaterial(mat) {
+  if (!mat) return;
+  if (Array.isArray(mat)) {
+    mat.forEach(disposeMaterial);
+    return;
+  }
+  mat.dispose?.();
+}
+
+function teardownScene() {
+  if (animFrameId) {
+    cancelAnimationFrame(animFrameId);
+    animFrameId = null;
+  }
+  running = false;
+  removeWaypoint();
+  worldLabels.forEach(l => l.div.remove());
+  worldLabels = [];
+  particles.length = 0;
+  particlePool.length = 0;
+  if (scene) {
+    const seenGeos = new Set();
+    const seenMats = new Set();
+    scene.traverse(obj => {
+      if (!obj.isMesh) return;
+      if (obj.geometry && !seenGeos.has(obj.geometry)) {
+        seenGeos.add(obj.geometry);
+        obj.geometry.dispose?.();
+      }
+      const mat = obj.material;
+      if (mat && !seenMats.has(mat)) {
+        seenMats.add(mat);
+        disposeMaterial(mat);
+      }
+    });
+  }
+  if (renderer) {
+    renderer.domElement.remove();
+    renderer.dispose();
+  }
+  scene = null;
+  renderer = null;
+  camera = null;
+  particleGeometry = null;
+  worldLabelProjectVec = null;
+}
+
 // ─── Scene Setup ───
 function startGame() {
   _dbg('1. startGame called');
-  // Prevent stacked loops
-  if (animFrameId) { cancelAnimationFrame(animFrameId); animFrameId = null; }
-  
-  if (renderer) { renderer.domElement.remove(); renderer.dispose(); }
+  teardownScene();
+  autoSaveTimer = 0;
+  elapsedTime = 0;
+  uiRefreshTimer = 0;
+  taharahBuffUntil = 0;
+  kavanahStreak = 0;
+  lastAvodahStepAt = 0;
   
   _dbg('2. Creating scene...');
   scene = new THREE.Scene();
@@ -170,6 +231,8 @@ function startGame() {
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.BasicShadowMap;
   document.body.insertBefore(renderer.domElement, document.body.firstChild);
+  particleGeometry = new THREE.BoxGeometry(1, 1, 1);
+  worldLabelProjectVec = new THREE.Vector3();
   _dbg('3. Renderer created: ' + renderer.domElement.width + 'x' + renderer.domElement.height);
   
   // Lights
@@ -216,7 +279,7 @@ function startGame() {
   
   $('#hud').classList.remove('hidden');
   _dbg('12. HUD shown');
-  updateHUD(); updateHotbar(); updateAvodahHUD();
+  updateHUD(); updateHotbar(); updateAvodahHUD(); updateStatusEffects();
   if (isMobile) $('#mobile-controls').classList.remove('hidden');
   
   buildLabels();
@@ -494,27 +557,44 @@ function playSFX(type) {
 
 // ─── Particles ───
 function spawnParticles(x, y, z, color, count) {
-  for (let i = 0; i < count; i++) {
+  const room = Math.max(0, MAX_ACTIVE_PARTICLES - particles.length);
+  const emitCount = Math.min(count, room);
+  for (let i = 0; i < emitCount; i++) {
+    let m = particlePool.pop();
+    if (!m) {
+      m = new THREE.Mesh(
+        particleGeometry,
+        new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.9 })
+      );
+      m.userData.vel = new THREE.Vector3();
+    }
     const s = 0.08 + Math.random() * 0.12;
-    const m = new THREE.Mesh(
-      new THREE.BoxGeometry(s, s, s),
-      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9 })
-    );
+    m.material.color.setHex(color);
+    m.material.opacity = 0.9;
     m.position.set(x, y, z);
-    m.userData.vel = new THREE.Vector3((Math.random()-0.5)*3, Math.random()*4+1, (Math.random()-0.5)*3);
+    m.scale.setScalar(s);
     m.userData.life = 1;
-    scene.add(m); particles.push(m);
+    m.userData.vel.set((Math.random() - 0.5) * 3, Math.random() * 4 + 1, (Math.random() - 0.5) * 3);
+    scene.add(m);
+    particles.push(m);
   }
 }
 function updateParticles(dt) {
   for (let i = particles.length - 1; i >= 0; i--) {
     const p = particles[i];
     p.userData.life -= dt * 1.5;
-    if (p.userData.life <= 0) { scene.remove(p); particles.splice(i, 1); continue; }
-    p.position.add(p.userData.vel.clone().multiplyScalar(dt));
+    if (p.userData.life <= 0) {
+      scene.remove(p);
+      particles.splice(i, 1);
+      particlePool.push(p);
+      continue;
+    }
+    p.position.x += p.userData.vel.x * dt;
+    p.position.y += p.userData.vel.y * dt;
+    p.position.z += p.userData.vel.z * dt;
     p.userData.vel.y -= 6 * dt;
     p.material.opacity = p.userData.life;
-    p.scale.setScalar(p.userData.life);
+    p.scale.multiplyScalar(0.985);
   }
 }
 
@@ -544,6 +624,14 @@ function removeWaypoint() {
 }
 function updateWaypoint(t) {
   if (!waypointMesh) return;
+  if (avodahActive && avodahSteps[avodahStep]?.id === 'shechita' && avodahKorban?.slaughterLocation === 'anywhere') {
+    waypointMesh.position.x = playerPos.x;
+    waypointMesh.position.z = playerPos.z;
+    if (waypointMesh.userData.pillar) {
+      waypointMesh.userData.pillar.position.x = playerPos.x;
+      waypointMesh.userData.pillar.position.z = playerPos.z;
+    }
+  }
   waypointMesh.position.y += Math.sin(t * 3) * 0.003;
   waypointMesh.rotation.y = t * 2;
   waypointMesh.material.opacity = 0.4 + Math.sin(t * 4) * 0.2;
@@ -572,12 +660,13 @@ function updateWorldLabels() {
   if (!camera || !renderer) return;
   const w2 = renderer.domElement.clientWidth / 2, h2 = renderer.domElement.clientHeight / 2;
   for (const l of worldLabels) {
-    const v = l.pos.clone().project(camera);
-    const dist = l.pos.distanceTo(camera.position);
-    if (v.z > 1 || dist > 40) { l.div.style.display = 'none'; continue; }
+    worldLabelProjectVec.copy(l.pos).project(camera);
+    const distSq = l.pos.distanceToSquared(camera.position);
+    if (worldLabelProjectVec.z > 1 || distSq > 1600) { l.div.style.display = 'none'; continue; }
     l.div.style.display = 'block';
-    l.div.style.left = ((v.x * w2) + w2) + 'px';
-    l.div.style.top = (-(v.y * h2) + h2) + 'px';
+    l.div.style.left = ((worldLabelProjectVec.x * w2) + w2) + 'px';
+    l.div.style.top = (-(worldLabelProjectVec.y * h2) + h2) + 'px';
+    const dist = Math.sqrt(distSq);
     l.div.style.opacity = Math.max(0, Math.min(1, 1 - (dist - 25) / 15));
   }
 }
@@ -676,7 +765,13 @@ function playInstrument(id) {
 
 // ─── Input ───
 function bindInputs() {
-  window.addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; });
+  const blockedKeys = new Set(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright',' ','space','e','shift']);
+  window.addEventListener('keydown', e => {
+    const key = e.key.toLowerCase();
+    if (blockedKeys.has(key)) e.preventDefault();
+    if (e.repeat && key === 'e') return;
+    keys[key] = true;
+  });
   window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
   
   // Mouse look (drag on canvas)
@@ -931,8 +1026,10 @@ function beginAvodah(korbanId) {
   avodahMistakes = 0;
   avodahStep = 0;
   avodahSteps = AVODAH_STEPS[korban.type] || AVODAH_STEPS.olah;
+  kavanahStreak = 0;
+  lastAvodahStepAt = 0;
   
-  updateHotbar(); updateAvodahHUD(); updateAvodahWaypoints();
+  updateHotbar(); updateAvodahHUD(); updateAvodahWaypoints(); updateStatusEffects();
   toast(`Beginning ${korban.emoji} ${korban.name}!`);
   
   // First-time guidance
@@ -980,7 +1077,7 @@ function advanceAvodah() {
   }
   
   if (['holacha', 'zerika', 'haktarah'].includes(step.id)) {
-    if (dist2D(px, pz, 0, 0) > 12) {
+    if (!isWithinDist(px, pz, 0, 0, 12)) {
       toast('Walk closer to the Mizbeach!');
       return;
     }
@@ -1012,9 +1109,14 @@ function advanceAvodah() {
   playSFX('step');
   const pColor = step.id === 'shechita' ? 0xFF3333 : step.id === 'zerika' ? 0xCC0000 : step.id === 'haktarah' ? 0xFF6600 : 0xFFD700;
   spawnParticles(playerPos.x, playerPos.y + 1, playerPos.z, pColor, 12);
+  if (lastAvodahStepAt > 0 && elapsedTime - lastAvodahStepAt <= KAVANAH_WINDOW_SEC) kavanahStreak++;
+  else kavanahStreak = 1;
+  lastAvodahStepAt = elapsedTime;
+  if (kavanahStreak >= 2) toast(`✨ Kavanah Streak x${kavanahStreak}`);
   avodahStep++;
   updateAvodahHUD();
   updateAvodahWaypoints();
+  updateStatusEffects();
   
   if (avodahStep >= avodahSteps.length) completeAvodah();
 }
@@ -1023,8 +1125,12 @@ function completeAvodah() {
   avodahActive = false;
   const k = avodahKorban;
   const perfect = avodahMistakes === 0;
-  const bonus = perfect ? Math.round(k.coinReward * 0.5) : 0;
-  const total = k.coinReward + bonus;
+  const perfectBonus = perfect ? Math.round(k.coinReward * 0.5) : 0;
+  const streakBonus = Math.max(0, (kavanahStreak - 1) * 2);
+  const taharahBonus = elapsedTime < taharahBuffUntil
+    ? Math.round((k.coinReward + perfectBonus + streakBonus) * 0.1)
+    : 0;
+  const total = k.coinReward + perfectBonus + streakBonus + taharahBonus;
   
   gameState.coins += total;
   gameState.totalCoinsEarned += total;
@@ -1047,7 +1153,10 @@ function completeAvodah() {
     <div class="summary-detail">${k.description}</div>
     <div class="summary-source">📖 ${k.source} | ${k.mishnah}</div>
     ${eatenText}
-    <div class="summary-coins">+🪙${total}${bonus > 0 ? ` (includes +${bonus} perfect bonus!)` : ''}</div>
+    <div class="summary-coins">+🪙${total}</div>
+    ${perfectBonus > 0 ? `<div class="summary-detail">✨ Perfect bonus: +${perfectBonus}</div>` : ''}
+    ${streakBonus > 0 ? `<div class="summary-detail">🕊️ Kavanah streak bonus: +${streakBonus}</div>` : ''}
+    ${taharahBonus > 0 ? `<div class="summary-detail">🚿 Taharah focus bonus: +${taharahBonus}</div>` : ''}
     ${perfect ? '<div style="color:#27ae60;font-weight:700;">✨ Perfect Service!</div>' : `<div style="color:#e67e22;">Mistakes: ${avodahMistakes}</div>`}
     <button class="btn btn-gold summary-btn" id="summary-close-btn">Continue</button>`;
   $('#summary-close-btn').addEventListener('click', () => $('#summary-panel').classList.add('hidden'));
@@ -1055,9 +1164,12 @@ function completeAvodah() {
   
   playSFX('complete');
   spawnParticles(playerPos.x, playerPos.y + 1.5, playerPos.z, 0xFFD700, 25);
+  if (streakBonus > 0 || taharahBonus > 0) toast(`+🪙 Bonuses: ${streakBonus + taharahBonus}`);
   avodahKorban = null; avodahSteps = []; avodahStep = 0;
+  kavanahStreak = 0;
+  lastAvodahStepAt = 0;
   removeWaypoint();
-  updateAvodahHUD(); updateHUD(); updateHotbar(); saveGame();
+  updateAvodahHUD(); updateStatusEffects(); updateHUD(); updateHotbar(); saveGame();
   checkLevelUp();
 }
 
@@ -1068,10 +1180,10 @@ function handleInteract() {
   
   const px = playerPos.x, pz = playerPos.z;
   
-  if (dist2D(px, pz, SHIMON_POS.x, SHIMON_POS.z) < INTERACT_DIST + 2) { openShop(); return; }
+  if (isWithinDist(px, pz, SHIMON_POS.x, SHIMON_POS.z, INTERACT_DIST + 2)) { openShop(); return; }
   
   for (const levi of leviimGroups) {
-    if (dist2D(px, pz, levi.position.x, levi.position.z) < INTERACT_DIST) {
+    if (isWithinDist(px, pz, levi.position.x, levi.position.z, INTERACT_DIST)) {
       const inst = INSTRUMENTS[levi.userData.instrumentId];
       playInstrument(levi.userData.instrumentId);
       showEdu(`${inst.emoji} ${inst.name} (${inst.nameHe})\n${inst.desc}`, inst.source);
@@ -1079,12 +1191,18 @@ function handleInteract() {
     }
   }
   
-  if (dist2D(px, pz, KIYOR_POS.x, KIYOR_POS.z) < INTERACT_DIST) {
+  if (isWithinDist(px, pz, KIYOR_POS.x, KIYOR_POS.z, INTERACT_DIST)) {
+    if (taharahBuffUntil - elapsedTime < 8) {
+      taharahBuffUntil = elapsedTime + TAHARAH_BUFF_SEC;
+      spawnParticles(KIYOR_POS.x, 2.5, KIYOR_POS.z, 0x5AB7FF, 16);
+      toast('🚿 Taharah Focus: +10% coin rewards for 45s');
+    }
+    updateStatusEffects();
     showEdu('The Kiyor (כיור) — a bronze laver. Every Kohen must wash hands and feet before the Avodah.\n\n"And Aharon and his sons shall wash their hands and feet from it." (Shemot 30:19)', 'Shemot 30:19-21');
     return;
   }
   
-  if (dist2D(px, pz, 0, 0) < 14) {
+  if (isWithinDist(px, pz, 0, 0, 14)) {
     const hasAnimal = Object.keys(gameState.inventory).some(id => SHOP_ITEMS[id]?.category === 'animal' && gameState.inventory[id] > 0);
     if (hasAnimal) { openKorbanSelect(); return; }
     toast('Buy an animal from Shimon first! 🏪 (He\'s at the booth to the southeast)');
@@ -1098,7 +1216,11 @@ function handleInteract() {
   }
 }
 
-function dist2D(x1, z1, x2, z2) { return Math.sqrt((x1-x2)**2 + (z1-z2)**2); }
+function isWithinDist(x1, z1, x2, z2, maxDist) {
+  const dx = x1 - x2;
+  const dz = z1 - z2;
+  return dx * dx + dz * dz < maxDist * maxDist;
+}
 
 // ─── UI ───
 function toast(msg) {
@@ -1148,6 +1270,21 @@ function updateHotbar() {
   });
 }
 
+function updateStatusEffects() {
+  const el = $('#status-effects');
+  if (!el) return;
+  const parts = [];
+  if (avodahActive && kavanahStreak >= 2) parts.push(`✨ Kavanah x${kavanahStreak}`);
+  const buffLeft = Math.max(0, Math.ceil(taharahBuffUntil - elapsedTime));
+  if (buffLeft > 0) parts.push(`🚿 Taharah +10% (${buffLeft}s)`);
+  if (parts.length === 0) {
+    el.classList.add('hidden');
+    return;
+  }
+  el.textContent = parts.join('  •  ');
+  el.classList.remove('hidden');
+}
+
 function updatePrompt() {
   const el = $('#interaction-prompt');
   if (!el) return;
@@ -1159,16 +1296,16 @@ function updatePrompt() {
     if (step.id === 'shechita' && avodahKorban.slaughterLocation === 'north') {
       hint += pz <= NORTH_ZONE_Z ? ' ✅ (North zone)' : ' ⚠️ (Walk NORTH past the markers!)';
     }
-    if (['holacha','zerika','haktarah'].includes(step.id) && dist2D(px,pz,0,0) > 12) {
+    if (['holacha','zerika','haktarah'].includes(step.id) && !isWithinDist(px, pz, 0, 0, 12)) {
       hint += ' — Walk to the Mizbeach';
     }
     el.textContent = hint; el.classList.remove('hidden'); return;
   }
   
-  if (dist2D(px,pz,SHIMON_POS.x,SHIMON_POS.z) < INTERACT_DIST + 2) { el.textContent = 'Press E — Talk to Shimon 🏪'; el.classList.remove('hidden'); return; }
-  if (dist2D(px,pz,KIYOR_POS.x,KIYOR_POS.z) < INTERACT_DIST) { el.textContent = 'Press E — Wash at the Kiyor'; el.classList.remove('hidden'); return; }
-  if (leviimGroups.some(l => dist2D(px,pz,l.position.x,l.position.z) < INTERACT_DIST)) { el.textContent = 'Press E — Listen to the Leviim 🎵'; el.classList.remove('hidden'); return; }
-  if (dist2D(px,pz,0,0) < 14 && !avodahActive) {
+  if (isWithinDist(px, pz, SHIMON_POS.x, SHIMON_POS.z, INTERACT_DIST + 2)) { el.textContent = 'Press E — Talk to Shimon 🏪'; el.classList.remove('hidden'); return; }
+  if (isWithinDist(px, pz, KIYOR_POS.x, KIYOR_POS.z, INTERACT_DIST)) { el.textContent = 'Press E — Wash at the Kiyor'; el.classList.remove('hidden'); return; }
+  if (leviimGroups.some(l => isWithinDist(px, pz, l.position.x, l.position.z, INTERACT_DIST))) { el.textContent = 'Press E — Listen to the Leviim 🎵'; el.classList.remove('hidden'); return; }
+  if (isWithinDist(px, pz, 0, 0, 14) && !avodahActive) {
     const has = Object.keys(gameState.inventory).some(id => SHOP_ITEMS[id]?.category === 'animal' && gameState.inventory[id] > 0);
     if (has) { el.textContent = 'Press E — Begin Avodah 🔥'; el.classList.remove('hidden'); return; }
   }
@@ -1205,10 +1342,15 @@ function animate() {
   updateNPCs(elapsedTime);
   updateWaypoint(elapsedTime);
   updateParticles(dt);
-  updatePrompt();
-  updateCompass();
-  updateZoneIndicator();
-  updateWorldLabels();
+  uiRefreshTimer += dt;
+  if (uiRefreshTimer >= UI_REFRESH_SEC) {
+    uiRefreshTimer = 0;
+    updatePrompt();
+    updateCompass();
+    updateZoneIndicator();
+    updateStatusEffects();
+    updateWorldLabels();
+  }
   updateCamera();
   
   renderer.render(scene, camera);
@@ -1239,7 +1381,7 @@ function updatePlayer(dt) {
   
   const len = Math.sqrt(worldX * worldX + worldZ * worldZ);
   if (len > 0) {
-    const speed = PLAYER_SPEED * dt;
+    const speed = PLAYER_SPEED * (keys.shift ? PLAYER_SPRINT_MULT : 1) * dt;
     const nx = (worldX / len) * speed;
     const nz = (worldZ / len) * speed;
     
