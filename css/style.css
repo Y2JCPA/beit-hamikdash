@@ -134,7 +134,8 @@ button { font-family: var(--font); cursor: pointer; }
 #fc-text { font-size: 15.5px; line-height: 1.35; margin: 6px 0; }
 #fc-src { font-size: 12.5px; color: #8a6a2a; font-style: italic; }
 
-#world-labels { position: absolute; inset: 0; overflow: hidden; }
+#world-labels { position: absolute; inset: 0; overflow: hidden; z-index: 0; }
+#hud-tl, #hud-tr, #prompt, #fact-card, #toasts, #edge-arrow, #zone-name { z-index: 2; }
 .wl { position: absolute; transform: translate(-50%, -100%); white-space: nowrap; text-align: center; pointer-events: none; transition: opacity .3s; }
 .wl .bubble { display: inline-block; background: rgba(251,243,223,.95); color: var(--ink); font-weight: 700; padding: 3px 10px; border-radius: 12px; font-size: 14px; box-shadow: 0 3px 10px rgba(0,0,0,.35); }
 .wl .bang { display: inline-block; width: 30px; height: 30px; line-height: 30px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff3b0, #f2b937 60%, #c47d0e); color: #4a2a00; font-weight: 900; font-size: 20px; box-shadow: 0 0 16px rgba(255,200,80,.9); animation: bounce 1s ease-in-out infinite; }
@@ -282,7 +283,7 @@ button { font-family: var(--font); cursor: pointer; }
   #qc-step { font-size: 14px; }
   #minimap { width: 112px; height: 112px; }
   .hud-btn { width: 40px; height: 40px; font-size: 19px; }
-  #fact-card { left: 12px; right: 12px; width: auto; bottom: calc(180px + var(--safe-b)); }
+  #fact-card { left: 12px; right: 12px; width: auto; bottom: calc(222px + var(--safe-b)); }
   #prompt { bottom: calc(150px + var(--safe-b)); font-size: 16px; }
   #dialog { bottom: calc(10px + var(--safe-b)); }
   #dlg-text { font-size: 16px; }
@@ -290,11 +291,11 @@ button { font-family: var(--font); cursor: pointer; }
 body.mg #hud-tl, body.mg #hud-tr, body.mg #zone-name, body.mg #fact-card { display: none; }
 @media (max-height: 520px) {
   #quest-card #qc-steps { display: none; }
-  #fact-card { left: auto; right: 12px; top: auto; bottom: 10px; width: min(330px, 42vw); padding: 8px 10px; }
+  #fact-card { left: 50%; right: auto; top: 8px; bottom: auto; transform: translateX(-50%); width: min(330px, 34vw); padding: 8px 10px; animation: none; }
   #fc-text { font-size: 13.5px; }
   #hud-tl { width: min(280px, 40vw); }
   #qc-step { font-size: 13px; padding: 6px 8px; }
-  #toasts { top: 40px; }
+  #toasts { top: auto; bottom: calc(170px + var(--safe-b)); }
   #zone-name { font-size: 15px; } #zone-name .he { font-size: 18px; }
   #minimap { width: 96px; height: 96px; }
   #prompt { bottom: calc(110px + var(--safe-b)); }

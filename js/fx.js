@@ -329,7 +329,7 @@ export function lightShaft(scene, from, to, width = 1.2, color = 0xfff0c8, opaci
     uniforms: { uColor: { value: new THREE.Color(color) }, uOp: { value: opacity } },
     vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
     fragmentShader: `uniform vec3 uColor; uniform float uOp; varying vec2 vUv;
-      void main(){ float a = sin(vUv.x*3.14159*2.0)*0.5+0.5; a = pow(a, 0.5)*uOp*(0.4+0.6*vUv.y); gl_FragColor = vec4(uColor*a, 1.0); }`,
+      void main(){ float a = sin(vUv.x*3.14159*2.0)*0.5+0.5; a = pow(a, 0.5)*uOp*smoothstep(0.0, 0.45, vUv.y); gl_FragColor = vec4(uColor*a, 1.0); }`,
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, toneMapped: false,
   });
   const m = new THREE.Mesh(g, mat);

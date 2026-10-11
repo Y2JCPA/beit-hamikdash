@@ -190,6 +190,7 @@ export class Game {
     // Menorah flames
     this.lampFires = this.world.menorahLamps.map((p, i) => {
       const f = new Fire(scene, p.clone().setY(p.y - 0.06), 0.085, 3, false);
+      f.uniforms.uIntensity.value = 0.45;
       f.setVisible(i === 0);
       return f;
     });
@@ -325,6 +326,7 @@ export class Game {
       a.group.position.copy(a.pos); a.group.rotation.y = a.facing; a.baseY = 0;
       a.update(dt, sp);
     }
+    if (this.extraKohanim) for (const c of this.extraKohanim) c.update(dt, 0);
     for (const v of this.visitors) {
       v.char.update(dt, v.walkSpeed || 0);
       if (v.animal) { v.animal.update(dt, 0); }
@@ -485,6 +487,13 @@ export class Game {
     if (!st.intro) {
       st.intro = true;
       await this.introCinematic();
+      await this.ui.dialog({
+        icon: '🎮', name: 'How to play',
+        text: this.ui.touch
+          ? 'Move with the joystick on the left. Drag the screen to look around. When you see a golden button at the bottom, tap ✋ to act — some things need you to HOLD it. Follow the golden light!'
+          : 'Walk with W A S D or the arrow keys (hold Shift to run). Drag with the mouse to look around. When a golden prompt appears, press E — some things need you to HOLD E. Follow the golden light!',
+        buttons: [{ label: 'Let\'s go! ▶', value: true }],
+      });
     }
     if (!st.dayDone) this.startDaily(st.dailyIndex);
     else {
@@ -641,19 +650,18 @@ export class Game {
   walkVisitor(v, to, endFacing) {
     return new Promise((resolve) => {
       v.x = v.char.group.position.x; v.z = v.char.group.position.z;
-      let t = 0;
+      const start = performance.now();
       this.tasks = this.tasks || [];
       this.tasks.push((dt) => {
-        t += dt;
         const dx = to.x - v.x, dz = to.z - v.z, d = Math.hypot(dx, dz);
-        // teleport the last stretch if it takes too long (keeps the scene snappy)
-        if (d < 0.25 || t > 4) {
+        // finish the last stretch instantly if it takes too long (keeps the scene snappy)
+        if (d < 0.25 || performance.now() - start > 3500) {
           v.x = to.x; v.z = to.z; v.walkSpeed = 0;
           v.char.group.position.set(v.x, this.physics.groundAt(v.x, v.z, 1, 0.5), v.z);
           if (endFacing !== undefined) v.char.group.rotation.y = endFacing;
           resolve(); return true;
         }
-        const sp = Math.min(6, Math.max(2.5, d / 2.5));
+        const sp = Math.min(8, Math.max(3, d / 2));
         v.x += dx / d * sp * dt; v.z += dz / d * sp * dt;
         v.char.group.position.set(v.x, this.physics.groundAt(v.x, v.z, 1, 0.5), v.z);
         v.char.group.rotation.y = Math.atan2(dx, dz);
@@ -975,6 +983,7 @@ export class Game {
     this.crowd.setBow(false);
     this.ui.cine(false);
     extra.forEach(c => { this.scene.remove(c.group); disposeBaked(c.group); });
+    this.extraKohanim = null;
     this.crowd.lookAt = null;
     pl.char.pose = 'idle';
     this.ui.show('#hud', true);
@@ -1155,7 +1164,7 @@ export class Game {
 
   updateMarkers() {
     const s = this.runner.step;
-    if (!s || this.runner.busy || s.kind === 'auto') { this.hideMarkers(); return null; }
+    if (!s || this.runner.busy || s.kind === 'auto' || this.camOverride) { this.hideMarkers(); return null; }
     const guided = this.settings.guided || s.kind === 'go';
     const t = this.runner.target(s);
     if (s.kind === 'choose') {
@@ -1210,7 +1219,7 @@ export class Game {
       this.env.setHour(this.hour);
       if (h.t >= h.dur) { this.hourTween = null; h.resolve(); }
     }
-    if (this.tasks) this.tasks = this.tasks.filter(fn => !fn(dt));
+    if (this.tasks) { const rd = this.realDt; this.tasks = this.tasks.filter(fn => !fn(rd)); }
 
     if (this.mode === 'title') {
       const a = t * 0.05;
@@ -1306,6 +1315,12 @@ export class Game {
     this.scene.environmentIntensity = b.envI * (1 - 0.7 * k);
     this.env.hemi.intensity = b.hemi * (1 - 0.5 * k);
     this.hallLight.intensity = 4 + 9 * k;
+    // metals carry their own env map, so dim their sky reflections indoors too
+    const mi = 0.9 * (1 - 0.72 * k);
+    if (Math.abs(mi - (this._metalEnv ?? -1)) > 0.01) {
+      this._metalEnv = mi;
+      for (const m of this.env.metalMats) m.envMapIntensity = mi;
+    }
     this.renderer.toneMappingExposure = b.exp * (1 + 0.15 * k);
   }
 

@@ -160,7 +160,7 @@ export class Minigames {
   }
 
   // ───────── Timing meter (kemitzah) ─────────
-  meter({ title, hint, button = 'Now!', zone = [0.42, 0.58], speed = 0.9 }) {
+  meter({ title, hint, button = 'Now!', zone = [0.37, 0.63], speed = 0.5 }) {
     return new Promise((resolve) => {
       $('#mt-title').textContent = title;
       $('#mt-hint').textContent = hint;
@@ -175,6 +175,13 @@ export class Minigames {
         if (x >= zone[0] && x <= zone[1]) {
           done = true; audio.play('success');
           setTimeout(() => { $('#meter').classList.add('hidden'); this.active = null; resolve({ tries }); }, 500);
+        } else if (tries >= 3) {
+          // after a few tries, the Memuneh guides your hand
+          done = true; x = (zone[0] + zone[1]) / 2;
+          $('#mt-needle').style.left = (x * 100) + '%';
+          $('#mt-hint').textContent = 'Elazar guides your hand — just right!';
+          audio.play('success');
+          setTimeout(() => { $('#meter').classList.add('hidden'); this.active = null; resolve({ tries }); }, 900);
         } else {
           audio.play('error');
           $('#mt-hint').textContent = x < zone[0] ? 'Too little! A kometz is a full handful.' : 'Too much! Only what fits under three fingers.';

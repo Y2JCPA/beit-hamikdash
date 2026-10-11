@@ -701,6 +701,14 @@ function buildHeichal(b, scene, out) {
   b.boxMM(MAT.goldRelief, Hh.frontWallX1, fy, -23, Hh.frontWallX1 + 0.06, 40, -Hh.doorHalfW - 2.6);
   b.boxMM(MAT.goldRelief, Hh.frontWallX1, fy, Hh.doorHalfW + 2.6, Hh.frontWallX1 + 0.06, 40, 23);
   b.boxMM(MAT.goldRelief, Hh.frontWallX1, Hh.doorTopY + 0.6, -Hh.doorHalfW - 2.6, Hh.frontWallX1 + 0.06, 40, Hh.doorHalfW + 2.6);
+  // gilded door jambs and lintel through the thickness of the Heichal wall
+  b.boxMM(MAT.goldRelief, Hh.frontWallX0, fy, -Hh.doorHalfW, Hh.frontWallX1, Hh.doorTopY, -Hh.doorHalfW + 0.05);
+  b.boxMM(MAT.goldRelief, Hh.frontWallX0, fy, Hh.doorHalfW - 0.05, Hh.frontWallX1, Hh.doorTopY, Hh.doorHalfW);
+  b.boxMM(MAT.goldRelief, Hh.frontWallX0, Hh.doorTopY - 0.05, -Hh.doorHalfW, Hh.frontWallX1, Hh.doorTopY, Hh.doorHalfW);
+  // the Ulam's own opening is lined with gold as well
+  b.boxMM(MAT.gold, U.frontX - 1, fy, -ow, U.frontX, oy, -ow + 0.05);
+  b.boxMM(MAT.gold, U.frontX - 1, fy, ow - 0.05, U.frontX, oy, ow);
+  b.boxMM(MAT.gold, U.frontX - 1, oy - 0.05, -ow, U.frontX, oy, ow);
   // golden doors on the outside of the Heichal door
   b.boxMM(MAT.gold, Hh.frontWallX1, fy, -Hh.doorHalfW - 2.6, Hh.frontWallX1 + 0.12, Hh.doorTopY, -Hh.doorHalfW);
   b.boxMM(MAT.gold, Hh.frontWallX1, fy, Hh.doorHalfW, Hh.frontWallX1 + 0.12, Hh.doorTopY, Hh.doorHalfW + 2.6);
