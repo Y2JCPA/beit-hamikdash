@@ -1,37 +1,16 @@
-# Known Issues — V2
+# Notes & Known Limitations — V3
 
-## Fixed in V2 (from V1)
-- [x] Direction keys inverted → Rewrote camera-relative movement math
-- [x] Can't walk up Kevesh → Built step ramp + getGroundHeight() system
-- [x] Wrong animal = stuck → Added sell-back at 50% price
-- [x] Azara too small → Expanded from 38×38 to 66×66 units
-- [x] Lag → Disabled antialias, optimized meshes
-- [x] Stacked animate loops → cancelAnimationFrame before new loop
-- [x] Leg animation broken → Fixed scope (now uses elapsedTime)
-- [x] Korban select only first animal → Shows ALL available korbanot
-- [x] No guidance → Welcome sign + toast + first-avodah guidance
-- [x] NPCs static → Idle animations (bob, sway)
-- [x] No collision → AABB collision system (walls, mizbeach, ulam)
-- [x] No sell-back → Sell section in shop at 50% price
+V3 is a full rebuild of the V2 voxel prototype. All of the V2 items are fixed by the rebuild: movement direction, walking up the ramp, the korban flow, guidance, fire and particle effects, sound, the favicon, the camera, waypoints, Menachot, the Heichal interior, the Kohen Gadol, and more NPCs.
 
-## Needs Testing (may still have issues)
-- [ ] Movement direction — math rewritten, needs user confirmation
-- [ ] Ramp walking — step-based, needs testing on mobile
-- [ ] Korban flow end-to-end — buy → walk north → shechita → kabbalah → holacha → zerika → haktarah
+## Simplifications (on purpose, for kids)
+- Shechita is shown as a soft glow and sparkles. There is no knife or animal harm on screen, and the dam is shown only as a small mark.
+- The order of the morning Avodah follows Mishnah Tamid but is shortened. For example, the eivarim are burned right after zerika instead of after the Ketoret and Birkat Kohanim.
+- Hefshet and nituach (flaying and cutting), the chavitin, and the afternoon Tamid are not playable yet.
+- The Ezrat Kohanim and Ezrat Yisrael are drawn at the same floor level.
 
-## Minor / Polish
-- [ ] Fire effect could be better (still basic boxes)
-- [ ] No sound effects beyond instruments  
-- [ ] Missing favicon
-- [ ] Camera could be smoother (lerp)
-- [ ] No particle effects for blood service / burning
-
-## Future (V3+)
-- [ ] Menachot system (Level 2 mechanic)
-- [ ] Heichal interior
-- [ ] Kohen Gadol mode (Level 3-4)
-- [ ] More NPCs (Yisraelim with animals)
-- [ ] Day/night cycle tied to Tamid schedule
-- [ ] Glowing waypoints for Level 1 guided mode
-
-*Updated: Feb 26, 2026 — V2*
+## Ideas for V4
+- The afternoon Tamid and lighting the Menorah in the evening
+- Yom Kippur Avodah as the Kohen Gadol (Mishnah Yoma)
+- Korban Pesach on Erev Pesach, with the three groups and the Hallel
+- Sukkot: Nisuch HaMayim, the aravot around the Mizbeach, and dancing at Simchat Beit HaShoevah
+- Hebrew UI language option
