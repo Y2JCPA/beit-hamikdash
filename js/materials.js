@@ -14,20 +14,31 @@ function scaled(tex, metres) {
   return tex;
 }
 
-export function buildMaterials(quality) {
-  const ash = TX.ashlarTextures();
-  const ashDark = TX.ashlarTextures({ base: [206, 186, 150], seed: 19, rows: 5 });
-  const floor = TX.floorTextures();
-  const floorN = TX.floorTextures({ base: [214, 200, 176], seed: 8, slabs: 8 });
-  const floorO = TX.floorTextures({ base: [222, 204, 170], seed: 13, slabs: 4 });
-  const plaster = TX.plasterTextures();
-  const marble = TX.marbleTextures();
-  const gold = TX.goldTextures();
-  const relief = TX.goldReliefTextures();
-  const log = TX.woodTextures('log');
-  const plank = TX.woodTextures('plank');
-  const bronze = TX.bronzeTextures();
-  const paroches = TX.parochesTexture();
+export async function buildMaterials(quality, phoneish = false, progress = () => { }) {
+  TX.setTextureResolution(phoneish || quality === 'low' ? 512 : 1024);
+  // paint one texture per frame so the loading bar keeps moving on slow phones
+  const steps = [
+    ['ash', () => TX.ashlarTextures()],
+    ['ashDark', () => TX.ashlarTextures({ base: [206, 186, 150], seed: 19, rows: 5 })],
+    ['floor', () => TX.floorTextures()],
+    ['floorN', () => TX.floorTextures({ base: [214, 200, 176], seed: 8, slabs: 8 })],
+    ['floorO', () => TX.floorTextures({ base: [222, 204, 170], seed: 13, slabs: 4 })],
+    ['plaster', () => TX.plasterTextures()],
+    ['marble', () => TX.marbleTextures()],
+    ['gold', () => TX.goldTextures()],
+    ['relief', () => TX.goldReliefTextures()],
+    ['log', () => TX.woodTextures('log')],
+    ['plank', () => TX.woodTextures('plank')],
+    ['bronze', () => TX.bronzeTextures()],
+    ['paroches', () => TX.parochesTexture()],
+  ];
+  const T = {};
+  for (let i = 0; i < steps.length; i++) {
+    T[steps[i][0]] = steps[i][1]();
+    progress((i + 1) / steps.length);
+    await new Promise(r => requestAnimationFrame(() => r()));
+  }
+  const { ash, ashDark, floor, floorN, floorO, plaster, marble, gold, relief, log, plank, bronze, paroches } = T;
   TEX.avnet = TX.avnetTexture();
   TEX.linen = TX.linenTexture();
   TEX.terrain = TX.terrainDetail();
@@ -35,18 +46,19 @@ export function buildMaterials(quality) {
   TEX.smoke = TX.smokeSprite();
 
   const bumpScale = quality === 'low' ? 0 : 1;
+  const useBump = quality !== 'low' && !phoneish;
 
   MAT.stone = new THREE.MeshStandardMaterial({
-    map: scaled(ash.map, 6), bumpMap: scaled(ash.bump, 6), bumpScale: 2.2 * bumpScale,
+    map: scaled(ash.map, 6), bumpMap: useBump ? scaled(ash.bump, 6) : null, bumpScale: 2.2 * bumpScale,
     roughness: 0.88, metalness: 0, color: 0xffffff,
   });
   MAT.stoneWarm = new THREE.MeshStandardMaterial({
-    map: scaled(ashDark.map, 5), bumpMap: scaled(ashDark.bump, 5), bumpScale: 2.2 * bumpScale,
+    map: scaled(ashDark.map, 5), bumpMap: useBump ? scaled(ashDark.bump, 5) : null, bumpScale: 2.2 * bumpScale,
     roughness: 0.9, color: 0xffffff,
   });
   MAT.stoneTrim = new THREE.MeshStandardMaterial({ color: 0xe9dcc0, roughness: 0.75, map: scaled(marble.map.clone(), 4) });
   MAT.floor = new THREE.MeshStandardMaterial({
-    map: scaled(floor.map, 8), roughnessMap: scaled(floor.rough, 8), bumpMap: scaled(floor.bump, 8), bumpScale: 0.6 * bumpScale,
+    map: scaled(floor.map, 8), roughnessMap: scaled(floor.rough, 8), bumpMap: useBump ? scaled(floor.bump, 8) : null, bumpScale: 0.6 * bumpScale,
     roughness: 0.62, metalness: 0,
   });
   MAT.floorNorth = new THREE.MeshStandardMaterial({
@@ -54,17 +66,17 @@ export function buildMaterials(quality) {
   });
   MAT.floorOuter = new THREE.MeshStandardMaterial({ map: scaled(floorO.map, 14), roughness: 0.85 });
   MAT.plaster = new THREE.MeshStandardMaterial({
-    map: scaled(plaster.map, 3), bumpMap: scaled(plaster.bump, 3), bumpScale: 1.8 * bumpScale, roughness: 0.95,
+    map: scaled(plaster.map, 3), bumpMap: useBump ? scaled(plaster.bump, 3) : null, bumpScale: 1.8 * bumpScale, roughness: 0.95,
   });
   MAT.marble = new THREE.MeshStandardMaterial({ map: scaled(marble.map, 10), roughness: 0.45, metalness: 0 });
   MAT.gold = new THREE.MeshStandardMaterial({
     color: 0xffc95c, metalness: 1, roughness: 0.28,
-    roughnessMap: scaled(gold.rough, 2), bumpMap: scaled(gold.bump, 2), bumpScale: 0.25 * bumpScale,
+    roughnessMap: scaled(gold.rough, 2), bumpMap: useBump ? scaled(gold.bump, 2) : null, bumpScale: 0.25 * bumpScale,
   });
   MAT.goldBright = new THREE.MeshStandardMaterial({ color: 0xffd36e, metalness: 1, roughness: 0.18 });
   MAT.goldRelief = new THREE.MeshStandardMaterial({
     color: 0xf5bf55, metalness: 1, roughness: 0.32, map: scaled(relief.map, 6),
-    bumpMap: scaled(relief.bump, 6), bumpScale: 3 * bumpScale,
+    bumpMap: useBump ? scaled(relief.bump, 6) : null, bumpScale: 3 * bumpScale,
   });
   MAT.silver = new THREE.MeshStandardMaterial({ color: 0xe8edf2, metalness: 1, roughness: 0.22 });
   MAT.bronze = new THREE.MeshStandardMaterial({

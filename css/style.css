@@ -15,7 +15,9 @@
   --safe-b: env(safe-area-inset-bottom, 0px);
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0f1d; color: #fff; font-family: var(--font); user-select: none; -webkit-user-select: none; touch-action: none; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0f1d; color: #fff; font-family: var(--font); user-select: none; -webkit-user-select: none; touch-action: none; overscroll-behavior: none; -webkit-touch-callout: none; }
+button { touch-action: manipulation; }
+#np-name { user-select: text; -webkit-user-select: text; }
 #app { position: fixed; inset: 0; }
 #app canvas { display: block; width: 100%; height: 100%; outline: none; }
 .hidden { display: none !important; }
@@ -368,3 +370,18 @@ body.phone #edge-arrow .ea-arrow { font-size: 28px; }
   body.phone #toasts { top: auto; bottom: calc(330px + var(--safe-b)); }
 }
 #rotate-hint { position: fixed; z-index: 16; left: 50%; top: 40%; transform: translateX(-50%); background: var(--glass-2); color: #fff; padding: 12px 18px; border-radius: 18px; font-weight: 600; text-align: center; pointer-events: none; animation: toastIn .3s, toastOut .5s ease-in 4.5s forwards; }
+
+/* ── Touch polish (from the phone layout audit) ── */
+body.phone #dlg-buttons .btn { min-height: 42px; min-width: 64px; }
+#joy-base { transform: scale(.82); }
+#joy-base.live { transform: none; }
+body.touch #joy-base:not(.live) { opacity: .32; }
+/* tablets: facts at the top centre, messages above the thumbs */
+body.touch:not(.phone) #fact-card { left: 50%; right: auto; top: 76px; bottom: auto; transform: translateX(-50%); width: min(420px, 50vw); animation: none; }
+body.touch:not(.phone) #fact-card.compact { width: auto; }
+body.touch:not(.phone) #toasts { top: auto; bottom: calc(210px + var(--safe-b)); }
+@media (orientation: portrait) {
+  body.touch:not(.phone) #fact-card { top: auto; bottom: calc(196px + var(--safe-b)); }
+  body.touch:not(.phone) #toasts { bottom: calc(286px + var(--safe-b)); }
+}
+#cine-skip { position: absolute; right: 16px; bottom: calc(9vh + 10px); font-size: 13px; font-weight: 600; color: rgba(255,255,255,.75); background: rgba(0,0,0,.35); padding: 4px 10px; border-radius: 10px; }

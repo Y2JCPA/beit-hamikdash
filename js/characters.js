@@ -55,7 +55,8 @@ export function bakeGroup(group, shadow = true) {
 
 const matCache = new Map();
 export function std(color, opts = {}) {
-  const key = color + JSON.stringify(opts);
+  // (never JSON.stringify a texture: that encodes the whole image — it made loading seconds slower)
+  const key = color + '|' + Object.keys(opts).sort().map(k => k + ':' + (opts[k]?.isTexture ? opts[k].uuid : opts[k])).join(',');
   if (!matCache.has(key)) matCache.set(key, new THREE.MeshStandardMaterial({ color, roughness: 0.75, ...opts }));
   return matCache.get(key);
 }

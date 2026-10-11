@@ -98,6 +98,8 @@ export class QuestRunner {
       // any option in range can be tried
       let near = null;
       for (const o of s.options) {
+        const idx = s.need.indexOf(o.id);
+        if (idx >= 0 && idx < this.k) continue;          // already done here — don't offer it again
         if (this.inRange(o.at, 2.3)) { near = o; break; }
       }
       if (!near) { return false; }
@@ -110,10 +112,8 @@ export class QuestRunner {
             g.audio.play('step');
             g.fx.sparkle(near.at.x, (near.at.y || 0) + 1.2, near.at.z, { count: 16, color: 0xffd36e });
             if (this.k >= s.need.length) this.complete();
-            else g.ui.toast(`✔ ${near.label}! Now the next one…`);
+            else { const nx = s.options.find(o => o.id === s.need[this.k]); g.ui.toast(`✔ ${near.label}! Next: the ${nx ? nx.label : 'next one'} — tap 🧭 if you need help`); }
           });
-        } else if (s.need.indexOf(near.id) >= 0 && s.need.indexOf(near.id) < this.k) {
-          g.ui.toast('You already did this one!');
         } else {
           this.mistake(s.wrong.msg, s.wrong.src);
         }
