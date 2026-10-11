@@ -187,6 +187,7 @@ export class QuestRunner {
     g.ui.setPrompt(null);
     if (s.fact) g.fact(s.fact[0], s.fact[1], s.fact[2]);
     g.audio.play('step');
+    g.buzz?.(18);
     const p = g.player.pos;
     g.fx.sparkle(p.x, p.y + 1.2, p.z, { count: 14, color: 0xffd36e, speed: 1.6, up: 1.4, size: 0.18 });
     this.i++;

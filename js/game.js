@@ -19,6 +19,7 @@ import { UI } from './ui.js';
 import { audio, noteFreq } from './audio.js';
 import { Minigames } from './minigames.js';
 import { QuestRunner } from './questRunner.js';
+import { Nav } from './nav.js';
 import { DAILY, VISITORS, setNpcPosResolver, shirForToday } from './quests.js';
 import { PLACES, MIRACLES, ACHIEVEMENTS, TITLES, NPC_NAMES } from './data.js';
 
@@ -28,7 +29,7 @@ const ease = (t) => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 const TOP = MIZBEACH.topH;
 
 function loadSettings() {
-  const def = { quality: 'auto', music: 0.7, sfx: 0.85, camSpeed: 1, guided: true, readAloud: false };
+  const def = { quality: 'auto', music: 0.7, sfx: 0.85, camSpeed: 1, guided: true, readAloud: false, facts: 'auto' };
   try { return { ...def, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') }; } catch { return def; }
 }
 
@@ -68,7 +69,12 @@ export class Game {
     if (q === 'auto') q = touch ? 'medium' : 'high';
     this.quality = q;
     ui.touch = touch;
+    ui.phone = touch && Math.min(innerWidth, innerHeight) < 600;
+    document.body.classList.toggle('phone', ui.phone);
+    document.body.classList.toggle('touch', touch);
     ui.readAloud = !!this.settings.readAloud;
+    ui.factMode = this.settings.facts === 'auto' ? (touch ? 'compact' : 'full') : this.settings.facts;
+    this.adaptive = this.settings.quality === 'auto';
 
     // Renderer
     const renderer = this.renderer = new THREE.WebGLRenderer({ antialias: q !== 'high', powerPreference: 'high-performance' });
@@ -109,6 +115,7 @@ export class Game {
     // people and standing NPCs are solid (but don't block the camera)
     for (const pp of people) this.physics.addBox(pp.x - 0.28, pp.y, pp.z - 0.28, pp.x + 0.28, pp.y + 1.5, pp.z + 0.28, false);
     for (const id in this.npcs) { const n = this.npcs[id]; if (!n.path) this.physics.addBox(n.x - 0.3, n.y, n.z - 0.3, n.x + 0.3, n.y + 1.6, n.z + 0.3, false); }
+    this.nav = new Nav(this.physics);
     this.doves = new Doves(scene, q === 'low' ? 10 : 22);
     this.input = new Input(renderer.domElement);
     this.input.handlers.key = (code) => this.onKey(code);
@@ -122,6 +129,10 @@ export class Game {
       return n ? { x: n.x + Math.sin(n.facing) * 1.1, y: n.y, z: n.z + Math.cos(n.facing) * 1.1 } : { x: 0, y: 0, z: 0 };
     });
     this.setupPost();
+    this.perf = { t: 0, n: 0, pr: renderer.getPixelRatio(), max: renderer.getPixelRatio(), min: 0.6, cut: false };
+    if (touch) { this.rig.followDelay = 0.5; this.rig.followRate = 1.7; }
+    this.applyFov();
+    $('#guide-desk').addEventListener('click', (e) => { e.currentTarget.blur(); this.input.guidePressed = true; });
     ui.loading(0.92, 'Tuning the kinor…');
     await nextFrame();
     this.bindUI();
@@ -151,8 +162,43 @@ export class Game {
     this.composer = composer;
   }
 
+  // a wider lens when the phone is held upright, so you still see around you
+  applyFov() {
+    this.camera.fov = innerWidth / innerHeight < 0.8 ? 72 : 58;
+    this.camera.updateProjectionMatrix();
+  }
+
+  setPixelRatio(pr) {
+    const pf = this.perf;
+    pf.pr = Math.max(pf.min, Math.min(pf.max, pr));
+    this.renderer.setPixelRatio(pf.pr);
+    this.renderer.setSize(innerWidth, innerHeight);
+    if (this.composer) { this.composer.setPixelRatio(pf.pr); this.composer.setSize(innerWidth, innerHeight); }
+  }
+
+  // Keep phones smooth: lower the resolution when frames are slow, raise it when there's room
+  adaptPerformance(raw) {
+    const pf = this.perf;
+    pf.t += raw; pf.n++;
+    if (pf.t < 2.5) return;
+    const fps = pf.n / pf.t;
+    pf.t = 0; pf.n = 0;
+    if (this.mode !== 'play' || document.hidden) return;
+    if (fps < 38 && pf.pr > pf.min + 0.01) this.setPixelRatio(pf.pr - 0.15);
+    else if (fps > 56 && pf.pr < pf.max - 0.01) this.setPixelRatio(pf.pr + 0.1);
+    else if (fps < 24 && pf.pr <= pf.min + 0.01 && !pf.cut) {
+      // last resort: drop the glow and the sun's shadows
+      pf.cut = true;
+      this.composer = null;
+      this.env.sun.castShadow = false;
+    }
+  }
+
+  buzz(ms) { try { if (this.ui.touch) navigator.vibrate?.(ms); } catch { } }
+
   onResize() {
     this.camera.aspect = innerWidth / innerHeight;
+    this.applyFov();
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(innerWidth, innerHeight);
     if (this.composer) {
@@ -421,6 +467,7 @@ export class Game {
       if (k === 'music' || k === 'sfx') audio.setVolumes(this.settings.music, this.settings.sfx);
       if (k === 'camSpeed') this.rig.sens = v;
       if (k === 'readAloud') { this.ui.readAloud = v; if (!v) this.ui.stopSpeaking(); }
+      if (k === 'facts') this.ui.factMode = v;
     }, { toTitle: () => this.toTitle() });
   }
 
@@ -490,16 +537,27 @@ export class Game {
       await this.ui.dialog({
         icon: '🎮', name: 'How to play',
         text: this.ui.touch
-          ? 'Move with the joystick on the left. Drag the screen to look around. When you see a golden button at the bottom, tap ✋ to act — some things need you to HOLD it. Follow the golden light!'
-          : 'Walk with W A S D or the arrow keys (hold Shift to run). Drag with the mouse to look around. When a golden prompt appears, press E — some things need you to HOLD E. Follow the golden light!',
+          ? 'Put your thumb anywhere on the LEFT side and slide to walk (slide far to run). Drag on the RIGHT side to look around. Tap ✋ to act — some things need you to HOLD it. Lost? Tap 🧭 and your Kohen walks there by himself! Swipe away any card that is in your way.'
+          : 'Walk with W A S D or the arrow keys (hold Shift to run). Drag with the mouse to look around. When a golden prompt appears, press E — some things need you to HOLD E. Follow the golden light — or press G (🧭 Guide me) to walk there automatically!',
         buttons: [{ label: 'Let\'s go! ▶', value: true }],
       });
     }
+    this.maybeRotateHint();
     if (!st.dayDone) this.startDaily(st.dailyIndex);
     else {
       this.ui.toast(st.night ? '🌙 Imagine it\'s Sukkot — the Simchat Beit HaShoevah lamps are lit! Explore, or talk to Elazar for a new day.' : '❗ Visitors are waiting in Ezrat Yisrael!');
     }
     this.save();
+  }
+
+  maybeRotateHint() {
+    if (!this.ui.phone || innerWidth > innerHeight) return;
+    try { if (localStorage.getItem('mikdash3_rotate')) return; localStorage.setItem('mikdash3_rotate', '1'); } catch { }
+    const d = document.createElement('div');
+    d.id = 'rotate-hint';
+    d.innerHTML = '📱↔️<br>Tip: turn your phone sideways<br>for a bigger view!';
+    document.body.appendChild(d);
+    setTimeout(() => d.remove(), 5200);
   }
 
   resetDayProps() {
@@ -1123,6 +1181,92 @@ export class Game {
     }
   }
 
+  // ───────────────────────── Guide me ─────────────────────────
+  // Where would "Guide me" walk to right now?
+  guideTarget() {
+    const s = this.runner.step;
+    if (this.runner.active) {
+      if (!s || s.kind === 'auto' || s.noMarker) return null;
+      const t = this.runner.target(s);
+      return t ? { x: t.x, y: t.y || 0, z: t.z, r: Math.min(s.kind === 'choose' ? 2.3 : (s.r || 2.6), 2.6) } : null;
+    }
+    const p = this.player.pos;
+    const vs = this.visitors.filter(v => !v.leaving);
+    if (vs.length) {
+      vs.sort((a, b) => Math.hypot(a.x - p.x, a.z - p.z) - Math.hypot(b.x - p.x, b.z - p.z));
+      const q = vs[0].pos();
+      return { x: q.x, y: 0, z: q.z, r: 2.2 };
+    }
+    const m = this.npcs.memuneh;
+    return { x: m.x + Math.sin(m.facing) * 1.3, y: m.y, z: m.z + Math.cos(m.facing) * 1.3, r: 2.2 };
+  }
+
+  stepKey() { return (this.runner.q?.id || '-') + ':' + this.runner.i + ':' + this.runner.k; }
+
+  toggleGuide() {
+    if (this.guide) { this.stopGuide('🧭 Guide off — you\'re walking yourself!'); return; }
+    const t = this.guideTarget();
+    if (!t) { this.ui.toast(this.runner.step?.noMarker ? '🧭 You can do this anywhere in the Azara!' : '🧭 Nothing to walk to right now'); return; }
+    const p = this.player.pos;
+    if (Math.hypot(p.x - t.x, p.z - t.z) < t.r - 0.5 && Math.abs(p.y - t.y) < 1.7) { this.ui.toast('✨ You are already here!'); return; }
+    const path = this.planTo(t);
+    if (!path) { this.ui.toast('🧭 I can\'t find the way from here — walk a little and try again'); return; }
+    this.guide = { t, path, i: 0, best: Infinity, lastT: performance.now(), fails: 0, key: this.stepKey() };
+    this.setGuideButtons(true);
+    this.ui.toast(this.ui.touch ? '🧭 Follow me! Touch the joystick to stop' : '🧭 Follow me! Press a move key to stop');
+    audio.play('pickup');
+  }
+
+  planTo(t) {
+    const from = { x: this.player.pos.x, y: this.player.pos.y, z: this.player.pos.z };
+    const cands = [t];
+    for (const f of [0.45, 0.7, 0.88]) {
+      const rr = Math.max(0.8, t.r * f);
+      for (let k = 0; k < 8; k++) cands.push({ x: t.x + Math.cos(k * Math.PI / 4) * rr, y: t.y, z: t.z + Math.sin(k * Math.PI / 4) * rr });
+    }
+    return this.nav.plan(from, cands);
+  }
+
+  stopGuide(msg) {
+    if (!this.guide) return;
+    this.guide = null;
+    this.player.autoDir = null;
+    this.setGuideButtons(false);
+    if (msg) this.ui.toast(msg);
+  }
+  setGuideButtons(on) {
+    document.getElementById('m-guide').classList.toggle('on', on);
+    document.getElementById('guide-desk').classList.toggle('on', on);
+    document.getElementById('guide-desk').textContent = on ? '🧭 Stop' : '🧭 Guide me';
+  }
+
+  updateGuide(blocked) {
+    const g = this.guide, pl = this.player;
+    if (!g) { pl.autoDir = null; return; }
+    if (this.input.steering) { this.stopGuide(); return; }
+    if (g.key !== this.stepKey()) { this.stopGuide(); return; }
+    if (blocked || pl.frozen || this.camOverride) { pl.autoDir = null; return; }
+    const p = pl.pos, t = g.t;
+    if (Math.hypot(p.x - t.x, p.z - t.z) < t.r - 0.6 && Math.abs(p.y - t.y) < 1.7) {
+      this.stopGuide('✨ Here we are!');
+      this.fx.sparkle(p.x, p.y + 1, p.z, { count: 14, color: 0xffd36e });
+      return;
+    }
+    let wp = g.path[g.i];
+    let d = Math.hypot(wp.x - p.x, wp.z - p.z);
+    if (d < 0.6 && g.i < g.path.length - 1) { g.i++; g.best = Infinity; wp = g.path[g.i]; d = Math.hypot(wp.x - p.x, wp.z - p.z); }
+    if (d > 1e-3) pl.autoDir = { x: (wp.x - p.x) / d, z: (wp.z - p.z) / d };
+    const now = performance.now();
+    if (d < g.best - 0.25) { g.best = d; g.lastT = now; }
+    else if (now - g.lastT > 1800) {
+      // stuck (someone in the way?) — plan again from here
+      g.fails++;
+      const path = g.fails <= 3 ? this.planTo(t) : null;
+      if (!path) { this.stopGuide('🧭 Something is in the way — walk around it, then tap 🧭 again'); return; }
+      g.path = path; g.i = 0; g.best = Infinity; g.lastT = now;
+    }
+  }
+
   // ───────────────────────── Discovery ─────────────────────────
   discover(id) {
     const st = this.state;
@@ -1205,6 +1349,7 @@ export class Game {
     this.frames = (this.frames || 0) + 1;
     try { this.update(dt); } catch (e) { console.error(e); }
     if (this.composer) this.composer.render(); else this.renderer.render(this.scene, this.camera);
+    if (this.adaptive) this.adaptPerformance(raw);
     this.input.endFrame();
   }
 
@@ -1270,6 +1415,15 @@ export class Game {
       this.camLook.copy(this.rig.smoothTarget);
     }
     this.env.follow(pl.pos);
+
+    // guide me
+    if (input.guidePressed && !blocked && !pl.frozen) this.toggleGuide();
+    this.updateGuide(blocked);
+    if (!this.ui.touch) {
+      const show = !blocked && !pl.frozen && !this.camOverride && (!!this.guide || !!this.guideTarget());
+      const gd = document.getElementById('guide-desk');
+      if (gd.classList.contains('hidden') === show) gd.classList.toggle('hidden', !show);
+    }
 
     // quest
     let used = false;

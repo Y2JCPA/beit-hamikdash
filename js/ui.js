@@ -11,6 +11,40 @@ function speakable(t) {
   return String(t).replace(/[\u0590-\u05FF]+/g, ' ').replace(/[\u{1F000}-\u{1FAFF}\u2600-\u27BF]/gu, ' ').replace(/\s+/g, ' ').trim();
 }
 
+// Make an element swipeable: a flick in any direction dismisses it, a tap calls onTap.
+function swipeable(el, { onDismiss, onTap, onSwipe }) {
+  let id = null, sx = 0, sy = 0, dx = 0, dy = 0, moved = false;
+  el.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('button')) return;
+    id = e.pointerId; sx = e.clientX; sy = e.clientY; dx = dy = 0; moved = false;
+    try { el.setPointerCapture(id); } catch { }
+    el.style.transition = 'none';
+  });
+  el.addEventListener('pointermove', (e) => {
+    if (e.pointerId !== id) return;
+    dx = e.clientX - sx; dy = e.clientY - sy;
+    if (Math.hypot(dx, dy) > 8) moved = true;
+    if (moved && onDismiss) { el.style.translate = `${dx}px ${dy}px`; el.style.opacity = String(Math.max(0.2, 1 - Math.hypot(dx, dy) / 220)); }
+  });
+  const up = (e) => {
+    if (e.pointerId !== id) return;
+    id = null;
+    el.style.transition = 'translate .2s ease-out, opacity .2s ease-out';
+    const far = Math.hypot(dx, dy) > 55;
+    if (moved && far && onSwipe) { el.style.translate = ''; el.style.opacity = ''; onSwipe(dx, dy); return; }
+    if (moved && far && onDismiss) {
+      const k = 260 / Math.max(1, Math.hypot(dx, dy));
+      el.style.translate = `${dx * k}px ${dy * k}px`; el.style.opacity = '0';
+      setTimeout(() => { el.style.transition = 'none'; el.style.translate = ''; el.style.opacity = ''; onDismiss(); }, 200);
+      return;
+    }
+    el.style.translate = ''; el.style.opacity = '';
+    if (!moved) onTap?.(e);
+  };
+  el.addEventListener('pointerup', up);
+  el.addEventListener('pointercancel', up);
+}
+
 export class UI {
   speak(text) {
     try {
@@ -31,6 +65,30 @@ export class UI {
     this.labels = new Map();
     this.zoneTimer = null;
     this.mm = $('#minimap').getContext('2d');
+    this.factMode = 'full';
+    this.qcManual = false;
+    // fact card: ✕, swipe away, tap to expand (compact) or dismiss
+    $('#fc-x').addEventListener('click', (e) => { e.stopPropagation(); this.dismissFact(); });
+    swipeable($('#fact-card'), {
+      onDismiss: () => this.dismissFact(),
+      onTap: () => {
+        const el = $('#fact-card');
+        if (el.classList.contains('compact')) { el.classList.remove('compact'); this.armFact(16); if (this.readAloud) this.speak($('#fc-text').textContent); }
+        else this.dismissFact();
+      },
+    });
+    // quest card: tap the header or ▾ to fold; swipe up/left folds, down/right opens
+    const qc = $('#quest-card');
+    $('#qc-toggle').addEventListener('click', (e) => { e.stopPropagation(); this.qcManual = true; this.foldQuest(!qc.classList.contains('folded')); });
+    swipeable(qc, {
+      onTap: () => { this.qcManual = true; this.foldQuest(!qc.classList.contains('folded')); },
+      onSwipe: (dx, dy) => { this.qcManual = true; this.foldQuest(Math.abs(dx) > Math.abs(dy) ? dx < 0 : dy < 0); },
+    });
+    // minimap: tap to make it bigger / smaller
+    $('#minimap').addEventListener('click', () => $('#minimap').classList.toggle('big'));
+    // clear-the-screen mode
+    $('#btn-clear').addEventListener('click', (e) => { e.currentTarget.blur(); this.setCleared(true); });
+    $('#show-ui').addEventListener('click', () => this.setCleared(false));
   }
 
   // ── Loading ──
@@ -69,14 +127,36 @@ export class UI {
     $('#qc-he').textContent = q.he || '';
     const step = q.steps[stepIdx];
     $('#qc-step').innerHTML = step ? esc(step.text) : '';
+    $('#qc-mini').textContent = step ? step.text : '';
     $('#qc-steps').innerHTML = q.steps.map((s, i) => `<div class="qs ${i < stepIdx ? 'done' : i === stepIdx ? 'cur' : ''}"></div>`).join('');
+    // a new instruction is always shown open; on phones it folds itself away after a moment
+    const key = q.id + ':' + stepIdx;
+    if (key !== this.qcKey) {
+      this.qcKey = key;
+      this.foldQuest(false);
+      clearTimeout(this.qcTimer);
+      if (this.touch) this.qcTimer = setTimeout(() => this.foldQuest(true), this.phone ? 7000 : 10000);
+    }
+  }
+  foldQuest(fold) {
+    clearTimeout(fold ? 0 : this.qcTimer);
+    $('#quest-card').classList.toggle('folded', fold);
+    $('#qc-toggle').textContent = fold ? '▸' : '▾';
+  }
+  setCleared(on) {
+    document.body.classList.toggle('cleared', on);
+    $('#show-ui').classList.toggle('hidden', !on);
+    if (on) this.toast('👁 Text hidden — tap "👁 Show" to bring it back');
   }
   setQuestText(text) { $('#qc-step').innerHTML = esc(text); }
 
   // ── Prompt ──
   setPrompt(p) {
     const el = $('#prompt');
-    if (!p) { if (!el.classList.contains('hidden')) el.classList.add('hidden'); this.promptKey = null; return; }
+    if (!p) {
+      if (!el.classList.contains('hidden')) { el.classList.add('hidden'); $('#m-action').textContent = '✋'; }
+      this.promptKey = null; return;
+    }
     const key = p.text + p.icon + (p.bad ? 1 : 0);
     if (this.promptKey !== key) {
       this.promptKey = key;
@@ -84,6 +164,7 @@ export class UI {
       $('#prompt-text').textContent = p.text;
       $('#prompt-icon').textContent = p.icon || '';
       $('#prompt-key').textContent = this.touch ? '✋' : 'E';
+      $('#m-action').textContent = p.icon || '✋';
       el.classList.toggle('bad', !!p.bad);
       el.style.animation = 'none'; void el.offsetWidth; el.style.animation = '';
     }
@@ -92,9 +173,12 @@ export class UI {
 
   // ── Toasts / banners / facts ──
   toast(text) {
+    const wrap = $('#toasts');
     const d = document.createElement('div');
     d.className = 'toast'; d.textContent = text;
-    $('#toasts').appendChild(d);
+    d.addEventListener('pointerdown', () => d.remove());
+    wrap.appendChild(d);
+    while (wrap.children.length > (this.phone ? 2 : 4)) wrap.firstChild.remove();
     setTimeout(() => d.remove(), 3100);
   }
   banner(icon, title, sub = '') {
@@ -106,9 +190,18 @@ export class UI {
     this.bannerT = setTimeout(() => b.classList.add('hidden'), 3700);
   }
   fact(title, text, src, secs = 9) {
+    if (this.factMode === 'off') {
+      // still saved in the Sefer; just a tiny nudge
+      const now = performance.now();
+      if (now - (this.lastFactToast || 0) > 6000) { this.lastFactToast = now; this.toast('📜 New lesson saved in your Sefer'); }
+      return;
+    }
     this.factQueue.push({ title, text, src, secs });
+    if (this.factQueue.length > 3) this.factQueue.splice(0, this.factQueue.length - 3);
     if (!this.factShowing) this.nextFact();
   }
+  dismissFact() { clearTimeout(this.factTimer); this.nextFact(); }
+  armFact(secs) { clearTimeout(this.factTimer); this.factTimer = setTimeout(() => this.nextFact(), secs * 1000); }
   nextFact() {
     const f = this.factQueue.shift();
     const el = $('#fact-card');
@@ -117,11 +210,11 @@ export class UI {
     $('#fc-title').textContent = f.title || 'Did you know?';
     $('#fc-text').textContent = f.text;
     $('#fc-src').textContent = f.src ? '— ' + f.src : '';
+    const compact = this.factMode === 'compact';
+    el.classList.toggle('compact', compact);
     el.classList.add('hidden'); void el.offsetWidth; el.classList.remove('hidden');
-    if (this.readAloud && !this.dialogOpen) this.speak(f.text);
-    clearTimeout(this.factTimer);
-    this.factTimer = setTimeout(() => this.nextFact(), f.secs * 1000);
-    el.onclick = () => { clearTimeout(this.factTimer); this.nextFact(); };
+    if (this.readAloud && !this.dialogOpen && !compact) this.speak(f.text);
+    this.armFact(compact ? 6 : f.secs);
   }
   clearFacts() { this.factQueue.length = 0; clearTimeout(this.factTimer); $('#fact-card').classList.add('hidden'); this.factShowing = false; }
 
@@ -150,6 +243,7 @@ export class UI {
         bwrap.appendChild(sp);
       }
       if (this.readAloud) this.speak(text);
+      $('#dialog').onclick = (e) => { if (buttons.length === 1 && !e.target.closest('button')) finish(buttons[0].value); };
       let closed = false, armT = 0;
       const finish = (v) => {
         if (closed) return;
@@ -290,9 +384,11 @@ export class UI {
         <div class="set-row"><span>🖱️ Camera speed</span><input type="range" min="0.3" max="2" step="0.1" value="${settings.camSpeed}" data-key="camSpeed"></div>
         <div class="set-row"><span>🧭 Guide markers</span>${seg('guided', [[true, 'On'], [false, 'Off (challenge)']])}</div>
         <div class="set-row"><span>🔊 Read everything aloud</span>${seg('readAloud', [[true, 'On'], [false, 'Off']])}</div>
+        <div class="set-row"><span>📜 "Did you know" cards</span>${seg('facts', [['full', 'Big'], ['compact', 'Small'], ['off', 'Only in Sefer']])}</div>
+        ${document.fullscreenEnabled ? '<div class="set-row"><span>⛶ Full screen</span><button class="btn btn-stone" id="set-fs">Full screen</button></div>' : ''}
         <div class="set-row"><span>💡 Graphics changes apply after reload</span><button class="btn btn-stone" id="set-reload">Reload</button></div>
         <div class="set-row"><span>🏠 Back to the title screen</span><button class="btn btn-stone" id="set-title">Title</button></div>
-        <div style="margin-top:12px;font-size:13px;color:#8a6a2a">Controls: WASD / arrows to walk · Shift to run · Space to jump · E to act · drag to look · scroll to zoom · J for the Sefer</div>`;
+        <div style="margin-top:12px;font-size:13px;color:#8a6a2a">Controls: WASD / arrows to walk · Shift to run · Space to jump · E to act · G to be guided · drag to look · scroll to zoom · J for the Sefer. On a phone: thumb anywhere on the left to walk, drag on the right to look, 🧭 to be guided.</div>`;
       body.querySelectorAll('.seg').forEach(s => s.querySelectorAll('button').forEach(b => b.onclick = () => {
         const raw = b.dataset.v; const v = raw === 'true' ? true : raw === 'false' ? false : raw;
         settings[s.dataset.key] = v;
@@ -301,6 +397,7 @@ export class UI {
       }));
       body.querySelectorAll('input[type=range]').forEach(r => r.oninput = () => { settings[r.dataset.key] = parseFloat(r.value); onChange(r.dataset.key, parseFloat(r.value)); });
       body.querySelector('#set-reload').onclick = () => location.reload();
+      body.querySelector('#set-fs')?.addEventListener('click', () => { document.documentElement.requestFullscreen?.().catch(() => { }); this.closePanel(); });
       body.querySelector('#set-title').onclick = () => { this.closePanel(); extra.toTitle(); };
     });
   }
