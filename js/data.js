@@ -1,148 +1,104 @@
-/* ============================================
-   BEIT HAMIKDASH — Data (Korbanot, Items, etc.)
-   ============================================ */
+// Educational content — places, miracles, achievements, songs.
+// Every fact carries a source. Written for kids (ages ~5-14).
 
-const SHOP_ITEMS = {
-  keves:   { id: 'keves',   name: 'Keves (Lamb)',       emoji: '🐑', price: 50,  category: 'animal', desc: 'A male lamb in its first year.' },
-  ez:      { id: 'ez',      name: 'Ez (Goat)',          emoji: '🐐', price: 50,  category: 'animal', desc: 'A male goat.' },
-  par:     { id: 'par',     name: 'Par (Bull)',         emoji: '🐂', price: 200, category: 'animal', desc: 'A bull — the most valuable offering.' },
-  tor:     { id: 'tor',     name: 'Tor (Turtledove)',   emoji: '🕊️', price: 15,  category: 'animal', desc: 'A bird offering for those who cannot afford a larger animal.' },
-  solet:   { id: 'solet',   name: 'Solet (Fine Flour)', emoji: '🌾', price: 10,  category: 'mincha', levelReq: 2, desc: 'Fine wheat flour for meal offerings.' },
-  shemen:  { id: 'shemen',  name: 'Shemen (Oil)',       emoji: '🫒', price: 10,  category: 'mincha', levelReq: 2, desc: 'Olive oil — poured on most menachot.' },
-  levonah: { id: 'levonah', name: 'Levonah (Frankincense)', emoji: '💨', price: 15, category: 'mincha', levelReq: 2, desc: 'Frankincense — placed on the Mincha before Kemitza.' },
-};
-
-const KORBANOT = {
-  tamid: {
-    id: 'tamid', name: 'Korban Tamid', nameHe: 'קרבן תמיד', emoji: '🐑☀️',
-    animal: 'keves', type: 'olah', category: 'kodshei_kodashim',
-    slaughterLocation: 'north', bloodService: 'two_that_are_four',
-    eatenBy: 'none', eatingLocation: null, eatingTimeLimit: null,
-    description: 'The daily communal offering — one lamb each morning and afternoon. Never missed a single day.',
-    source: 'Bamidbar 28:1-8', mishnah: 'Tamid 4:1',
-    levelRequired: 1, coinReward: 25, special: true,
-  },
-  olah_keves: {
-    id: 'olah_keves', name: 'Olat Keves', nameHe: 'עולת כבש', emoji: '🐑🔥',
-    animal: 'keves', type: 'olah', category: 'kodshei_kodashim',
-    slaughterLocation: 'north', bloodService: 'two_that_are_four',
-    eatenBy: 'none', eatingLocation: null, eatingTimeLimit: null,
-    description: 'A lamb burnt offering — entirely consumed by the fire on the Mizbeach. No one eats from it.',
-    source: 'Vayikra 1:10-13', mishnah: 'Zevachim 5:4',
-    levelRequired: 1, coinReward: 30,
-  },
-  olah_par: {
-    id: 'olah_par', name: 'Olat Par', nameHe: 'עולת פר', emoji: '🐂🔥',
-    animal: 'par', type: 'olah', category: 'kodshei_kodashim',
-    slaughterLocation: 'north', bloodService: 'two_that_are_four',
-    eatenBy: 'none', eatingLocation: null, eatingTimeLimit: null,
-    description: 'A bull burnt offering — the most valuable Olah. Entirely consumed on the Mizbeach.',
-    source: 'Vayikra 1:3-9', mishnah: 'Zevachim 5:4',
-    levelRequired: 2, coinReward: 80,
-  },
-  olah_tor: {
-    id: 'olah_tor', name: "Olat Ha'of", nameHe: 'עולת העוף', emoji: '🕊️🔥',
-    animal: 'tor', type: 'olah', category: 'kodshei_kodashim',
-    slaughterLocation: 'mizbeach', bloodService: 'squeeze_on_wall',
-    eatenBy: 'none', eatingLocation: null, eatingTimeLimit: null,
-    description: 'A bird burnt offering — performed on the Mizbeach itself through Melikah (pinching the neck).',
-    source: 'Vayikra 1:14-17', mishnah: 'Zevachim 6:5',
-    levelRequired: 1, coinReward: 15,
-  },
-  chatat_keves: {
-    id: 'chatat_keves', name: 'Chatat Keves', nameHe: 'חטאת כבש', emoji: '🐑',
-    animal: 'keves', type: 'chatat', category: 'kodshei_kodashim',
-    slaughterLocation: 'north', bloodService: 'four_corners',
-    eatenBy: 'male_kohanim', eatingLocation: 'azara', eatingTimeLimit: 'Day and night, until midnight',
-    description: 'A sin offering for unintentional transgressions. Blood placed on all 4 horns of the Mizbeach.',
-    source: 'Vayikra 4:32-35', mishnah: 'Zevachim 5:3',
-    levelRequired: 2, coinReward: 40,
-  },
-  chatat_ez: {
-    id: 'chatat_ez', name: 'Chatat Ez', nameHe: 'חטאת עז', emoji: '🐐',
-    animal: 'ez', type: 'chatat', category: 'kodshei_kodashim',
-    slaughterLocation: 'north', bloodService: 'four_corners',
-    eatenBy: 'male_kohanim', eatingLocation: 'azara', eatingTimeLimit: 'Day and night, until midnight',
-    description: 'A goat sin offering. The blood is placed on all 4 horns of the Mizbeach.',
-    source: 'Vayikra 4:28-31', mishnah: 'Zevachim 5:3',
-    levelRequired: 2, coinReward: 40,
-  },
-  shelamim_keves: {
-    id: 'shelamim_keves', name: 'Shelamim Keves', nameHe: 'שלמים כבש', emoji: '🐑✌️',
-    animal: 'keves', type: 'shelamim', category: 'kodashim_kalim',
-    slaughterLocation: 'anywhere', bloodService: 'two_that_are_four',
-    eatenBy: 'anyone_tahor', eatingLocation: 'yerushalayim', eatingTimeLimit: 'Two days and one night',
-    description: 'A peace offering — shared between the Mizbeach, the Kohanim, and the owner. Promotes shalom!',
-    source: 'Vayikra 3:6-11', mishnah: 'Zevachim 5:7',
-    levelRequired: 2, coinReward: 35,
-  },
-  shelamim_par: {
-    id: 'shelamim_par', name: 'Shelamim Par', nameHe: 'שלמים פר', emoji: '🐂✌️',
-    animal: 'par', type: 'shelamim', category: 'kodashim_kalim',
-    slaughterLocation: 'anywhere', bloodService: 'two_that_are_four',
-    eatenBy: 'anyone_tahor', eatingLocation: 'yerushalayim', eatingTimeLimit: 'Two days and one night',
-    description: 'A bull peace offering — a grand celebration shared by all.',
-    source: 'Vayikra 3:1-5', mishnah: 'Zevachim 5:7',
-    levelRequired: 2, coinReward: 70,
-  },
-};
-
-// Map animal IDs to which korbanot they can be used for
-const ANIMAL_TO_KORBANOT = {
-  keves: ['tamid', 'olah_keves', 'chatat_keves', 'shelamim_keves'],
-  ez:    ['chatat_ez'],
-  par:   ['olah_par', 'shelamim_par'],
-  tor:   ['olah_tor'],
-};
-
-const AVODAH_STEPS = {
-  olah: [
-    { id: 'shechita', name: 'Shechita', nameHe: 'שחיטה', emoji: '🔪', desc: 'Slaughter the animal in the correct location.' },
-    { id: 'kabbalah', name: 'Kabbalah', nameHe: 'קבלה', emoji: '🏆', desc: 'Collect the blood in a Kli Sharet (sacred vessel).' },
-    { id: 'holacha',  name: 'Holacha',  nameHe: 'הולכה', emoji: '🚶', desc: 'Carry the blood to the Mizbeach.' },
-    { id: 'zerika',   name: 'Zerika',   nameHe: 'זריקה', emoji: '💧', desc: 'Apply the blood on the Mizbeach — two placements that are four.' },
-    { id: 'haktarah', name: 'Haktarah', nameHe: 'הקטרה', emoji: '🔥', desc: 'Burn the entire animal on the Mizbeach fire.' },
-  ],
-  chatat: [
-    { id: 'shechita', name: 'Shechita', nameHe: 'שחיטה', emoji: '🔪', desc: 'Slaughter in the north of the Azara.' },
-    { id: 'kabbalah', name: 'Kabbalah', nameHe: 'קבלה', emoji: '🏆', desc: 'Collect the blood in a sacred vessel.' },
-    { id: 'holacha',  name: 'Holacha',  nameHe: 'הולכה', emoji: '🚶', desc: 'Carry the blood to the Mizbeach.' },
-    { id: 'zerika',   name: 'Zerika',   nameHe: 'זריקה', emoji: '💧', desc: 'Place blood on all 4 horns (Kranot) of the Mizbeach.' },
-    { id: 'haktarah', name: 'Haktarah', nameHe: 'הקטרה', emoji: '🔥', desc: 'Burn the Chalavim (fats) on the Mizbeach. Meat is eaten by Kohanim.' },
-  ],
-  shelamim: [
-    { id: 'shechita', name: 'Shechita', nameHe: 'שחיטה', emoji: '🔪', desc: 'Slaughter anywhere in the Azara (Kodashim Kalim).' },
-    { id: 'kabbalah', name: 'Kabbalah', nameHe: 'קבלה', emoji: '🏆', desc: 'Collect the blood in a sacred vessel.' },
-    { id: 'holacha',  name: 'Holacha',  nameHe: 'הולכה', emoji: '🚶', desc: 'Carry the blood to the Mizbeach.' },
-    { id: 'zerika',   name: 'Zerika',   nameHe: 'זריקה', emoji: '💧', desc: 'Two placements that are four on diagonal corners.' },
-    { id: 'haktarah', name: 'Haktarah', nameHe: 'הקטרה', emoji: '🔥', desc: 'Burn the Chalavim (fats). Meat shared between Kohanim and owner.' },
-  ],
-};
-
-const ACHIEVEMENTS = {
-  first_avodah:  { name: 'First Avodah',   emoji: '🔰', desc: 'Complete your first korban' },
-  tamid_week:    { name: 'Tamid Master',    emoji: '⭐', desc: 'Perform 14 Tamid offerings (a full week)' },
-  blood_expert:  { name: 'Blood Expert',    emoji: '🩸', desc: 'Perform both blood service types (2-that-are-4 and 4-corners)' },
-  perfect_five:  { name: 'Perfect Service', emoji: '✨', desc: 'Complete 5 korbanot with zero mistakes' },
-  music_lover:   { name: 'Music Lover',     emoji: '🎵', desc: 'Listen to all 4 Levite instruments' },
-  torah_scholar: { name: 'Torah Scholar',   emoji: '📜', desc: 'Read 20 educational source popups' },
-  big_spender:   { name: 'Nediv Lev',       emoji: '💰', desc: 'Spend 500 coins on korbanot' },
-  kohen_rising:  { name: 'Rising Kohen',    emoji: '👑', desc: 'Complete 50 korbanot total' },
-};
-
-const INSTRUMENTS = {
-  kinor:       { name: 'Kinor', nameHe: 'כינור', emoji: '🎵', desc: 'A lyre — the primary instrument of the Leviim. Minimum 9 in the Mikdash.', source: 'Arachin 2:3', freq: 440, wave: 'triangle' },
-  nevel:       { name: 'Nevel', nameHe: 'נבל', emoji: '🎶', desc: 'A larger harp with deeper tones. Minimum 2, maximum 6.', source: 'Arachin 2:3', freq: 220, wave: 'sine' },
-  chatzotzrot: { name: 'Chatzotzrot', nameHe: 'חצוצרות', emoji: '🎺', desc: 'Silver trumpets — blown to gather the people and signal offerings. Minimum 2, maximum 120.', source: 'Bamidbar 10:2', freq: 587, wave: 'square' },
-  metziltayim: { name: 'Metziltayim', nameHe: 'מצלתיים', emoji: '🥁', desc: 'Cymbals — exactly one pair. Played to mark the beginning of the Shir.', source: 'Arachin 2:5', freq: 800, wave: 'sawtooth' },
-};
-
-const DAILY_SHIR = [
-  { day: 'Sunday',    tehillim: 24, text: 'לה׳ הארץ ומלואה — "The earth is Hashem\'s and all it contains"' },
-  { day: 'Monday',    tehillim: 48, text: 'גדול ה׳ ומהולל מאד — "Great is Hashem and very praised"' },
-  { day: 'Tuesday',   tehillim: 82, text: 'אלוקים ניצב בעדת קל — "God stands in the divine assembly"' },
-  { day: 'Wednesday', tehillim: 94, text: 'קל נקמות ה׳ — "God of vengeance, Hashem"' },
-  { day: 'Thursday',  tehillim: 81, text: 'הרנינו לאלוקים עוזנו — "Sing joyously to God, our strength"' },
-  { day: 'Friday',    tehillim: 93, text: 'ה׳ מלך גאות לבש — "Hashem reigns, He is clothed in majesty"' },
-  { day: 'Shabbat',   tehillim: 92, text: 'מזמור שיר ליום השבת — "A psalm, a song for the Shabbat day"' },
+export const PLACES = [
+  { id: 'ezrat_nashim', name: 'Ezrat Nashim', he: 'עזרת נשים', x: 44, z: 0, r: 9, y: -3,
+    text: 'The big courtyard where everyone — men, women and children — gathered. It was 135 by 135 amot!', src: 'Middot 2:5' },
+  { id: 'lamp_towers', name: 'Lamps of Simchat Beit HaShoevah', he: 'שמחת בית השואבה', x: 42, z: 0, r: 7, y: -3,
+    text: 'On Sukkot, giant golden lamps 50 amot tall lit up all of Yerushalayim. "Whoever has not seen Simchat Beit HaShoevah has never seen joy!"', src: 'Sukkah 5:1-3' },
+  { id: 'steps15', name: 'The 15 Steps', he: 'חמש עשרה מעלות', x: 24.5, z: 0, r: 3.5, y: -2,
+    text: 'Fifteen half-round steps lead up to Nikanor Gate. The Leviim stood on them and sang the 15 "Shir HaMa\'alot" songs in Tehillim.', src: 'Middot 2:5; Sukkah 5:4' },
+  { id: 'nikanor', name: 'Nikanor Gate', he: 'שער ניקנור', x: 20.5, z: 0, r: 3, y: 0,
+    text: 'Its bronze doors were brought by sea from Alexandria. In a storm the sailors threw one door overboard — and the sea miraculously brought it back!', src: 'Yoma 38a' },
+  { id: 'duchan', name: 'The Duchan', he: 'הדוכן', x: 13.5, z: 7, r: 4, y: 0,
+    text: 'The platform where the Leviim stood to sing and play — at least 12 of them every day.', src: 'Arachin 2:6' },
+  { id: 'mizbeach', name: 'The Mizbeach', he: 'המזבח', x: 0, z: -4, r: 11, y: 0,
+    text: 'The great altar: 32 amot wide and 10 amot tall, built of whole stones that iron never touched. Iron shortens life — the Mizbeach lengthens it!', src: 'Middot 3:1-4' },
+  { id: 'kevesh', name: 'The Kevesh (Ramp)', he: 'הכבש', x: 0, z: 12, r: 3, y: 2,
+    text: 'Kohanim walked up a ramp, not steps, to the top of the Mizbeach — 32 amot long.', src: 'Shemot 20:23; Middot 3:3' },
+  { id: 'red_line', name: 'Chut HaSikra', he: 'חוט הסיקרא', x: 8.6, z: -4, r: 2.5, y: 0,
+    text: 'A red line around the middle of the Mizbeach. Some blood is placed above it, some below it.', src: 'Middot 3:1' },
+  { id: 'kiyor', name: 'The Kiyor', he: 'הכיור', x: -11.5, z: 7, r: 3.5, y: 0,
+    text: 'The copper laver. Ben Katin made it 12 spouts so 12 Kohanim could wash at the same time!', src: 'Yoma 3:10' },
+  { id: 'mitbachayim', name: 'Beit HaMitbachayim', he: 'בית המטבחיים', x: 0, z: -22, r: 6, y: 0,
+    text: 'The place of shechita, north of the Mizbeach: 24 rings, 8 pillars with hooks and 8 marble tables.', src: 'Middot 3:5' },
+  { id: 'gazit', name: 'Lishkat HaGazit', he: 'לשכת הגזית', x: 13, z: -32, r: 3, y: 0,
+    text: 'The Chamber of Hewn Stone — where the great Sanhedrin of 71 sages sat and judged.', src: 'Middot 5:4' },
+  { id: 'lamb_chamber', name: 'Lishkat HaTla\'im', he: 'לשכת הטלאים', x: -13, z: -29, r: 3, y: 0,
+    text: 'There were always at least 6 checked lambs ready for the Korban Tamid.', src: 'Arachin 2:5' },
+  { id: 'ulam', name: 'The Ulam & the Golden Vine', he: 'האולם', x: -16, z: 0, r: 5, y: 2,
+    text: 'The entrance hall was 100 amot tall and its front was plated with gold. Above the door hung a golden vine — people donated golden leaves and grapes!', src: 'Middot 3:8, 4:6; Josephus, Wars 5:5' },
+  { id: 'heichal', name: 'The Heichal', he: 'ההיכל', x: -31, z: 0, r: 3, y: 3,
+    text: 'The holy hall: 40 amot long, 20 wide, 40 tall. Only Kohanim may enter.', src: 'Middot 4:6-7' },
+  { id: 'menorah', name: 'The Menorah', he: 'המנורה', x: -38, z: 2, r: 2.4, y: 3,
+    text: 'Hammered from one solid piece of pure gold — with cups, knobs and flowers.', src: 'Shemot 25:31' },
+  { id: 'shulchan', name: 'The Shulchan', he: 'השלחן', x: -38, z: -2.2, r: 2.4, y: 3,
+    text: 'The golden table held 12 loaves of Lechem HaPanim, changed every Shabbat.', src: 'Vayikra 24:5-8' },
+  { id: 'gold_altar', name: 'Mizbeach HaZahav', he: 'מזבח הזהב', x: -34.5, z: 0, r: 2, y: 3,
+    text: 'The golden altar where the Ketoret (incense) was offered twice a day.', src: 'Shemot 30:1-8' },
+  { id: 'paroches', name: 'The Paroches', he: 'הפרוכת', x: -46, z: 0, r: 2.6, y: 3,
+    text: 'Behind these two curtains is the Kodesh HaKodashim. Only the Kohen Gadol enters — only on Yom Kippur.', src: 'Yoma 5:1; Vayikra 16:2' },
 ];
+
+export const MIRACLES = [
+  { id: 'rain', name: 'Rain never put out the fire', text: 'Rain never extinguished the fire on the Mizbeach.', src: 'Avot 5:5' },
+  { id: 'smoke', name: 'The smoke rose straight up', text: 'The wind never scattered the pillar of smoke rising from the Mizbeach.', src: 'Avot 5:5' },
+  { id: 'fly', name: 'No flies!', text: 'Not a single fly was ever seen in the Beit HaMitbachayim.', src: 'Avot 5:5' },
+  { id: 'meat', name: 'Fresh meat', text: 'The meat of the korbanot never spoiled.', src: 'Avot 5:5' },
+  { id: 'bowing', name: 'Room to bow', text: 'People stood squeezed together — yet when they bowed, there was room for everyone!', src: 'Avot 5:5' },
+  { id: 'ner_maaravi', name: 'The Western Lamp', text: 'The Ner Ma\'aravi kept burning long after the other lamps, a sign that the Shechinah rests with Israel.', src: 'Shabbat 22b' },
+  { id: 'lechem', name: 'Warm bread', text: 'The Lechem HaPanim was as warm and fresh after a week as the day it was baked!', src: 'Chagigah 26b' },
+  { id: 'nikanor', name: 'The returned door', text: 'The sea brought back the door of Nikanor that was thrown overboard.', src: 'Yoma 38a' },
+  { id: 'crowded', name: 'Always room', text: 'No one ever said "it is too crowded for me to stay in Yerushalayim."', src: 'Avot 5:5' },
+];
+
+export const ACHIEVEMENTS = [
+  { id: 'kiyor', icon: '💧', name: 'Clean Hands', desc: 'Wash at the Kiyor' },
+  { id: 'deshen', icon: '🌅', name: 'Early Riser', desc: 'Perform Terumat HaDeshen' },
+  { id: 'wood', icon: '🪵', name: 'Fire Keeper', desc: 'Arrange the wood on the Mizbeach' },
+  { id: 'tamid', icon: '🐑', name: 'Tamid', desc: 'Bring the morning Korban Tamid' },
+  { id: 'menorah', icon: '🕎', name: 'Light of the World', desc: 'Prepare the Menorah' },
+  { id: 'ketoret', icon: '💨', name: 'Sweet Smell', desc: 'Offer the Ketoret' },
+  { id: 'bracha', icon: '🙌', name: 'Bless the People', desc: 'Say Birkat Kohanim' },
+  { id: 'shir', icon: '🎵', name: 'Shir Shel Yom', desc: 'Play music with the Leviim' },
+  { id: 'day', icon: '☀️', name: 'A Full Day', desc: 'Complete a whole day of Avodah' },
+  { id: 'perfect', icon: '✨', name: 'Perfect Service', desc: 'Finish a korban with no mistakes' },
+  { id: 'music3', icon: '🎼', name: 'Levi Maestro', desc: 'Get 3 stars in the Shir Shel Yom' },
+  { id: 'visitor', icon: '🤝', name: 'Helper', desc: 'Help a visitor bring a korban' },
+  { id: 'visitors', icon: '🏆', name: 'Friend of Israel', desc: 'Help all six visitors' },
+  { id: 'explorer', icon: '🗺️', name: 'Explorer', desc: 'Discover every place in the Mikdash' },
+  { id: 'miracles', icon: '🌟', name: 'Miracle Finder', desc: 'Find all the miracles' },
+  { id: 'kohen_gadol', icon: '👑', name: 'Kohen Gadol', desc: 'Unlock the garments of the Kohen Gadol' },
+];
+
+// Shir Shel Yom — Tamid 7:4
+export const DAILY_SHIR = [
+  { day: 'Sunday', tehillim: 24, he: 'לַה׳ הָאָרֶץ וּמְלוֹאָהּ', en: '"The earth and all it contains belong to Hashem."' },
+  { day: 'Monday', tehillim: 48, he: 'גָּדוֹל ה׳ וּמְהֻלָּל מְאֹד', en: '"Great is Hashem and very praised."' },
+  { day: 'Tuesday', tehillim: 82, he: 'אֱלֹקִים נִצָּב בַּעֲדַת קֵל', en: '"Hashem stands in the assembly of judges."' },
+  { day: 'Wednesday', tehillim: 94, he: 'קֵל נְקָמוֹת ה׳', en: '"Hashem is the God who brings justice."' },
+  { day: 'Thursday', tehillim: 81, he: 'הַרְנִינוּ לֵאלֹקִים עוּזֵּנוּ', en: '"Sing joyfully to Hashem, our strength!"' },
+  { day: 'Friday', tehillim: 93, he: 'ה׳ מָלָךְ גֵּאוּת לָבֵשׁ', en: '"Hashem is King, clothed in majesty."' },
+  { day: 'Shabbat', tehillim: 92, he: 'מִזְמוֹר שִׁיר לְיוֹם הַשַּׁבָּת', en: '"A song for the Shabbat day."' },
+];
+
+export const BIRKAT_KOHANIM = [
+  { he: 'יְבָרֶכְךָ ה׳ וְיִשְׁמְרֶךָ', en: 'May Hashem bless you and protect you.' },
+  { he: 'יָאֵר ה׳ פָּנָיו אֵלֶיךָ וִיחֻנֶּךָּ', en: 'May Hashem shine His face upon you and be kind to you.' },
+  { he: 'יִשָּׂא ה׳ פָּנָיו אֵלֶיךָ וְיָשֵׂם לְךָ שָׁלוֹם', en: 'May Hashem turn His face to you and give you peace.' },
+];
+
+export const TITLES = [
+  { stars: 0, name: 'Young Kohen', he: 'כהן צעיר' },
+  { stars: 12, name: 'Kohen', he: 'כהן' },
+  { stars: 30, name: 'Kohen of the Mishmar', he: 'כהן המשמר' },
+  { stars: 50, name: 'Memuneh', he: 'ממונה' },
+  { stars: 70, name: 'Kohen Gadol', he: 'כהן גדול' },
+];
+
+export const NPC_NAMES = {
+  memuneh: { name: 'Elazar the Memuneh', he: 'אלעזר הממונה', icon: '👴' },
+  avtinas: { name: 'Pinchas of Beit Avtinas', he: 'פנחס', icon: '🧔' },
+  winekohen: { name: 'Yosef the Kohen', he: 'יוסף', icon: '🧔' },
+  levi: { name: 'Asaf the Levi', he: 'אסף', icon: '🎶' },
+};

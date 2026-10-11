@@ -1,131 +1,161 @@
-<!-- build: 2026-02-26-v13 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#1b2440">
+  <meta name="description" content="Avodah — walk through the Beit HaMikdash and perform the daily avodah as a young Kohen. A 3D educational game for kids, sourced from Mishnah Tamid, Middot and Zevachim.">
   <title>Avodah — Beit HaMikdash</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🕎</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Frank+Ruhl+Libre:wght@500;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three/three.module.min.js", "three/addons/": "./vendor/three/addons/" } }
+  </script>
 </head>
 <body>
-  <!-- Login Screen -->
-  <div id="login-screen">
-    <div class="login-box">
-      <h1>🏛️ Avodah</h1>
-      <h2>Beit HaMikdash Simulator</h2>
-      <p class="login-subtitle">Serve as a Kohen. Learn the Korbanot. Hear the Leviim.</p>
-      <div id="profile-list"></div>
-      <button id="new-profile-btn" class="btn btn-gold">+ New Kohen</button>
+  <div id="app"></div>
+
+  <!-- Loading -->
+  <div id="loading">
+    <div class="load-inner">
+      <div class="load-logo">🕎</div>
+      <div class="load-title">Avodah</div>
+      <div class="load-he">בֵּית הַמִּקְדָּשׁ</div>
+      <div class="load-bar"><div id="load-fill"></div></div>
+      <div id="load-text">Building the Beit HaMikdash…</div>
     </div>
   </div>
 
-  <!-- New Profile Modal -->
-  <div id="new-profile-modal" class="modal hidden">
-    <div class="modal-content">
-      <h2>🕊️ New Kohen</h2>
-      <input type="text" id="profile-name-input" placeholder="Enter your name..." maxlength="20">
-      <div class="level-select">
-        <label>Start Level:</label>
-        <button class="level-btn selected" data-level="1">Level 1 — Beginner</button>
-        <button class="level-btn" data-level="2">Level 2 — Intermediate</button>
-      </div>
+  <!-- Title -->
+  <div id="title" class="hidden">
+    <div class="title-top">
+      <div class="title-he">בֵּית הַמִּקְדָּשׁ</div>
+      <h1 class="title-en">Avodah</h1>
+      <div class="title-sub">Serve as a young Kohen in the Beit HaMikdash</div>
+    </div>
+    <div class="title-card">
+      <div class="title-card-head">Choose your Kohen</div>
+      <div id="profile-list"></div>
+      <button id="btn-new-profile" class="btn btn-gold btn-big">＋ New Kohen</button>
+    </div>
+    <div class="title-foot">Sources: Mishnah Tamid · Middot · Zevachim · Menachot · Yoma — Tap anywhere to hear the Leviim 🎶</div>
+  </div>
+
+  <div id="new-profile" class="modal hidden">
+    <div class="modal-box">
+      <h2>🕊️ A new Kohen</h2>
+      <label class="field-label">What is your name?</label>
+      <input id="np-name" maxlength="16" placeholder="Your name" autocomplete="off">
+      <label class="field-label">Skin</label>
+      <div id="np-skin" class="swatches"></div>
+      <label class="field-label">Hair</label>
+      <div id="np-hair" class="swatches"></div>
       <div class="modal-actions">
-        <button id="create-profile-btn" class="btn btn-gold">Begin Avodah</button>
-        <button id="cancel-profile-btn" class="btn btn-stone">Cancel</button>
+        <button id="np-cancel" class="btn btn-stone">Cancel</button>
+        <button id="np-go" class="btn btn-gold">Begin! ▶</button>
       </div>
     </div>
   </div>
 
   <!-- HUD -->
   <div id="hud" class="hidden">
-    <div id="hud-top-left">
-      <div id="coins-display">🪙 <span id="coins-count">0</span></div>
-      <div id="level-display">Level <span id="level-num">1</span></div>
-      <div id="korbanot-display">🔥 <span id="korbanot-count">0</span> Korbanot</div>
-    </div>
-    <div id="hud-top-right">
-      <button class="hud-btn" id="shop-btn">🏪</button>
-      <button class="hud-btn" id="achieve-btn">🏆</button>
-      <button class="hud-btn" id="info-btn">📖</button>
-    </div>
-    <div id="hud-top-center">
-      <div id="interaction-prompt" class="hidden"></div>
-      <div id="avodah-steps" class="hidden"></div>
-      <div id="status-effects" class="hidden"></div>
-    </div>
-    <div id="hotbar"></div>
-    <div id="compass">
-      <div id="compass-arrow">▲</div>
-      <div id="compass-label">N</div>
-    </div>
-    <div id="zone-indicator"></div>
-  </div>
-
-  <!-- Mobile Controls -->
-  <div id="mobile-controls" class="hidden">
-    <div id="joystick-zone">
-      <div id="joystick-base">
-        <div id="joystick-thumb"></div>
+    <div id="hud-tl">
+      <div id="player-card">
+        <div id="pc-avatar">🙂</div>
+        <div>
+          <div id="pc-name">Kohen</div>
+          <div id="pc-title">Young Kohen</div>
+        </div>
+        <div id="pc-stars">⭐ <span>0</span></div>
+      </div>
+      <div id="quest-card" class="hidden">
+        <div id="qc-head"><span id="qc-icon">💧</span><div><div id="qc-title"></div><div id="qc-he"></div></div></div>
+        <div id="qc-step"></div>
+        <div id="qc-steps"></div>
       </div>
     </div>
-    <button id="mobile-interact-btn" class="mobile-btn">E</button>
+    <div id="hud-tr">
+      <div class="hud-buttons">
+        <button class="hud-btn" id="btn-journal" title="Sefer (J)">📖</button>
+        <button class="hud-btn" id="btn-achieve" title="Achievements">🏆</button>
+        <button class="hud-btn" id="btn-settings" title="Settings">⚙️</button>
+      </div>
+      <canvas id="minimap" width="220" height="220"></canvas>
+      <div id="clock"><span id="clock-icon">☀️</span> <span id="clock-text"></span></div>
+    </div>
+    <div id="zone-name"></div>
+    <div id="prompt" class="hidden">
+      <div id="prompt-ring"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="17" class="ring-bg"/><circle cx="20" cy="20" r="17" class="ring-fg" id="prompt-arc"/></svg><span id="prompt-key">E</span></div>
+      <span id="prompt-icon"></span><span id="prompt-text"></span>
+    </div>
+    <div id="edge-arrow" class="hidden"><div class="ea-arrow">➤</div><div id="ea-dist"></div></div>
+    <div id="toasts"></div>
+    <div id="fact-card" class="hidden">
+      <div class="fc-head">📜 <span id="fc-title">Did you know?</span></div>
+      <div id="fc-text"></div>
+      <div id="fc-src"></div>
+    </div>
+    <div id="world-labels"></div>
   </div>
 
-  <!-- Panels -->
-  <div id="shop-panel" class="panel-overlay hidden">
-    <div class="panel">
-      <div class="panel-header">
-        <h2>🏪 Shimon's Korban Stand</h2>
-        <button class="panel-close" id="close-shop">✕</button>
-      </div>
-      <div class="panel-body" id="shop-body"></div>
+  <div id="dialog" class="hidden">
+    <div id="dlg-portrait"></div>
+    <div id="dlg-body">
+      <div id="dlg-name"></div>
+      <div id="dlg-text"></div>
+      <div id="dlg-buttons"></div>
     </div>
   </div>
 
-  <div id="achieve-panel" class="panel-overlay hidden">
-    <div class="panel">
-      <div class="panel-header">
-        <h2>🏆 Achievements</h2>
-        <button class="panel-close" id="close-achieve">✕</button>
-      </div>
-      <div class="panel-body" id="achieve-body"></div>
+  <div id="banner" class="hidden"><div id="banner-icon"></div><div id="banner-title"></div><div id="banner-sub"></div></div>
+
+  <div id="celebrate" class="hidden">
+    <div class="cel-box">
+      <div id="cel-rays"></div>
+      <div id="cel-icon">✨</div>
+      <div id="cel-title"></div>
+      <div id="cel-stars"></div>
+      <div id="cel-lines"></div>
+      <button id="cel-btn" class="btn btn-gold btn-big">Continue ▶</button>
     </div>
   </div>
 
-  <div id="korban-select-panel" class="panel-overlay hidden">
-    <div class="panel">
-      <div class="panel-header">
-        <h2>📜 Choose a Korban</h2>
-        <button class="panel-close" id="close-korban-select">✕</button>
-      </div>
-      <div class="panel-body" id="korban-select-body"></div>
+  <div id="panel" class="modal hidden">
+    <div class="panel-box">
+      <div class="panel-head"><div id="panel-title"></div><button id="panel-close" class="btn-x">✕</button></div>
+      <div id="panel-tabs"></div>
+      <div id="panel-body"></div>
     </div>
   </div>
 
-  <div id="summary-panel" class="panel-overlay hidden">
-    <div class="panel">
-      <div class="panel-header">
-        <h2>✅ Avodah Complete!</h2>
-        <button class="panel-close" id="close-summary">✕</button>
-      </div>
-      <div class="panel-body" id="summary-body"></div>
-    </div>
+  <!-- Mini-game layers -->
+  <div id="hotspots" class="hidden"><div id="hs-title"></div><div id="hs-layer"></div><button id="hs-exit" class="btn btn-stone">Back</button></div>
+  <div id="rhythm" class="hidden">
+    <div id="rh-top"><div id="rh-title"></div><div id="rh-verse"></div><div id="rh-score"></div></div>
+    <div id="rh-lanes"></div>
+    <div id="rh-feedback"></div>
+  </div>
+  <div id="meter" class="hidden"><div id="mt-title"></div><div id="mt-bar"><div id="mt-zone"></div><div id="mt-needle"></div></div><div id="mt-hint"></div><button id="mt-btn" class="btn btn-gold btn-big">Kemitzah!</button></div>
+  <div id="arrows" class="hidden"><div id="ar-title"></div><div id="ar-seq"></div><div id="ar-pad"></div></div>
+  <div id="verses" class="hidden"><div id="vs-he"></div><div id="vs-en"></div><div id="vs-tap">Tap to continue ▶</div></div>
+
+  <!-- Mobile controls -->
+  <div id="mobile" class="hidden">
+    <div id="joy"><div id="joy-base"><div id="joy-knob"></div></div></div>
+    <button id="m-action" class="m-btn">✋</button>
+    <button id="m-jump" class="m-btn m-small">⤒</button>
+    <button id="m-run" class="m-btn m-small">🏃</button>
   </div>
 
-  <div id="edu-popup" class="hidden">
-    <div id="edu-popup-content"></div>
-  </div>
+  <div id="cine-bars" class="hidden"><div class="cb top"></div><div class="cb bottom"></div><div id="cine-caption"></div></div>
+  <div id="fade"></div>
 
-  <!-- Toast -->
-  <div id="toast-container"></div>
-
-  <!-- Dog label (reused pattern) -->
-  <div id="npc-label" class="hidden"></div>
-
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <script src="js/data.js?v=7"></script>
-  <script src="js/game.js?v=15"></script>
+  <noscript><div class="noscript">This game needs JavaScript and WebGL.</div></noscript>
+  <script type="module" src="js/main.js"></script>
 </body>
 </html>
