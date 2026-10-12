@@ -11,7 +11,7 @@ A line plays from a recording here if one exists, and otherwise uses the browser
 
 ## Making recordings
 - Speak exactly the `text` of each line. Don't rename ids; they come from the text.
-- English: a warm, friendly storyteller voice for children (ages 5–12), at a calm pace. Say the Hebrew words the modern Israeli way: Beit HaMikdash, Kohen, Kohanim, Mizbeach, korban, Avodah, Hashem.
+- English: a warm, friendly storyteller voice for children (ages 5–12), at a calm pace. The Hebrew words must sound like modern Israeli Hebrew. Follow **PRONUNCIATION.md**: "ch" is the throaty sound in "Bach" (Chodesh = KHO-desh), never the "ch" in "chair".
 - Hebrew: a native Israeli voice, warm and clear, for children.
 - MP3, mono, 44.1 or 48 kHz, about 64 kbps, with no silence at the start or end.
 - Add each finished id to `manifest.json`. Existing recordings never need redoing unless their line's text changed.
