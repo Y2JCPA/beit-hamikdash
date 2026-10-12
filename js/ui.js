@@ -46,19 +46,52 @@ function swipeable(el, { onDismiss, onTap, onSwipe }) {
 }
 
 export class UI {
-  speak(text) {
+  // Pre-generated neural TTS (Kokoro) keyed by sha1(speakable text). slice(0,16)
+  async _ttsKey(s) {
+    try {
+      const b = await crypto.subtle.digest('SHA-1', new TextEncoder().encode(s));
+      return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join('').slice(0, 16);
+    } catch { return null; }
+  }
+  async speak(text) {
+    const s = speakable(text);
+    if (!s) return;
+    // 1) pre-generated Kokoro audio, if available
+    try {
+      const key = await this._ttsKey(s);
+      if (key && this.ttsIndex && this.ttsIndex.includes(key)) {
+        this.stopSpeaking();
+        const a = new Audio(`audio/tts/${key}.mp3`);
+        a.volume = 0.95;
+        this.ttsAudio = a;
+        a.onended = a.onerror = () => { if (this.ttsAudio === a) this.ttsAudio = null; };
+        await a.play().catch(() => { this._browserSpeak(s); });
+        return;
+      }
+    } catch { }
+    // 2) fallback: browser voice
+    this._browserSpeak(s);
+  }
+  _browserSpeak(s) {
     try {
       if (!('speechSynthesis' in window)) return;
       speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(speakable(text));
+      const u = new SpeechSynthesisUtterance(s);
       u.rate = 0.95; u.pitch = 1.05; u.lang = 'en-US';
       speechSynthesis.speak(u);
     } catch { }
   }
-  stopSpeaking() { try { speechSynthesis.cancel(); } catch { } }
+  stopSpeaking() {
+    try { speechSynthesis.cancel(); } catch { }
+    try { this.ttsAudio?.pause(); this.ttsAudio = null; } catch { }
+  }
 
   constructor() {
     this.factQueue = [];
+    this.ttsIndex = null; this.ttsAudio = null;
+    fetch('audio/tts/index.json').then(r => r.ok ? r.json() : null)
+      .then(j => { this.ttsIndex = Array.isArray(j) ? j : null; })
+      .catch(() => { });
     this.factTimer = null;
     this.dialogOpen = false;
     this.modalOpen = false;
