@@ -970,7 +970,46 @@ export class Game {
       this.camTween = { fromPos, fromLook, toPos: toPos.clone(), toLook: toLook.clone(), t: 0, dur, resolve };
     });
   }
-  closeUp(pos, look) { this.player.frozen = true; return this.tweenCam(pos, look, 0.9); }
+  // `fit` = width (m) of what we're looking at: on a narrow (portrait) screen the camera backs off so it all fits
+  closeUp(pos, look, fit = 0) {
+    this.player.frozen = true;
+    if (fit) {
+      const half = THREE.MathUtils.degToRad(this.camera.fov) / 2;
+      const hHalf = Math.atan(Math.tan(half) * this.camera.aspect);
+      const need = (fit / 2) / Math.tan(Math.min(half, hHalf));
+      const d = pos.clone().sub(look), len = d.length();
+      if (need > len) pos = look.clone().add(d.multiplyScalar(need / len));
+      // if a pillar or wall is in the way, swing around the subject until the view is clear
+      if (this.viewBlocked(pos, look)) {
+        const off = pos.clone().sub(look);
+        for (const a of [0.45, -0.45, 0.9, -0.9, 1.35, -1.35, 1.8, -1.8, 2.4, -2.4, Math.PI]) {
+          const c = look.clone().add(off.clone().applyAxisAngle(THREE.Object3D.DEFAULT_UP, a));
+          if (!this.viewBlocked(c, look)) { pos = c; break; }
+        }
+      }
+    }
+    return this.tweenCam(pos, look, 0.9);
+  }
+  // does any solid box cut the line of sight from a to b (or hold the camera)?
+  viewBlocked(a, b) {
+    const d = b.clone().sub(a), L = d.length() - 0.35;
+    d.normalize();
+    for (const bx of this.physics.boxes) {
+      // the thing we're looking at (the Menorah, a table…) doesn't block its own view
+      if (b.x > bx.x0 - 0.5 && b.x < bx.x1 + 0.5 && b.y > bx.y0 - 0.5 && b.y < bx.y1 + 0.5 && b.z > bx.z0 - 0.5 && b.z < bx.z1 + 0.5) continue;
+      let tmin = 0, tmax = L;
+      for (const ax of ['x', 'y', 'z']) {
+        const o = a[ax], dd = d[ax], lo = bx[ax + '0'] - 0.12, hi = bx[ax + '1'] + 0.12;
+        if (Math.abs(dd) < 1e-9) { if (o < lo || o > hi) { tmin = Infinity; break; } continue; }
+        let t1 = (lo - o) / dd, t2 = (hi - o) / dd;
+        if (t1 > t2) [t1, t2] = [t2, t1];
+        tmin = Math.max(tmin, t1); tmax = Math.min(tmax, t2);
+        if (tmin > tmax) { tmin = Infinity; break; }
+      }
+      if (tmin !== Infinity) return true;
+    }
+    return false;
+  }
   async releaseCam() {
     // compute the follow pose then tween to it
     const ov = this.rig.override;
@@ -1466,6 +1505,13 @@ export class Game {
     }
     if (this.camOverride) { this.camera.position.copy(this.camOverride.pos); this.camLook.copy(this.camOverride.look); this.camera.lookAt(this.camLook); }
     this.minigames.update(Math.min(this.realDt, 0.1), (v) => this.project(v));
+    // a mini-game fills the screen: tuck the joystick and buttons away so they don't cover it
+    // in a close-up the camera can end up right beside our own Kohen: step him out of the shot
+    const cp = this.camera.position, pp = this.player.pos;
+    const inShot = !(this.camOverride && Math.hypot(cp.x - pp.x, cp.z - pp.z) < 1.4 && cp.y - pp.y < 2.4);
+    if (this.player.char.group.visible !== inShot) this.player.char.group.visible = inShot;
+    const mgOn = !!this.minigames.active;
+    if (mgOn !== this._mgShown) { this._mgShown = mgOn; document.body.classList.toggle('minigame', mgOn); }
     const mg = this.minigames.busy || (!!this.camOverride && this.mode === 'play');
     if (mg !== this._mgClass) { this._mgClass = mg; document.body.classList.toggle('mg', mg); }
   }
@@ -1482,12 +1528,25 @@ export class Game {
     this.env.follow(pl.pos);
 
     // guide me
-    if (input.guidePressed && !blocked && !pl.frozen) this.toggleGuide();
+    // a 🧭 tap during a short freeze (a cut-scene, a step finishing) is kept for a moment instead of lost
+    if (input.guidePressed && !this.guideQueued) {
+      this.guideQueued = performance.now();
+      if (blocked || pl.frozen) document.getElementById('m-guide').classList.add('wait');   // "got it!"
+    }
+    const qAge = performance.now() - this.guideQueued;
+    if (this.guideQueued && ((!blocked && !pl.frozen) || qAge > 2500)) {
+      if (qAge <= 2500) this.toggleGuide();
+      this.guideQueued = 0;
+      document.getElementById('m-guide').classList.remove('wait');
+    }
     this.updateGuide(blocked);
+    const canGuide = !blocked && !pl.frozen && !this.camOverride && (!!this.guide || !!this.guideTarget());
     if (!this.ui.touch) {
-      const show = !blocked && !pl.frozen && !this.camOverride && (!!this.guide || !!this.guideTarget());
       const gd = document.getElementById('guide-desk');
-      if (gd.classList.contains('hidden') === show) gd.classList.toggle('hidden', !show);
+      if (gd.classList.contains('hidden') === canGuide) gd.classList.toggle('hidden', !canGuide);
+    } else if (canGuide !== this._canGuide) {
+      this._canGuide = canGuide;
+      document.getElementById('m-guide').classList.toggle('idle', !canGuide);
     }
 
     // quest

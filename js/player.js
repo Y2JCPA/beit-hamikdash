@@ -65,6 +65,8 @@ export class Player {
     const a = makeAnimal(type);
     a.pos = this.pos.clone().add(new THREE.Vector3(-Math.sin(this.facing) * 1.6, 0, -Math.cos(this.facing) * 1.6));
     a.facing = this.facing;
+    a.pos.y = this.physics.groundAt(a.pos.x, a.pos.z, this.pos.y + 0.3, 0.8);
+    a.group.position.copy(a.pos); a.group.rotation.y = a.facing; a.baseY = a.pos.y;
     a.group.traverse(o => { if (o.isMesh) o.castShadow = true; });
     this.scene.add(a.group);
     this.followers.push(a);
@@ -154,7 +156,7 @@ export class Player {
 
   updateFollowers(dt) {
     this.followers.forEach((a, i) => {
-      if (a.parked) { a.update(dt, 0); return; }
+      if (a.parked) { a.group.position.copy(a.pos); a.group.rotation.y = a.facing; a.update(dt, 0); return; }
       const back = 1.5 + i * 1.3;
       const tx = this.pos.x - Math.sin(this.facing) * back, tz = this.pos.z - Math.cos(this.facing) * back;
       const dx = tx - a.pos.x, dz = tz - a.pos.z;

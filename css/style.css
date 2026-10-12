@@ -254,7 +254,8 @@ button { font-family: var(--font); cursor: pointer; }
 @keyframes verseIn { from { opacity: 0; transform: translateY(10px); filter: blur(4px); } }
 
 /* Mobile */
-#mobile { position: fixed; inset: 0; z-index: 12; pointer-events: none; }
+#mobile { position: fixed; inset: 0; z-index: 12; pointer-events: none; transition: opacity .25s; }
+body.minigame #mobile, body.minigame #guide-desk { opacity: 0; visibility: hidden; }
 #joy { position: absolute; left: 0; bottom: 0; width: 45vw; height: 72vh; pointer-events: auto; touch-action: none; }
 #joy-base { opacity: .55; transition: opacity .15s; }
 #joy-base.live { opacity: 1; }
@@ -266,6 +267,9 @@ button { font-family: var(--font); cursor: pointer; }
 .m-small { width: 58px; height: 58px; font-size: 24px; background: radial-gradient(circle at 35% 30%, #fff, #ddd2b8 65%, #b3a27a); box-shadow: 0 4px 0 #7d6c48, 0 8px 18px rgba(0,0,0,.35); }
 #m-jump { right: calc(132px + env(safe-area-inset-right, 0px)); bottom: calc(30px + var(--safe-b)); }
 #m-guide { right: calc(36px + env(safe-area-inset-right, 0px)); bottom: calc(142px + var(--safe-b)); }
+#m-guide.idle { opacity: .45; filter: grayscale(.7); }
+#m-guide.wait { opacity: 1; filter: none; animation: guideWait .5s ease-in-out infinite alternate; }
+@keyframes guideWait { to { transform: scale(1.12); box-shadow: 0 0 0 6px rgba(120,200,100,.55), 0 8px 18px rgba(0,0,0,.35); } }
 #m-guide.on, #guide-desk.on { background: radial-gradient(circle at 35% 30%, #e0ffd8, #6dbb5a 65%, #3a7d2a); }
 
 /* Cinematic */
