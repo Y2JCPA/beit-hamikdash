@@ -65,6 +65,8 @@ export class Player {
     const a = makeAnimal(type);
     a.pos = this.pos.clone().add(new THREE.Vector3(-Math.sin(this.facing) * 1.6, 0, -Math.cos(this.facing) * 1.6));
     a.facing = this.facing;
+    a.pos.y = this.physics.groundAt(a.pos.x, a.pos.z, this.pos.y + 0.3, 0.8);
+    a.group.position.copy(a.pos); a.group.rotation.y = a.facing; a.baseY = a.pos.y;
     a.group.traverse(o => { if (o.isMesh) o.castShadow = true; });
     this.scene.add(a.group);
     this.followers.push(a);
@@ -86,13 +88,15 @@ export class Player {
 
   update(dt, input, camYaw) {
     const P = PLAYER;
-    const mv = this.frozen ? { x: 0, y: 0, run: false } : input.move();
+    const auto = !this.frozen && this.autoDir;
+    const mv = this.frozen ? { x: 0, y: 0, run: false } : auto ? { x: 0, y: 0, run: true } : input.move();
     const carefully = this.heldKinds.includes('mizrak');
     const maxSpeed = (mv.run && !carefully ? P.sprint : P.walk) * (carefully ? 0.8 : 1);
     // camera-relative direction
     const fx = -Math.sin(camYaw), fz = -Math.cos(camYaw);
     const rx = Math.cos(camYaw), rz = -Math.sin(camYaw);
     let dx = fx * mv.y + rx * mv.x, dz = fz * mv.y + rz * mv.x;
+    if (auto) { dx = this.autoDir.x; dz = this.autoDir.z; }
     const mag = Math.hypot(dx, dz);
     const want = mag > 0.05;
     if (want) { dx /= Math.max(1, mag); dz /= Math.max(1, mag); }
@@ -152,7 +156,7 @@ export class Player {
 
   updateFollowers(dt) {
     this.followers.forEach((a, i) => {
-      if (a.parked) { a.update(dt, 0); return; }
+      if (a.parked) { a.group.position.copy(a.pos); a.group.rotation.y = a.facing; a.update(dt, 0); return; }
       const back = 1.5 + i * 1.3;
       const tx = this.pos.x - Math.sin(this.facing) * back, tz = this.pos.z - Math.cos(this.facing) * back;
       const dx = tx - a.pos.x, dz = tz - a.pos.z;
@@ -191,6 +195,8 @@ export class CameraRig {
     this.override = null;        // cinematic pose {pos, look}
     this.sens = 1;
     this.mode = 'follow';
+    this.followDelay = 1.2;   // seconds after the player last dragged the view
+    this.followRate = 0.9;    // how quickly the camera swings behind a walking player
   }
 
   snap(player) {
@@ -212,10 +218,10 @@ export class CameraRig {
     this.dist = Math.max(2.4, Math.min(maxD, this.dist + input.zoom * 0.7));
     // gentle auto-follow behind the player when walking forward-ish and not dragging
     const now = performance.now() / 1000;
-    if (player.speed > 1.5 && now - input.lastLookAt > 1.2) {
+    if (player.speed > 1.5 && now - input.lastLookAt > this.followDelay) {
       const behind = player.facing + Math.PI;
       const d = Math.atan2(Math.sin(behind - this.yaw), Math.cos(behind - this.yaw));
-      if (Math.abs(d) < 2.2) this.yaw += d * Math.min(1, dt * 0.9);
+      if (Math.abs(d) < 2.2 || player.autoDir) this.yaw += d * Math.min(1, dt * (player.autoDir ? 2.4 : this.followRate));
     }
     const tx = player.pos.x, ty = player.visualY + 1.45, tz = player.pos.z;
     const k = snap ? 1 : Math.min(1, dt * 12);

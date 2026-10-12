@@ -7,7 +7,8 @@ export class Input {
     this.jumpPressed = false;
     this.lookDX = 0; this.lookDY = 0; this.zoom = 0;
     this.joy = { x: 0, y: 0, active: false };
-    this.runToggle = false;
+    this.guidePressed = false;
+    this.lastJoyAt = -10;
     this.touch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
     this.enabled = true;
     this.lastLookAt = -10;
@@ -20,6 +21,7 @@ export class Input {
       this.keys.add(e.code);
       if (e.code === 'KeyE' || e.code === 'Enter') { this.actionDown = true; this.actionPressed = true; }
       if (e.code === 'Space') this.jumpPressed = true;
+      if (e.code === 'KeyG') this.guidePressed = true;
       this.handlers.key?.(e.code);
     });
     addEventListener('keyup', (e) => {
@@ -77,22 +79,37 @@ export class Input {
   }
 
   bindMobile() {
+    // Floating joystick: it appears wherever the thumb lands on the left side of the screen
     const joy = document.getElementById('joy'), base = document.getElementById('joy-base'), knob = document.getElementById('joy-knob');
-    let jid = null;
+    let jid = null, ox = 0, oy = 0;
+    const R = 62;
     const setKnob = (x, y) => { knob.style.transform = `translate(${x}px, ${y}px)`; };
     const move = (cx, cy) => {
-      const r = base.getBoundingClientRect();
-      const ox = r.left + r.width / 2, oy = r.top + r.height / 2;
       let dx = cx - ox, dy = cy - oy;
-      const max = r.width / 2;
       const d = Math.hypot(dx, dy);
-      if (d > max) { dx *= max / d; dy *= max / d; }
+      if (d > R) { dx *= R / d; dy *= R / d; }
       setKnob(dx, dy);
-      this.joy.x = dx / max; this.joy.y = dy / max;
+      this.joy.x = dx / R; this.joy.y = dy / R;
+      if (Math.hypot(dx, dy) > 6) this.lastJoyAt = performance.now() / 1000;
     };
-    joy.addEventListener('pointerdown', (e) => { jid = e.pointerId; joy.setPointerCapture(jid); this.joy.active = true; move(e.clientX, e.clientY); });
+    joy.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      jid = e.pointerId; joy.setPointerCapture(jid);
+      const r = joy.getBoundingClientRect();
+      ox = e.clientX; oy = e.clientY;
+      base.style.left = (ox - r.left - 66) + 'px';
+      base.style.top = (oy - r.top - 66) + 'px';
+      base.style.bottom = 'auto';
+      base.classList.add('live');
+      this.joy.active = true; move(e.clientX, e.clientY);
+    });
     joy.addEventListener('pointermove', (e) => { if (e.pointerId === jid) move(e.clientX, e.clientY); });
-    const end = (e) => { if (e.pointerId !== jid) return; jid = null; this.joy.active = false; this.joy.x = this.joy.y = 0; setKnob(0, 0); };
+    const end = (e) => {
+      if (e.pointerId !== jid) return;
+      jid = null; this.joy.active = false; this.joy.x = this.joy.y = 0; setKnob(0, 0);
+      base.classList.remove('live');
+      base.style.left = ''; base.style.top = ''; base.style.bottom = '';
+    };
     joy.addEventListener('pointerup', end); joy.addEventListener('pointercancel', end);
 
     const act = document.getElementById('m-action');
@@ -100,8 +117,14 @@ export class Input {
     const actUp = () => { this.actionDown = false; };
     act.addEventListener('pointerup', actUp); act.addEventListener('pointercancel', actUp); act.addEventListener('pointerleave', actUp);
     document.getElementById('m-jump').addEventListener('pointerdown', (e) => { e.preventDefault(); this.jumpPressed = true; });
-    const run = document.getElementById('m-run');
-    run.addEventListener('pointerdown', (e) => { e.preventDefault(); this.runToggle = !this.runToggle; run.classList.toggle('on', this.runToggle); });
+    document.getElementById('m-guide').addEventListener('pointerdown', (e) => { e.preventDefault(); this.guidePressed = true; });
+  }
+
+  // did the player steer by themselves this frame?
+  get steering() {
+    const k = this.keys;
+    return this.joy.active && Math.hypot(this.joy.x, this.joy.y) > 0.15 ||
+      ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].some(c => k.has(c));
   }
 
   // Movement intent: x = right, y = forward (both -1..1)
@@ -116,13 +139,14 @@ export class Input {
     if (this.joy.active) { x += this.joy.x; y -= this.joy.y; }
     const l = Math.hypot(x, y);
     if (l > 1) { x /= l; y /= l; }
-    const run = k.has('ShiftLeft') || k.has('ShiftRight') || this.runToggle || (this.joy.active && Math.hypot(this.joy.x, this.joy.y) > 0.92);
+    const run = k.has('ShiftLeft') || k.has('ShiftRight') || (this.joy.active && Math.hypot(this.joy.x, this.joy.y) > 0.9);
     return { x, y, run };
   }
 
   endFrame() {
     this.actionPressed = false;
     this.jumpPressed = false;
+    this.guidePressed = false;
     this.lookDX = 0; this.lookDY = 0; this.zoom = 0;
   }
 }

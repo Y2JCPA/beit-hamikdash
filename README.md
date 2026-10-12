@@ -51,14 +51,24 @@ When everyone has been helped, you unlock the **eight garments of the Kohen Gado
 - There are 16 achievements, stars, and titles from *Young Kohen* up to *Kohen Gadol*.
 
 ## Controls
-| | Keyboard / mouse | Touch |
+| | Keyboard / mouse | Phone / tablet |
 |---|---|---|
-| Walk | WASD / arrow keys | left joystick |
-| Run | Shift | 🏃 button |
-| Act / hold | E (hold for "hold" actions) | ✋ button (or tap the prompt) |
-| Look | drag the mouse, scroll to zoom | drag the screen, pinch to zoom |
-| Jump | Space | ⤒ button |
+| Walk | WASD / arrows | put your thumb anywhere on the left half and slide (the joystick appears under it) |
+| Run | Shift | slide the joystick all the way out |
+| Act / hold | E (hold for "hold" actions) | the big gold button (it shows the icon of what you can do), or tap the prompt |
+| Look | drag the mouse, scroll to zoom | drag on the right half, pinch to zoom |
+| Guide me | G / 🧭 Guide me | 🧭: your Kohen walks to the next task by himself (move the joystick to stop) |
+| Jump | Space | ⤒ |
 | Sefer | J | 📖 |
+
+### Made for phones
+- **Text boxes get out of the way.**
+  - "Did you know?" cards appear as a small pill: tap to read, swipe or ✕ to close. They're always saved in the Sefer.
+  - The task card folds itself into one line after a few seconds (tap to open it again).
+  - 👁 hides all the text at once.
+- **Guide me (🧭).** It plans a walking route through the Mikdash, up the 15 steps, the Kevesh and the Ulam steps, and walks you there. Every quest target is covered by an automated route test.
+- **Stays smooth.** Resolution adjusts itself to keep the frame rate up, and glow and shadows switch off on slow phones. Holding the phone upright gives a wider camera view.
+- **Can be installed.** Add it to the home screen to play full-screen. In ⚙️ Settings you can choose the card size, read-aloud, and full screen on Android.
 
 ## Tech
 - Vanilla ES modules with **Three.js r170 vendored** in `vendor/three/`. No build step and no CDN; it runs straight from GitHub Pages.
@@ -88,6 +98,7 @@ js/fx.js              fire, smoke, particles, quest beacons, light shafts
 js/sky.js             sun path, sky, IBL, stars and moon
 js/player.js          controller and third-person camera
 js/physics.js         AABB collisions and ramps
+js/nav.js             "Guide me" route planning (waypoint graph checked by simulated walking)
 js/minigames.js       hotspots, rhythm game, kemitzah meter, tenufah, verses
 js/audio.js           synthesized music and sound effects
 js/ui.js, input.js    HUD, dialogs, journal, minimap, keyboard, mouse and touch

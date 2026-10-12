@@ -1,0 +1,16 @@
+{
+  "name": "Avodah — Beit HaMikdash",
+  "short_name": "Avodah",
+  "description": "Serve as a young Kohen in the Beit HaMikdash — a 3D educational game for kids.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#0b0f1d",
+  "theme_color": "#1b2440",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

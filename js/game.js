@@ -19,6 +19,7 @@ import { UI } from './ui.js';
 import { audio, noteFreq } from './audio.js';
 import { Minigames } from './minigames.js';
 import { QuestRunner } from './questRunner.js';
+import { Nav } from './nav.js';
 import { DAILY, VISITORS, setNpcPosResolver, shirForToday } from './quests.js';
 import { PLACES, MIRACLES, ACHIEVEMENTS, TITLES, NPC_NAMES } from './data.js';
 
@@ -28,7 +29,7 @@ const ease = (t) => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 const TOP = MIZBEACH.topH;
 
 function loadSettings() {
-  const def = { quality: 'auto', music: 0.7, sfx: 0.85, camSpeed: 1, guided: true, readAloud: false };
+  const def = { quality: 'auto', music: 0.7, sfx: 0.85, camSpeed: 1, guided: true, readAloud: false, facts: 'auto' };
   try { return { ...def, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') }; } catch { return def; }
 }
 
@@ -62,17 +63,27 @@ export class Game {
   async init() {
     const ui = this.ui;
     ui.loading(0.03, 'Gathering Jerusalem stone…');
-    await Promise.race([document.fonts?.ready, new Promise(r => setTimeout(r, 1500))]);
+    // fonts are only needed for the painted signs: let them download while textures are painted
+    const fontsReady = Promise.race([document.fonts?.ready, new Promise(r => setTimeout(r, 1500))]);
     let q = this.settings.quality;
     const touch = matchMedia('(pointer: coarse)').matches;
     if (q === 'auto') q = touch ? 'medium' : 'high';
     this.quality = q;
     ui.touch = touch;
+    ui.phone = touch && Math.min(innerWidth, innerHeight) < 600;
+    document.body.classList.toggle('phone', ui.phone);
+    document.body.classList.toggle('touch', touch);
     ui.readAloud = !!this.settings.readAloud;
+    ui.factMode = this.settings.facts === 'auto' ? (touch ? 'compact' : 'full') : this.settings.facts;
+    this.adaptive = this.settings.quality === 'auto';
 
     // Renderer
     const renderer = this.renderer = new THREE.WebGLRenderer({ antialias: q !== 'high', powerPreference: 'high-performance' });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, q === 'high' ? 2 : q === 'medium' ? 1.35 : 1));
+    // phones start at 1x (the 3D view is the costly part; the UI stays crisp), tablets a bit higher
+    const phoneish = touch && Math.min(innerWidth, innerHeight) < 600;
+    this.phoneish = phoneish;
+    const prCap = q === 'high' ? 2 : q === 'medium' ? (phoneish ? 1.0 : touch ? 1.25 : 1.35) : 1;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, prCap));
     renderer.setSize(innerWidth, innerHeight);
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 0.7;
@@ -87,8 +98,9 @@ export class Game {
     await nextFrame();
     ui.loading(0.15, 'Carving the ashlars…');
     await nextFrame();
-    buildMaterials(q);
+    await buildMaterials(q, touch, (f) => ui.loading(0.15 + f * 0.25, 'Carving the ashlars…'));
     ui.loading(0.4, 'Building the Beit HaMikdash…');
+    await fontsReady;
     await nextFrame();
     this.physics = new Physics();
     this.world = buildWorld(scene, this.physics, q);
@@ -109,6 +121,7 @@ export class Game {
     // people and standing NPCs are solid (but don't block the camera)
     for (const pp of people) this.physics.addBox(pp.x - 0.28, pp.y, pp.z - 0.28, pp.x + 0.28, pp.y + 1.5, pp.z + 0.28, false);
     for (const id in this.npcs) { const n = this.npcs[id]; if (!n.path) this.physics.addBox(n.x - 0.3, n.y, n.z - 0.3, n.x + 0.3, n.y + 1.6, n.z + 0.3, false); }
+    this.nav = new Nav(this.physics);
     this.doves = new Doves(scene, q === 'low' ? 10 : 22);
     this.input = new Input(renderer.domElement);
     this.input.handlers.key = (code) => this.onKey(code);
@@ -122,6 +135,10 @@ export class Game {
       return n ? { x: n.x + Math.sin(n.facing) * 1.1, y: n.y, z: n.z + Math.cos(n.facing) * 1.1 } : { x: 0, y: 0, z: 0 };
     });
     this.setupPost();
+    this.perf = { t: 0, n: 0, pr: renderer.getPixelRatio(), max: renderer.getPixelRatio(), min: 0.7, stage: 0, good: 0, wait: 0 };
+    if (touch) { this.rig.followDelay = 0.5; this.rig.followRate = 1.7; }
+    this.applyFov();
+    $('#guide-desk').addEventListener('click', (e) => { e.currentTarget.blur(); this.input.guidePressed = true; });
     ui.loading(0.92, 'Tuning the kinor…');
     await nextFrame();
     this.bindUI();
@@ -151,8 +168,68 @@ export class Game {
     this.composer = composer;
   }
 
+  // a wider lens when the phone is held upright, so you still see around you
+  applyFov() {
+    this.camera.fov = innerWidth / innerHeight < 0.8 ? 72 : 58;
+    this.camera.updateProjectionMatrix();
+  }
+
+  setPixelRatio(pr) {
+    const pf = this.perf;
+    pf.pr = Math.max(pf.min, Math.min(pf.max, pr));
+    this.renderer.setPixelRatio(pf.pr);
+    this.renderer.setSize(innerWidth, innerHeight);
+    if (this.composer) { this.composer.setPixelRatio(pf.pr); this.composer.setSize(innerWidth, innerHeight); }
+  }
+
+  // Keep phones smooth: lower the resolution when frames are slow, raise it when there's room.
+  // Nothing here ever forces shaders to recompile (that would freeze a phone for seconds).
+  adaptPerformance(raw) {
+    const pf = this.perf;
+    pf.t += raw; pf.n++;
+    if (pf.t < 3) return;
+    const fps = pf.n / pf.t;
+    pf.t = 0; pf.n = 0;
+    if (this.mode !== 'play' || document.hidden || this.camOverride) return;
+    if (pf.wait > 0) { pf.wait--; return; }
+    // few, decisive steps: each resolution change re-creates the frame buffers (a small hitch)
+    if (fps < 40 && pf.pr > pf.min + 0.01) { this.setPixelRatio(fps < 25 ? pf.min : pf.pr - 0.15); pf.good = 0; pf.wait = 1; return; }
+    if (fps < 26 && pf.stage === 0 && this.bloom) { pf.stage = 1; this.bloom.enabled = false; pf.wait = 1; return; }
+    if (fps < 22 && pf.stage === 1) { pf.stage = 2; this.renderer.shadowMap.autoUpdate = false; this.lazyShadows = true; return; }
+    if (fps > 58) { if (++pf.good >= 4 && pf.pr < pf.max - 0.01) { this.setPixelRatio(pf.pr + 0.1); pf.good = 0; } }
+    else pf.good = 0;
+  }
+
+  // With lazy shadows the shadow map is only redrawn when the player has moved a bit
+  updateLazyShadows() {
+    const p = this.player.pos, last = this._shadowAt || (this._shadowAt = p.clone().addScalar(99));
+    const now = performance.now();
+    if (last.distanceToSquared(p) > 16 || now - (this._shadowT || 0) > 2500) {
+      last.copy(p); this._shadowT = now;
+      this.renderer.shadowMap.needsUpdate = true;
+    }
+  }
+
+  updateLocalLight(night) {
+    const L = this.localLight, k = this.interiorMix, m = P.menorah;
+    if (k > 0.02 || !night) {
+      L.position.set(m.x + 1.5, 3 + 4.5, m.z - 2.2);
+      L.color.setHex(0xffc070);
+      L.distance = 34;
+      L.intensity = (6 + this.lampsLit * 5) + 20 * k;
+    } else {
+      L.position.set(42, 16, 0);
+      L.color.setHex(0xffb060);
+      L.distance = 60;
+      L.intensity = 120;
+    }
+  }
+
+  buzz(ms) { try { if (this.ui.touch) navigator.vibrate?.(ms); } catch { } }
+
   onResize() {
     this.camera.aspect = innerWidth / innerHeight;
+    this.applyFov();
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(innerWidth, innerHeight);
     if (this.composer) {
@@ -181,12 +258,11 @@ export class Game {
 
     // Heichal interior lights
     const m = P.menorah;
-    this.menorahLight = new THREE.PointLight(0xffb45a, 14, 30, 1.2);
-    this.menorahLight.position.set(m.x, 3 + 2.8, m.z - 0.6);
-    scene.add(this.menorahLight);
-    this.hallLight = new THREE.PointLight(0xffd9a0, 30, 34, 1.2);
-    this.hallLight.position.set(-36, 16, 0);
-    scene.add(this.hallLight);
+    // One movable "local" light does three jobs: the Menorah's glow, the Heichal's fill light
+    // indoors, and the Simchat Beit HaShoevah lamps at night. Every extra light costs every pixel.
+    this.localLight = new THREE.PointLight(0xffb45a, 14, 30, 1.2);
+    this.localLight.position.set(m.x, 3 + 2.8, m.z - 0.6);
+    scene.add(this.localLight);
     // Menorah flames
     this.lampFires = this.world.menorahLamps.map((p, i) => {
       const f = new Fire(scene, p.clone().setY(p.y - 0.06), 0.085, 3, false);
@@ -197,9 +273,6 @@ export class Game {
     this.lampsLit = 1;
     // lamp towers of Simchat Beit HaShoevah (night only)
     this.towerFires = this.world.lampTowers.map(p => new Fire(scene, p, 0.6, 5));
-    this.towerLight = new THREE.PointLight(0xffb060, 0, 60, 1.2);
-    this.towerLight.position.set(42, 16, 0);
-    scene.add(this.towerLight);
     // Light shafts through the Heichal windows
     this.shafts = [];
     for (const x of [-42, -37.5, -33]) {
@@ -411,6 +484,11 @@ export class Game {
     $('#prompt').addEventListener('pointerup', () => { this.input.actionDown = false; });
     $('#prompt').addEventListener('pointerleave', () => { this.input.actionDown = false; });
     $('#title').addEventListener('pointerdown', () => audio.init());
+    // phones only allow sound after a touch — start it on the very first touch anywhere
+    document.addEventListener('pointerdown', () => audio.init(), { capture: true, passive: true });
+    const skip = () => { if (this.skippable) this.cineSkip = true; };
+    document.addEventListener('pointerdown', skip, true);
+    addEventListener('keydown', (e) => { if (['Space', 'Enter', 'KeyE', 'Escape'].includes(e.code)) skip(); }, true);
   }
 
   openJournal() { audio.play('click'); this.ui.openJournal(this.state); }
@@ -421,6 +499,7 @@ export class Game {
       if (k === 'music' || k === 'sfx') audio.setVolumes(this.settings.music, this.settings.sfx);
       if (k === 'camSpeed') this.rig.sens = v;
       if (k === 'readAloud') { this.ui.readAloud = v; if (!v) this.ui.stopSpeaking(); }
+      if (k === 'facts') this.ui.factMode = v;
     }, { toTitle: () => this.toTitle() });
   }
 
@@ -490,16 +569,27 @@ export class Game {
       await this.ui.dialog({
         icon: '🎮', name: 'How to play',
         text: this.ui.touch
-          ? 'Move with the joystick on the left. Drag the screen to look around. When you see a golden button at the bottom, tap ✋ to act — some things need you to HOLD it. Follow the golden light!'
-          : 'Walk with W A S D or the arrow keys (hold Shift to run). Drag with the mouse to look around. When a golden prompt appears, press E — some things need you to HOLD E. Follow the golden light!',
+          ? 'Put your thumb anywhere on the LEFT side and slide to walk (slide far to run). Drag on the RIGHT side to look around. Tap ✋ to act — some things need you to HOLD it. Lost? Tap 🧭 and your Kohen walks there by himself! Swipe away any card that is in your way.'
+          : 'Walk with W A S D or the arrow keys (hold Shift to run). Drag with the mouse to look around. When a golden prompt appears, press E — some things need you to HOLD E. Follow the golden light — or press G (🧭 Guide me) to walk there automatically!',
         buttons: [{ label: 'Let\'s go! ▶', value: true }],
       });
     }
+    this.maybeRotateHint();
     if (!st.dayDone) this.startDaily(st.dailyIndex);
     else {
       this.ui.toast(st.night ? '🌙 Imagine it\'s Sukkot — the Simchat Beit HaShoevah lamps are lit! Explore, or talk to Elazar for a new day.' : '❗ Visitors are waiting in Ezrat Yisrael!');
     }
     this.save();
+  }
+
+  maybeRotateHint() {
+    if (!this.ui.phone || innerWidth > innerHeight) return;
+    try { if (localStorage.getItem('mikdash3_rotate')) return; localStorage.setItem('mikdash3_rotate', '1'); } catch { }
+    const d = document.createElement('div');
+    d.id = 'rotate-hint';
+    d.innerHTML = '📱↔️<br>Tip: turn your phone sideways<br>for a bigger view!';
+    document.body.appendChild(d);
+    setTimeout(() => d.remove(), 5200);
   }
 
   resetDayProps() {
@@ -748,7 +838,9 @@ export class Game {
     }
     this.player.frozen = true;
     this.ui.cine(true, 'Evening falls… Imagine it is Sukkot: the great golden lamps of Simchat Beit HaShoevah light up all of Yerushalayim!', 'שִׂמְחַת בֵּית הַשּׁוֹאֵבָה');
+    this.beginSkippable();
     await this.setHour(20.2, 6);
+    this.endSkippable();
     this.ui.cine(false);
     this.player.frozen = false;
     st.night = true;
@@ -878,7 +970,46 @@ export class Game {
       this.camTween = { fromPos, fromLook, toPos: toPos.clone(), toLook: toLook.clone(), t: 0, dur, resolve };
     });
   }
-  closeUp(pos, look) { this.player.frozen = true; return this.tweenCam(pos, look, 0.9); }
+  // `fit` = width (m) of what we're looking at: on a narrow (portrait) screen the camera backs off so it all fits
+  closeUp(pos, look, fit = 0) {
+    this.player.frozen = true;
+    if (fit) {
+      const half = THREE.MathUtils.degToRad(this.camera.fov) / 2;
+      const hHalf = Math.atan(Math.tan(half) * this.camera.aspect);
+      const need = (fit / 2) / Math.tan(Math.min(half, hHalf));
+      const d = pos.clone().sub(look), len = d.length();
+      if (need > len) pos = look.clone().add(d.multiplyScalar(need / len));
+      // if a pillar or wall is in the way, swing around the subject until the view is clear
+      if (this.viewBlocked(pos, look)) {
+        const off = pos.clone().sub(look);
+        for (const a of [0.45, -0.45, 0.9, -0.9, 1.35, -1.35, 1.8, -1.8, 2.4, -2.4, Math.PI]) {
+          const c = look.clone().add(off.clone().applyAxisAngle(THREE.Object3D.DEFAULT_UP, a));
+          if (!this.viewBlocked(c, look)) { pos = c; break; }
+        }
+      }
+    }
+    return this.tweenCam(pos, look, 0.9);
+  }
+  // does any solid box cut the line of sight from a to b (or hold the camera)?
+  viewBlocked(a, b) {
+    const d = b.clone().sub(a), L = d.length() - 0.35;
+    d.normalize();
+    for (const bx of this.physics.boxes) {
+      // the thing we're looking at (the Menorah, a table…) doesn't block its own view
+      if (b.x > bx.x0 - 0.5 && b.x < bx.x1 + 0.5 && b.y > bx.y0 - 0.5 && b.y < bx.y1 + 0.5 && b.z > bx.z0 - 0.5 && b.z < bx.z1 + 0.5) continue;
+      let tmin = 0, tmax = L;
+      for (const ax of ['x', 'y', 'z']) {
+        const o = a[ax], dd = d[ax], lo = bx[ax + '0'] - 0.12, hi = bx[ax + '1'] + 0.12;
+        if (Math.abs(dd) < 1e-9) { if (o < lo || o > hi) { tmin = Infinity; break; } continue; }
+        let t1 = (lo - o) / dd, t2 = (hi - o) / dd;
+        if (t1 > t2) [t1, t2] = [t2, t1];
+        tmin = Math.max(tmin, t1); tmax = Math.min(tmax, t2);
+        if (tmin > tmax) { tmin = Infinity; break; }
+      }
+      if (tmin !== Infinity) return true;
+    }
+    return false;
+  }
   async releaseCam() {
     // compute the follow pose then tween to it
     const ov = this.rig.override;
@@ -899,6 +1030,7 @@ export class Game {
     const tw = this.camTween;
     if (!tw) return;
     tw.t += dt;
+    if (this.skippable && this.cineSkip) tw.t = tw.dur;
     const k = ease(Math.min(1, tw.t / tw.dur));
     this.camOverride.pos.lerpVectors(tw.fromPos, tw.toPos, k);
     this.camOverride.look.lerpVectors(tw.fromLook, tw.toLook, k);
@@ -911,7 +1043,18 @@ export class Game {
   }
 
   // ───────────────────────── Cinematics ─────────────────────────
+  // ── Skippable story cinematics (tap / key to skip) ──
+  beginSkippable() { this.skippable = true; this.cineSkip = false; document.getElementById('cine-skip').classList.remove('hidden'); }
+  endSkippable() { this.skippable = false; this.cineSkip = false; document.getElementById('cine-skip').classList.add('hidden'); }
+  cineWait(s) {
+    return new Promise(res => {
+      const t0 = performance.now();
+      const iv = setInterval(() => { if (this.cineSkip || performance.now() - t0 > s * 1000) { clearInterval(iv); res(); } }, 60);
+    });
+  }
+
   async introCinematic() {
+    this.beginSkippable();
     this.player.frozen = true;
     this.ui.show('#hud', false);
     const shots = [
@@ -927,11 +1070,13 @@ export class Game {
       await this.tweenCam(p1, l1, dur);
     }
     this.ui.cine(false);
+    this.endSkippable();
     this.ui.show('#hud', true);
     await this.releaseCam();
   }
 
   async barkai() {
+    this.beginSkippable();
     this.player.frozen = true;
     this.ui.show('#hud', false);
     this.ui.cine(true, 'A Kohen on the roof calls out: "Barkai! The sky is lit all the way to Chevron!"', 'בַּרְקַאי!');
@@ -941,7 +1086,8 @@ export class Game {
     this.setHour(6.3, 7);
     setTimeout(() => audio.trumpet('tashrat', 0.3), 1600);
     await tw;
-    await this.wait(5);
+    await this.cineWait(5);
+    this.endSkippable();
     this.ui.cine(false);
     this.ui.show('#hud', true);
     this.fact('Each morning a Kohen climbed up high to watch the sky. When the whole east was bright to Chevron, he called "Barkai!" — and the Tamid could begin.', 'Tamid 3:2', '🌅 Barkai!');
@@ -1021,6 +1167,7 @@ export class Game {
   }
 
   async cinematicOrbit(secs, caption, he) {
+    this.beginSkippable();
     this.player.frozen = true;
     this.ui.show('#hud', false);
     this.ui.cine(true, caption, he);
@@ -1029,7 +1176,8 @@ export class Game {
     const start = performance.now();
     await this.tweenCam(new THREE.Vector3(-8 + Math.cos(0.3) * 46, 22, Math.sin(0.3) * 46), new THREE.Vector3(-8, 8, 0), 1.5);
     this.orbitCam = { a0: 0.3, r: 46, h: 22, cx: -8, cz: 0, t0: this.t };
-    await this.wait(secs);
+    await this.cineWait(secs);
+    this.endSkippable();
     this.orbitCam = null;
     this.ui.cine(false);
     this.ui.show('#hud', true);
@@ -1123,6 +1271,94 @@ export class Game {
     }
   }
 
+  // ───────────────────────── Guide me ─────────────────────────
+  // Where would "Guide me" walk to right now?
+  guideTarget() {
+    const s = this.runner.step;
+    if (this.runner.active) {
+      if (!s || s.kind === 'auto' || s.noMarker) return null;
+      const t = this.runner.target(s);
+      return t ? { x: t.x, y: t.y || 0, z: t.z, r: Math.min(s.kind === 'choose' ? 2.3 : (s.r || 2.6), 2.6) } : null;
+    }
+    const p = this.player.pos;
+    const vs = this.visitors.filter(v => !v.leaving);
+    if (vs.length) {
+      vs.sort((a, b) => Math.hypot(a.x - p.x, a.z - p.z) - Math.hypot(b.x - p.x, b.z - p.z));
+      const q = vs[0].pos();
+      return { x: q.x, y: 0, z: q.z, r: 2.2 };
+    }
+    const m = this.npcs.memuneh;
+    return { x: m.x + Math.sin(m.facing) * 1.3, y: m.y, z: m.z + Math.cos(m.facing) * 1.3, r: 2.2 };
+  }
+
+  stepKey() { return (this.runner.q?.id || '-') + ':' + this.runner.i + ':' + this.runner.k; }
+
+  toggleGuide() {
+    // ignore an accidental double-tap right after starting
+    if (this.guide && performance.now() - this.guide.started < 1200) return;
+    if (this.guide) { this.stopGuide('🧭 Guide off — you\'re walking yourself!'); return; }
+    const t = this.guideTarget();
+    if (!t) { this.ui.toast(this.runner.step?.noMarker ? '🧭 You can do this anywhere in the Azara!' : '🧭 Nothing to walk to right now'); return; }
+    const p = this.player.pos;
+    if (Math.hypot(p.x - t.x, p.z - t.z) < t.r - 0.5 && Math.abs(p.y - t.y) < 1.7) { this.ui.toast('✨ You are already here!'); return; }
+    const path = this.planTo(t);
+    if (!path) { this.ui.toast('🧭 I can\'t find the way from here — walk a little and try again'); return; }
+    this.guide = { t, path, i: 0, best: Infinity, lastT: performance.now(), started: performance.now(), fails: 0, key: this.stepKey() };
+    this.setGuideButtons(true);
+    this.ui.toast(this.ui.touch ? '🧭 Follow me! Touch the joystick to stop' : '🧭 Follow me! Press a move key to stop');
+    audio.play('pickup');
+  }
+
+  planTo(t) {
+    const from = { x: this.player.pos.x, y: this.player.pos.y, z: this.player.pos.z };
+    const cands = [t];
+    for (const f of [0.45, 0.7, 0.88]) {
+      const rr = Math.max(0.8, t.r * f);
+      for (let k = 0; k < 8; k++) cands.push({ x: t.x + Math.cos(k * Math.PI / 4) * rr, y: t.y, z: t.z + Math.sin(k * Math.PI / 4) * rr });
+    }
+    return this.nav.plan(from, cands);
+  }
+
+  stopGuide(msg) {
+    if (!this.guide) return;
+    this.guide = null;
+    this.player.autoDir = null;
+    this.setGuideButtons(false);
+    if (msg) this.ui.toast(msg);
+  }
+  setGuideButtons(on) {
+    document.getElementById('m-guide').classList.toggle('on', on);
+    document.getElementById('guide-desk').classList.toggle('on', on);
+    document.getElementById('guide-desk').textContent = on ? '🧭 Stop' : '🧭 Guide me';
+  }
+
+  updateGuide(blocked) {
+    const g = this.guide, pl = this.player;
+    if (!g) { pl.autoDir = null; return; }
+    if (this.input.steering) { this.stopGuide(); return; }
+    if (g.key !== this.stepKey()) { this.stopGuide(); return; }
+    if (blocked || pl.frozen || this.camOverride) { pl.autoDir = null; return; }
+    const p = pl.pos, t = g.t;
+    if (Math.hypot(p.x - t.x, p.z - t.z) < t.r - 0.6 && Math.abs(p.y - t.y) < 1.7) {
+      this.stopGuide('✨ Here we are!');
+      this.fx.sparkle(p.x, p.y + 1, p.z, { count: 14, color: 0xffd36e });
+      return;
+    }
+    let wp = g.path[g.i];
+    let d = Math.hypot(wp.x - p.x, wp.z - p.z);
+    if (d < 0.6 && g.i < g.path.length - 1) { g.i++; g.best = Infinity; wp = g.path[g.i]; d = Math.hypot(wp.x - p.x, wp.z - p.z); }
+    if (d > 1e-3) pl.autoDir = { x: (wp.x - p.x) / d, z: (wp.z - p.z) / d };
+    const now = performance.now();
+    if (d < g.best - 0.25) { g.best = d; g.lastT = now; }
+    else if (now - g.lastT > 1800) {
+      // stuck (someone in the way?) — plan again from here
+      g.fails++;
+      const path = g.fails <= 3 ? this.planTo(t) : null;
+      if (!path) { this.stopGuide('🧭 Something is in the way — walk around it, then tap 🧭 again'); return; }
+      g.path = path; g.i = 0; g.best = Infinity; g.lastT = now;
+    }
+  }
+
   // ───────────────────────── Discovery ─────────────────────────
   discover(id) {
     const st = this.state;
@@ -1201,10 +1437,22 @@ export class Game {
     const raw = this.clock.getDelta();
     const dt = Math.min(raw, 0.05);
     this.realDt = Math.min(raw, 0.25);   // cinematics & tweens follow real time even on slow devices
-    this.t += dt;
     this.frames = (this.frames || 0) + 1;
-    try { this.update(dt); } catch (e) { console.error(e); }
-    if (this.composer) this.composer.render(); else this.renderer.render(this.scene, this.camera);
+    // test hook: window.__game.turbo = N runs N logic steps per drawn frame (automated play-tests)
+    const steps = this.turbo > 1 ? this.turbo : 1;
+    for (let k = 0; k < steps; k++) {
+      if (steps > 1) this.realDt = 0.05;
+      this.t += dt;
+      try { this.update(dt); } catch (e) { console.error(e); }
+      if (k === 0 && steps > 1) { this.input.actionPressed = false; this.input.jumpPressed = false; this.input.guidePressed = false; }
+    }
+    // while a menu covers the screen the world barely changes: draw every 3rd frame to save battery
+    const idle = this.ui.modalOpen && this.mode === 'play';
+    if (!idle || this.frames % 3 === 0) {
+      if (this.composer) this.composer.render(); else this.renderer.render(this.scene, this.camera);
+    }
+    if (this.adaptive) this.adaptPerformance(raw);
+    if (this.lazyShadows && this.mode === 'play') this.updateLazyShadows();
     this.input.endFrame();
   }
 
@@ -1214,6 +1462,7 @@ export class Game {
     if (this.hourTween) {
       const h = this.hourTween;
       h.t += this.realDt;
+      if (this.skippable && this.cineSkip) h.t = h.dur;
       const k = ease(Math.min(1, h.t / h.dur));
       this.hour = h.from + (h.to - h.from) * k;
       this.env.setHour(this.hour);
@@ -1235,7 +1484,7 @@ export class Game {
     for (const f of this.lampFires) if (f.mesh.visible) f.update(t, dt);
     const night = this.env.isNight;
     for (const f of this.towerFires) { f.setVisible(night); if (night) f.update(t, dt); }
-    this.towerLight.intensity = night ? 120 : 0;
+
     this.fireLight.intensity = (55 + Math.sin(t * 13) * 6 + Math.sin(t * 7.3) * 8) * (this.fireBig.scale / this.fireBig.base) * (night ? 1.6 : 1);
     this.smokeExtra = Math.max(0, this.smokeExtra - dt * 0.12);
     this.smoke.u.uOpacity.value = 0.32 + this.smokeExtra * 0.4;
@@ -1247,7 +1496,7 @@ export class Game {
     this.crowd.update(t, dt);
     this.doves.update(t, dt);
     this.updateNPCs(dt);
-    this.menorahLight.intensity = 6 + this.lampsLit * 5;
+    this.updateLocalLight(night);
     this.updateCamTween(this.realDt);
     if (this.orbitCam) {
       const o = this.orbitCam, a = o.a0 + (t - (o.t0 || t)) * 0.12;
@@ -1256,6 +1505,13 @@ export class Game {
     }
     if (this.camOverride) { this.camera.position.copy(this.camOverride.pos); this.camLook.copy(this.camOverride.look); this.camera.lookAt(this.camLook); }
     this.minigames.update(Math.min(this.realDt, 0.1), (v) => this.project(v));
+    // a mini-game fills the screen: tuck the joystick and buttons away so they don't cover it
+    // in a close-up the camera can end up right beside our own Kohen: step him out of the shot
+    const cp = this.camera.position, pp = this.player.pos;
+    const inShot = !(this.camOverride && Math.hypot(cp.x - pp.x, cp.z - pp.z) < 1.4 && cp.y - pp.y < 2.4);
+    if (this.player.char.group.visible !== inShot) this.player.char.group.visible = inShot;
+    const mgOn = !!this.minigames.active;
+    if (mgOn !== this._mgShown) { this._mgShown = mgOn; document.body.classList.toggle('minigame', mgOn); }
     const mg = this.minigames.busy || (!!this.camOverride && this.mode === 'play');
     if (mg !== this._mgClass) { this._mgClass = mg; document.body.classList.toggle('mg', mg); }
   }
@@ -1270,6 +1526,28 @@ export class Game {
       this.camLook.copy(this.rig.smoothTarget);
     }
     this.env.follow(pl.pos);
+
+    // guide me
+    // a 🧭 tap during a short freeze (a cut-scene, a step finishing) is kept for a moment instead of lost
+    if (input.guidePressed && !this.guideQueued) {
+      this.guideQueued = performance.now();
+      if (blocked || pl.frozen) document.getElementById('m-guide').classList.add('wait');   // "got it!"
+    }
+    const qAge = performance.now() - this.guideQueued;
+    if (this.guideQueued && ((!blocked && !pl.frozen) || qAge > 2500)) {
+      if (qAge <= 2500) this.toggleGuide();
+      this.guideQueued = 0;
+      document.getElementById('m-guide').classList.remove('wait');
+    }
+    this.updateGuide(blocked);
+    const canGuide = !blocked && !pl.frozen && !this.camOverride && (!!this.guide || !!this.guideTarget());
+    if (!this.ui.touch) {
+      const gd = document.getElementById('guide-desk');
+      if (gd.classList.contains('hidden') === canGuide) gd.classList.toggle('hidden', !canGuide);
+    } else if (canGuide !== this._canGuide) {
+      this._canGuide = canGuide;
+      document.getElementById('m-guide').classList.toggle('idle', !canGuide);
+    }
 
     // quest
     let used = false;
@@ -1314,7 +1592,7 @@ export class Game {
     const b = this.env.base;
     this.scene.environmentIntensity = b.envI * (1 - 0.7 * k);
     this.env.hemi.intensity = b.hemi * (1 - 0.5 * k);
-    this.hallLight.intensity = 4 + 9 * k;
+
     // metals carry their own env map, so dim their sky reflections indoors too
     const mi = 0.9 * (1 - 0.72 * k);
     if (Math.abs(mi - (this._metalEnv ?? -1)) > 0.01) {

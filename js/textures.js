@@ -32,7 +32,9 @@ function periodicNoise(lat, n, x, y) {
 // Tileable fbm noise field (Float32Array size*size, values ~0..1)
 const noiseCache = new Map();
 export function noiseField(size, baseFreq = 4, octaves = 5, seed = 7) {
-  const key = size + '_' + baseFreq + '_' + octaves + '_' + seed;
+  // fields with the same size & frequency are shared between textures (saves load time on phones)
+  seed = baseFreq * 7 + octaves;
+  const key = size + '_' + baseFreq + '_' + octaves;
   if (noiseCache.has(key)) return noiseCache.get(key);
   srand(seed);
   const lats = [];
@@ -52,6 +54,13 @@ export function noiseField(size, baseFreq = 4, octaves = 5, seed = 7) {
   noiseCache.set(key, out);
   return out;
 }
+
+// Size of the large tiling textures. Phones use 512 (a quarter of the work at load time).
+let BIG = 1024;
+export function setTextureResolution(px) { BIG = px; }
+
+// these canvases are read back pixel-by-pixel, so keep them in CPU memory (much faster on phones)
+const RF = { willReadFrequently: true };
 
 function canvas(w, h = w) {
   const c = document.createElement('canvas');
@@ -73,10 +82,8 @@ function applyNoise(ctx, size, field, amount, bias = 0.5) {
   const img = ctx.getImageData(0, 0, size, size);
   const d = img.data;
   for (let i = 0, p = 0; i < d.length; i += 4, p++) {
-    const n = 1 + (field[p] - bias) * amount;
-    d[i] = Math.min(255, d[i] * n);
-    d[i + 1] = Math.min(255, d[i + 1] * n);
-    d[i + 2] = Math.min(255, d[i + 2] * n);
+    const n = 1 + (field[p] - bias) * amount;     // ImageData clamps to 0..255 by itself
+    d[i] *= n; d[i + 1] *= n; d[i + 2] *= n;
   }
   ctx.putImageData(img, 0, 0);
 }
@@ -88,10 +95,10 @@ function rgb(r, g, b) { return `rgb(${r | 0},${g | 0},${b | 0})`; }
 // Texture spans 6m x 6m.
 // ─────────────────────────────────────────────────────────
 export function ashlarTextures(opts = {}) {
-  const S = 1024;
+  const S = BIG;
   const base = opts.base || [226, 209, 174];
   const cMap = canvas(S), cBump = canvas(S);
-  const m = cMap.getContext('2d'), b = cBump.getContext('2d');
+  const m = cMap.getContext('2d', RF), b = cBump.getContext('2d', RF);
   srand(opts.seed || 11);
   m.fillStyle = rgb(base[0] * 0.55, base[1] * 0.55, base[2] * 0.55); m.fillRect(0, 0, S, S);
   b.fillStyle = '#000'; b.fillRect(0, 0, S, S);
@@ -133,10 +140,10 @@ export function ashlarTextures(opts = {}) {
 
 // Polished floor flagstones (texture spans 8m x 8m, 2m slabs)
 export function floorTextures(opts = {}) {
-  const S = 1024;
+  const S = BIG;
   const base = opts.base || [236, 226, 204];
   const cMap = canvas(S), cRough = canvas(S), cBump = canvas(S);
-  const m = cMap.getContext('2d'), r = cRough.getContext('2d'), b = cBump.getContext('2d');
+  const m = cMap.getContext('2d', RF), r = cRough.getContext('2d', RF), b = cBump.getContext('2d', RF);
   srand(opts.seed || 5);
   const n = opts.slabs || 4, s = S / n;
   m.fillStyle = rgb(base[0] * 0.72, base[1] * 0.72, base[2] * 0.72); m.fillRect(0, 0, S, S);
@@ -168,7 +175,7 @@ export function floorTextures(opts = {}) {
 export function plasterTextures() {
   const S = 512;
   const cMap = canvas(S), cBump = canvas(S);
-  const m = cMap.getContext('2d'), b = cBump.getContext('2d');
+  const m = cMap.getContext('2d', RF), b = cBump.getContext('2d', RF);
   srand(77);
   m.fillStyle = rgb(232, 226, 212); m.fillRect(0, 0, S, S);
   b.fillStyle = '#999'; b.fillRect(0, 0, S, S);
@@ -190,8 +197,8 @@ export function plasterTextures() {
 
 // White marble with soft veins
 export function marbleTextures() {
-  const S = 1024;
-  const c = canvas(S), m = c.getContext('2d');
+  const S = BIG;
+  const c = canvas(S), m = c.getContext('2d', RF);
   const img = m.createImageData(S, S);
   const nf = noiseField(S, 4, 6, 41);
   const nf2 = noiseField(S, 16, 4, 43);
@@ -217,7 +224,7 @@ export function marbleTextures() {
 export function goldTextures() {
   const S = 512;
   const cR = canvas(S), cB = canvas(S);
-  const r = cR.getContext('2d'), b = cB.getContext('2d');
+  const r = cR.getContext('2d', RF), b = cB.getContext('2d', RF);
   const img = r.createImageData(S, S), imgB = b.createImageData(S, S);
   const nf = noiseField(S, 32, 3, 51), nf2 = noiseField(S, 4, 4, 53);
   for (let p = 0; p < S * S; p++) {
@@ -232,9 +239,10 @@ export function goldTextures() {
 
 // Gold relief panels with palms & flowers (interior of the Heichal)
 export function goldReliefTextures() {
-  const S = 1024;
-  const cB = canvas(S), b = cB.getContext('2d');
-  const cM = canvas(S), m = cM.getContext('2d');
+  const R = BIG, S = 1024;            // draw in 1024 "design units", scaled to the real size
+  const cB = canvas(R), b = cB.getContext('2d', RF);
+  const cM = canvas(R), m = cM.getContext('2d', RF);
+  b.scale(R / S, R / S); m.scale(R / S, R / S);
   b.fillStyle = '#777'; b.fillRect(0, 0, S, S);
   m.fillStyle = '#fff'; m.fillRect(0, 0, S, S);
   const cell = S / 4;
@@ -263,16 +271,16 @@ export function goldReliefTextures() {
       b.beginPath(); b.arc(cx, cy, 16, 0, Math.PI * 2); b.fillStyle = '#ccc'; b.fill();
     }
   }
-  const nf = noiseField(S, 32, 3, 55);
-  applyNoise(b, S, nf, 0.25);
-  applyNoise(m, S, nf, 0.1);
+  const nf = noiseField(R, 32, 3, 55);
+  applyNoise(b, R, nf, 0.25);
+  applyNoise(m, R, nf, 0.1);
   return { bump: toTexture(cB, { srgb: false }), map: toTexture(cM) };
 }
 
 // Wood: bark/end grain for logs & cedar planks for ceilings
 export function woodTextures(kind = 'log') {
   const S = 512;
-  const c = canvas(S), m = c.getContext('2d');
+  const c = canvas(S), m = c.getContext('2d', RF);
   const img = m.createImageData(S, S);
   const nf = noiseField(S, 4, 5, kind === 'log' ? 61 : 63);
   const base = kind === 'log' ? [118, 84, 56] : [150, 96, 58];
@@ -292,7 +300,7 @@ export function woodTextures(kind = 'log') {
 // Bronze / Corinthian copper (Nikanor gates, Kiyor)
 export function bronzeTextures() {
   const S = 512;
-  const cR = canvas(S), r = cR.getContext('2d');
+  const cR = canvas(S), r = cR.getContext('2d', RF);
   const img = r.createImageData(S, S);
   const nf = noiseField(S, 8, 5, 71);
   for (let p = 0; p < S * S; p++) {
@@ -306,7 +314,7 @@ export function bronzeTextures() {
 // Woven paroches — techelet, argaman, tola'at shani & linen threads (Yoma 71b)
 export function parochesTexture() {
   const W = 512, H = 1024;
-  const c = canvas(W, H), m = c.getContext('2d');
+  const c = canvas(W, H), m = c.getContext('2d', RF);
   // deep techelet ground with fine thread texture
   m.fillStyle = '#1b2c6e'; m.fillRect(0, 0, W, H);
   srand(97);
@@ -342,7 +350,7 @@ export function parochesTexture() {
 
 // Avnet (sash) — blue, purple, scarlet and white linen stripes
 export function avnetTexture() {
-  const c = canvas(64, 256), m = c.getContext('2d');
+  const c = canvas(64, 256), m = c.getContext('2d', RF);
   const cols = ['#2346a8', '#f2ede0', '#6b2a8c', '#f2ede0', '#c0283a', '#f2ede0'];
   for (let i = 0; i < 16; i++) { m.fillStyle = cols[i % cols.length]; m.fillRect(0, i * 16, 64, 16); }
   return toTexture(c);
@@ -350,7 +358,7 @@ export function avnetTexture() {
 
 // Fine linen weave for garments
 export function linenTexture() {
-  const S = 128, c = canvas(S), m = c.getContext('2d');
+  const S = 128, c = canvas(S), m = c.getContext('2d', RF);
   m.fillStyle = '#fbf8f1'; m.fillRect(0, 0, S, S);
   for (let i = 0; i < S; i += 2) {
     m.fillStyle = 'rgba(180,170,150,0.10)'; m.fillRect(i, 0, 1, S);
@@ -361,7 +369,7 @@ export function linenTexture() {
 
 // Terrain detail (dirt + dry grass speckle), multiplied with vertex colours
 export function terrainDetail() {
-  const S = 512, c = canvas(S), m = c.getContext('2d');
+  const S = 512, c = canvas(S), m = c.getContext('2d', RF);
   m.fillStyle = '#fff'; m.fillRect(0, 0, S, S);
   const nf = noiseField(S, 32, 4, 81);
   applyNoise(m, S, nf, 0.5);
@@ -375,7 +383,7 @@ export function terrainDetail() {
 
 // Soft round sprite for particles/smoke
 export function softSprite(inner = 'rgba(255,255,255,1)', outer = 'rgba(255,255,255,0)') {
-  const S = 128, c = canvas(S), m = c.getContext('2d');
+  const S = 128, c = canvas(S), m = c.getContext('2d', RF);
   const g = m.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
   g.addColorStop(0, inner); g.addColorStop(0.4, inner.replace(/[\d.]+\)$/, '0.55)')); g.addColorStop(1, outer);
   m.fillStyle = g; m.fillRect(0, 0, S, S);
@@ -384,7 +392,7 @@ export function softSprite(inner = 'rgba(255,255,255,1)', outer = 'rgba(255,255,
 
 // Smoke puff with wispy noise
 export function smokeSprite() {
-  const S = 128, c = canvas(S), m = c.getContext('2d');
+  const S = 128, c = canvas(S), m = c.getContext('2d', RF);
   const img = m.createImageData(S, S);
   const nf = noiseField(S, 4, 4, 91);
   for (let y = 0, p = 0; y < S; y++) for (let x = 0; x < S; x++, p++) {
@@ -400,7 +408,7 @@ export function smokeSprite() {
 
 // Text label texture for signs above lishkot doors
 export function signTexture(text, sub = '') {
-  const c = canvas(512, 160), m = c.getContext('2d');
+  const c = canvas(512, 160), m = c.getContext('2d', RF);
   m.fillStyle = '#3b2a12'; m.fillRect(0, 0, 512, 160);
   m.strokeStyle = '#d9b45a'; m.lineWidth = 8; m.strokeRect(6, 6, 500, 148);
   m.fillStyle = '#f6e6b8'; m.textAlign = 'center'; m.textBaseline = 'middle';

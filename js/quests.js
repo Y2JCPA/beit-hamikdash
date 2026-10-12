@@ -298,7 +298,7 @@ export const DAILY = [
           const lamb = g.player.followers[0];
           lamb.parked = true;
           const lp = lamb.pos;
-          await g.closeUp(new THREE.Vector3(lp.x + Math.sin(lamb.facing + 1.1) * 2.2, lp.y + 1.3, lp.z + Math.cos(lamb.facing + 1.1) * 2.2), new THREE.Vector3(lp.x, lp.y + 0.5, lp.z));
+          await g.closeUp(new THREE.Vector3(lp.x + Math.sin(lamb.facing + 1.1) * 2.2, lp.y + 1.3, lp.z + Math.cos(lamb.facing + 1.1) * 2.2), new THREE.Vector3(lp.x, lp.y + 0.5, lp.z), 1.9);
           const f = lamb.facing, fx = Math.sin(f), fz = Math.cos(f), rx = Math.cos(f), rz = -Math.sin(f);
           const pt = (fw, side, y) => new THREE.Vector3(lp.x + fx * fw + rx * side, lp.y + y, lp.z + fz * fw + rz * side);
           await g.minigames.hotspots({
@@ -343,7 +343,7 @@ export const DAILY = [
         text: 'Go to the golden Menorah (south side) and climb its little stone step', kind: 'use', at: { x: P.menorah.x, y: 3, z: P.menorah.z - 1.7 }, r: 1.8, icon: '🕎', prompt: 'Prepare the Menorah',
         run: async (g) => {
           const m = P.menorah;
-          await g.closeUp(new THREE.Vector3(m.x, 3 + 2.55, m.z - 2.05), new THREE.Vector3(m.x, 3 + 2.25, m.z));
+          await g.closeUp(new THREE.Vector3(m.x, 3 + 2.55, m.z - 2.05), new THREE.Vector3(m.x, 3 + 2.25, m.z), 1.9);
           const lamps = g.menorahLamps;
           await g.minigames.hotspots({
             title: 'Clean, refill and light each lamp that went out. (The western lamp is still burning!)', small: true,

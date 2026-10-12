@@ -51,10 +51,23 @@ export class Minigames {
       $('#hs-exit').onclick = () => finish(false);
       this.active = {
         update: (dt, project) => {
-          spots.forEach((s, i) => {
-            const p = project(s.pos);
+          const ps = spots.map(s => project(s.pos));
+          // nudge spots apart so a finger can hit each one (on a small phone they can bunch up)
+          const minD = small ? 46 : 80;
+          for (let it = 0; it < 4; it++) {
+            for (let i = 0; i < ps.length; i++) for (let j = i + 1; j < ps.length; j++) {
+              const a = ps[i], b = ps[j], dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy);
+              if (d >= minD) continue;
+              const push = (minD - d) / 2, ux = d > 0.01 ? dx / d : 1, uy = d > 0.01 ? dy / d : 0;
+              a.x -= ux * push; a.y -= uy * push; b.x += ux * push; b.y += uy * push;
+            }
+          }
+          const m = 30;
+          ps.forEach((p, i) => {
             els[i].style.display = p.visible ? '' : 'none';
-            els[i].style.left = p.x + 'px'; els[i].style.top = p.y + 'px';
+            // keep every spot on screen (and clear of the title) so it can always be tapped
+            els[i].style.left = Math.max(m, Math.min(innerWidth - m, p.x)) + 'px';
+            els[i].style.top = Math.max(m + 56, Math.min(innerHeight - m, p.y)) + 'px';
           });
         },
         key: (code) => {
