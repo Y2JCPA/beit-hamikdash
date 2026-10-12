@@ -22,7 +22,7 @@ import { QuestRunner } from './questRunner.js';
 import { Nav } from './nav.js';
 import { DAILY, VISITORS, ROSH_CHODESH, setNpcPosResolver, shirForToday } from './quests.js';
 import { roshChodesh, hebrewDate } from './calendar.js';
-import { lang } from './i18n.js';
+import { lang, nikud } from './i18n.js';
 import { PLACES, MIRACLES, ACHIEVEMENTS, TITLES, NPC_NAMES } from './data.js';
 
 const $ = (s) => document.querySelector(s);
@@ -39,6 +39,7 @@ export class Game {
   constructor() {
     this.settings = loadSettings();
     this.settings.lang = lang;
+    if (lang === 'he') this.settings.nikud = nikud;
     this.ui = new UI();
     this.minigames = new Minigames();
     this.audio = audio;
@@ -516,7 +517,7 @@ export class Game {
       if (k === 'camSpeed') this.rig.sens = v;
       if (k === 'readAloud') { this.ui.readAloud = v; if (!v) this.ui.stopSpeaking(); }
       if (k === 'facts') this.ui.factMode = v;
-      if (k === 'lang') { this.save(); setTimeout(() => location.reload(), 150); }
+      if (k === 'lang' || k === 'nikud') { this.save(); setTimeout(() => location.reload(), 150); }
     }, { toTitle: () => this.toTitle() });
   }
 

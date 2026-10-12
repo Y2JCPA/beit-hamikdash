@@ -23,6 +23,7 @@ const CORE = [
   './js/data.js',
   './js/fx.js',
   './js/game.js',
+  './js/he-nikud.js',
   './js/he.js',
   './js/i18n.js',
   './js/input.js',
