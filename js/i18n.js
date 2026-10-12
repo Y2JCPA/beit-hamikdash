@@ -7,9 +7,29 @@
 import { SETTINGS_KEY } from './config.js';
 
 export let lang = 'en';
-let dict = new Map(), patterns = [], books = [];
-const memo = new Map();
+export let nikud = false;          // Hebrew with vowel points, for children learning to read
+// two tables: what is shown (with nikud if chosen) and plain Hebrew (for read-aloud,
+// so the recorded voices match either way)
+const makeTable = () => ({ dict: new Map(), patterns: [], memo: new Map() });
+const plain = makeTable();
+let shown = plain;
+let books = [];
 const missed = new Set();          // for play-tests: text that had no translation
+
+function fill(t, strings) {
+  for (const [en, he] of Object.entries(strings)) {
+    if (!he) continue;
+    const k = norm(en);
+    if (/\{\d\}/.test(k)) {
+      const lit = k.replace(/\{\d\}/g, '');
+      if (!/[A-Za-z]{2}/.test(lit)) continue;            // "{0} {1}" would match anything
+      const re = new RegExp('^' + k.replace(/[.*+?^$()|[\]\\]/g, '\\$&').replace(/\\?\{(\d)\\?\}/g, '(.*?)') + '$');
+      const order = [...k.matchAll(/\{(\d)\}/g)].map(m => +m[1]);
+      t.patterns.push({ re, he, order, weight: lit.length });
+    } else t.dict.set(k, he);
+  }
+  t.patterns.sort((a, b) => b.weight - a.weight);
+}
 
 export async function initLanguage() {
   let s = {};
@@ -19,18 +39,16 @@ export async function initLanguage() {
   if (lang !== 'he') return;
   try {
     const HE = (await import('./he.js')).default;
-    for (const [en, he] of Object.entries(HE.strings)) {
-      if (!he) continue;
-      const k = norm(en);
-      if (/\{\d\}/.test(k)) {
-        const lit = k.replace(/\{\d\}/g, '');
-        if (!/[A-Za-z]{2}/.test(lit)) continue;            // "{0} {1}" would match anything
-        const re = new RegExp('^' + k.replace(/[.*+?^$()|[\]\\]/g, '\\$&').replace(/\\?\{(\d)\\?\}/g, '(.*?)') + '$');
-        const order = [...k.matchAll(/\{(\d)\}/g)].map(m => +m[1]);
-        patterns.push({ re, he, order, weight: lit.length });
-      } else dict.set(k, he);
+    fill(plain, HE.strings);
+    nikud = s.nikud !== false;
+    if (nikud) {
+      try {
+        const NK = (await import('./he-nikud.js')).default;
+        shown = makeTable();
+        fill(shown, { ...HE.strings, ...NK });
+        document.documentElement.classList.add('nikud');
+      } catch (e) { console.error('Nikud could not load', e); nikud = false; }
     }
-    patterns.sort((a, b) => b.weight - a.weight);
     books = Object.entries(HE.books || {}).sort((a, b) => b[0].length - a[0].length);
     document.documentElement.dir = 'rtl';
     document.title = tr(document.title);
@@ -64,42 +82,45 @@ function trSource(src) {
 }
 const looksLikeSource = (s) => books.some(([en]) => s.startsWith(en)) && /\d/.test(s);
 
-export function tr(s) {
+export const tr = (s) => trWith(shown, s);
+export const trPlain = (s) => trWith(plain, s);       // without nikud, for read-aloud
+
+function trWith(T, s) {
   if (lang !== 'he' || typeof s !== 'string' || !hasLatin(s) || /[\u05D0-\u05EA]/.test(s)) return s;   // already Hebrew
-  const hit = memo.get(s);
+  const hit = T.memo.get(s);
   if (hit !== undefined) return hit;
   const lead = s.match(/^\s*/)[0], trail = s.match(/\s*$/)[0];
-  const t = trCore(norm(s));
+  const t = trCore(norm(s), T);
   const res = t === null ? s : lead + t + trail;
   if (t === null) missed.add(norm(s));
-  memo.set(s, res);
+  T.memo.set(s, res);
   return res;
 }
 
-function trCore(core) {
-  if (dict.has(core)) return dict.get(core);
+function trCore(core, T) {
+  if (T.dict.has(core)) return T.dict.get(core);
   // a symbol or emoji in front: "📜 New lesson…", "— Zevachim 5:1"
   let m = core.match(/^([^A-Za-z"'(]+)(.+)$/);
-  if (m && hasLatin(m[2])) { const t = trCore(m[2]); if (t !== null) return m[1] + t; }
+  if (m && hasLatin(m[2])) { const t = trCore(m[2], T); if (t !== null) return m[1] + t; }
   // something in brackets at the end: "…by the rings.  (Zevachim 5:1)", "Zerika here (North-East)"
   m = core.match(/^(.*\S)\s+\(([^()]+)\)$/);
   if (m) {
-    const a = trCore(m[1]), b = looksLikeSource(m[2]) ? trSource(m[2]) : trCore(m[2]);
+    const a = trCore(m[1], T), b = looksLikeSource(m[2]) ? trSource(m[2]) : trCore(m[2], T);
     if (a !== null && b) return `${a} (${b})`;
   }
   // "Kinor · A": translate each part
   if (core.includes(' · ')) {
-    const parts = core.split(' · ').map(x => hasLatin(x) ? trCore(x) : x);
+    const parts = core.split(' · ').map(x => hasLatin(x) ? trCore(x, T) : x);
     if (!parts.includes(null)) return parts.join(' · ');
   }
   if (looksLikeSource(core)) { const t = trSource(core); if (t) return t; }
-  for (const p of patterns) {
+  for (const p of T.patterns) {
     const mm = core.match(p.re);
     if (!mm) continue;
     return p.he.replace(/\{(\d)\}/g, (_, i) => {
       const v = mm[p.order.indexOf(+i) + 1] ?? '';
       if (!hasLatin(v)) return v;
-      const t = trCore(norm(v));
+      const t = trCore(norm(v), T);
       return t === null ? v : v.match(/^\s*/)[0] + t + v.match(/\s*$/)[0];   // keep the spaces around it
     });
   }

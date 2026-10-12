@@ -428,3 +428,7 @@ html[dir=rtl] #lang-switch { right: auto; left: calc(12px + env(safe-area-inset-
 /* Hebrew: right-to-left text */
 html[dir=rtl] #cel-lines { text-align: right; }
 html[dir=rtl] #vs-en { display: none; }
+/* Hebrew with nikud: a little more room between lines so the vowel points don't touch */
+html.nikud body { line-height: 1.55; }
+html.nikud #dlg-text, html.nikud #fc-text, html.nikud .e-text, html.nikud #cel-lines { line-height: 1.75; }
+html.nikud #dlg-text, html.nikud #fc-text, html.nikud #qc-step, html.nikud #prompt-text, html.nikud #cel-lines { font-size: 1.12em; }

@@ -81,7 +81,7 @@ When everyone has been helped, you unlock the **eight garments of the Kohen Gado
 - **Guide me (🧭).** It plans a walking route through the Mikdash, up the 15 steps, the Kevesh and the Ulam steps, and walks you there. Every quest target is covered by an automated route test.
 - **Stays smooth.** Resolution adjusts itself to keep the frame rate up, and glow and shadows switch off on slow phones. Holding the phone upright gives a wider camera view.
 - **Can be installed, and works offline.** Add it to the home screen to play full-screen. Once it has been opened online, it also opens with no internet (in the car, on a trip). In ⚙️ Settings you can choose the card size, read-aloud, and full screen on Android.
-- **עברית.** The whole game can be played in Hebrew, right to left, with Hebrew read-aloud and sources written the traditional way (זבחים ה:א). Use the 🌐 button on the title screen or ⚙️ Settings. Phones set to Hebrew start in Hebrew.
+- **עברית.** The whole game can be played in Hebrew, right to left, with Hebrew read-aloud and sources written the traditional way (זבחים ה:א). All the Hebrew has full nikud for children learning to read, and it can be turned off in ⚙️ Settings (ניקוד). Use the 🌐 button on the title screen or ⚙️ Settings. Phones set to Hebrew start in Hebrew.
 
 ## Tech
 - Vanilla ES modules with **Three.js r170 vendored** in `vendor/three/`. No build step and no CDN; it runs straight from GitHub Pages.
@@ -113,7 +113,7 @@ js/player.js          controller and third-person camera
 js/physics.js         AABB collisions and ramps
 js/nav.js             "Guide me" route planning (waypoint graph checked by simulated walking)
 js/calendar.js        Hebrew date, Rosh Chodesh and upcoming holidays (built-in browser calendar)
-js/i18n.js, he.js     Hebrew: the translation engine and the Hebrew text
+js/i18n.js, he.js     Hebrew: the translation engine and the Hebrew text (he-nikud.js: the same with nikud)
 sw.js                 offline play (service worker)
 js/voice.js, voice/   recorded voices for read-aloud (see voice/README.md); tools/voice-lines.mjs lists the lines
 js/minigames.js       hotspots, rhythm game, kemitzah meter, tenufah, verses, tally (counting)

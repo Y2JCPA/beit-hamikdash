@@ -3,7 +3,7 @@ import { PLACES, MIRACLES, ACHIEVEMENTS } from './data.js';
 import { AZARA, EZRAT_NASHIM, MIZBEACH, KEVESH, ULAM, HEICHAL, P } from './config.js';
 import { audio } from './audio.js';
 import { hebrewDate, roshChodesh, upcoming, calendarSupported } from './calendar.js';
-import { lang, tr } from './i18n.js';
+import { lang, nikud, trPlain } from './i18n.js';
 import { cleanForSpeech, playRecorded, stopRecorded } from './voice.js';
 
 const $ = (s) => document.querySelector(s);
@@ -11,7 +11,7 @@ const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;
 
 // strip emoji (and the other language) so the voice reads cleanly
 // (a source in brackets at the end, like "(Zevachim 5:1)", is shown but not read out)
-const speakable = (t) => { t = String(t).replace(/\s*\([^()]*\d[^()]*\)\s*$/, ''); return cleanForSpeech(lang === 'he' ? tr(t) : t, lang); };
+const speakable = (t) => { t = String(t).replace(/\s*\([^()]*\d[^()]*\)\s*$/, ''); return cleanForSpeech(lang === 'he' ? trPlain(t) : t, lang); };
 
 // Make an element swipeable: a flick in any direction dismisses it, a tap calls onTap.
 function swipeable(el, { onDismiss, onTap, onSwipe }) {
@@ -78,7 +78,7 @@ export class UI {
       onDismiss: () => this.dismissFact(),
       onTap: () => {
         const el = $('#fact-card');
-        if (el.classList.contains('compact')) { el.classList.remove('compact'); this.armFact(16); if (this.readAloud) this.speak($('#fc-text').textContent); }
+        if (el.classList.contains('compact')) { el.classList.remove('compact'); this.armFact(16); if (this.readAloud) this.speak(this.factText || $('#fc-text').textContent); }
         else this.dismissFact();
       },
     });
@@ -214,6 +214,7 @@ export class UI {
     this.factShowing = true;
     $('#fc-title').textContent = f.title || 'Did you know?';
     $('#fc-text').textContent = f.text;
+    this.factText = f.text;
     $('#fc-src').textContent = f.src ? '— ' + f.src : '';
     const compact = this.factMode === 'compact';
     el.classList.toggle('compact', compact);
@@ -407,6 +408,7 @@ export class UI {
       const seg = (key, opts) => `<div class="seg" data-key="${key}">${opts.map(([v, l]) => `<button data-v="${v}" class="${settings[key] === v ? 'sel' : ''}">${l}</button>`).join('')}</div>`;
       body.innerHTML = `
         <div class="set-row"><span>🌐 Language</span>${seg('lang', [['en', 'English'], ['he', 'עברית']])}</div>
+        ${lang === 'he' ? `<div class="set-row"><span>🔤 ניקוד</span>${seg('nikud', [[true, 'עם ניקוד'], [false, 'בלי ניקוד']])}</div>` : ''}
         <div class="set-row"><span>🎨 Graphics</span>${seg('quality', [['low', 'Fast'], ['medium', 'Nice'], ['high', 'Beautiful']])}</div>
         <div class="set-row"><span>🎶 Music</span><input type="range" min="0" max="1" step="0.05" value="${settings.music}" data-key="music"></div>
         <div class="set-row"><span>🔔 Sounds</span><input type="range" min="0" max="1" step="0.05" value="${settings.sfx}" data-key="sfx"></div>
