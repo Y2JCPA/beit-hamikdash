@@ -37,7 +37,9 @@ const CORE = [
   './js/sky.js',
   './js/textures.js',
   './js/ui.js',
+  './js/voice.js',
   './js/world.js',
+  './voice/manifest.json',
 ];
 
 self.addEventListener('install', (e) => {

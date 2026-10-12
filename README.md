@@ -115,6 +115,7 @@ js/nav.js             "Guide me" route planning (waypoint graph checked by simul
 js/calendar.js        Hebrew date, Rosh Chodesh and upcoming holidays (built-in browser calendar)
 js/i18n.js, he.js     Hebrew: the translation engine and the Hebrew text
 sw.js                 offline play (service worker)
+js/voice.js, voice/   recorded voices for read-aloud (see voice/README.md); tools/voice-lines.mjs lists the lines
 js/minigames.js       hotspots, rhythm game, kemitzah meter, tenufah, verses, tally (counting)
 js/audio.js           synthesized music and sound effects
 js/ui.js, input.js    HUD, dialogs, journal, minimap, keyboard, mouse and touch

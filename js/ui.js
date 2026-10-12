@@ -4,15 +4,14 @@ import { AZARA, EZRAT_NASHIM, MIZBEACH, KEVESH, ULAM, HEICHAL, P } from './confi
 import { audio } from './audio.js';
 import { hebrewDate, roshChodesh, upcoming, calendarSupported } from './calendar.js';
 import { lang, tr } from './i18n.js';
+import { cleanForSpeech, playRecorded, stopRecorded } from './voice.js';
 
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-function speakable(t) {
-  // strip emoji (and the other language) so the voice reads cleanly
-  if (lang === 'he') return String(tr(t)).replace(/[A-Za-z]+/g, ' ').replace(/[\u0591-\u05C7]/g, '').replace(/[\u{1F000}-\u{1FAFF}\u2600-\u27BF]/gu, ' ').replace(/\s+/g, ' ').trim();
-  return String(t).replace(/[\u0590-\u05FF]+/g, ' ').replace(/[\u{1F000}-\u{1FAFF}\u2600-\u27BF]/gu, ' ').replace(/\s+/g, ' ').trim();
-}
+// strip emoji (and the other language) so the voice reads cleanly
+// (a source in brackets at the end, like "(Zevachim 5:1)", is shown but not read out)
+const speakable = (t) => { t = String(t).replace(/\s*\([^()]*\d[^()]*\)\s*$/, ''); return cleanForSpeech(lang === 'he' ? tr(t) : t, lang); };
 
 // Make an element swipeable: a flick in any direction dismisses it, a tap calls onTap.
 function swipeable(el, { onDismiss, onTap, onSwipe }) {
@@ -51,14 +50,17 @@ function swipeable(el, { onDismiss, onTap, onSwipe }) {
 export class UI {
   speak(text) {
     try {
+      const clean = speakable(text);
+      if ('speechSynthesis' in window) speechSynthesis.cancel();
+      // a recorded voice if this line has one, otherwise the browser's voice
+      if (playRecorded(clean, lang, this.voiceVolume ?? 1)) return;
       if (!('speechSynthesis' in window)) return;
-      speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(speakable(text));
+      const u = new SpeechSynthesisUtterance(clean);
       u.rate = 0.95; u.pitch = 1.05; u.lang = lang === 'he' ? 'he-IL' : 'en-US';
       speechSynthesis.speak(u);
     } catch { }
   }
-  stopSpeaking() { try { speechSynthesis.cancel(); } catch { } }
+  stopSpeaking() { stopRecorded(); try { speechSynthesis.cancel(); } catch { } }
 
   constructor() {
     this.factQueue = [];

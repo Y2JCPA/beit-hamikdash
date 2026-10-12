@@ -1,8 +1,10 @@
 // Entry point
 import { Game } from './game.js';
 import { initLanguage } from './i18n.js';
+import { loadVoices } from './voice.js';
 
 await initLanguage();
+loadVoices();
 
 function webglOK() {
   try {
