@@ -65,9 +65,11 @@ export const ACHIEVEMENTS = [
   { id: 'perfect', icon: '✨', name: 'Perfect Service', desc: 'Finish a korban with no mistakes' },
   { id: 'music3', icon: '🎼', name: 'Levi Maestro', desc: 'Get 3 stars in the Shir Shel Yom' },
   { id: 'visitor', icon: '🤝', name: 'Helper', desc: 'Help a visitor bring a korban' },
-  { id: 'visitors', icon: '🏆', name: 'Friend of Israel', desc: 'Help all six visitors' },
+  { id: 'visitors', icon: '🏆', name: 'Friend of Israel', desc: 'Help every kind of visitor' },
   { id: 'explorer', icon: '🗺️', name: 'Explorer', desc: 'Discover every place in the Mikdash' },
   { id: 'miracles', icon: '🌟', name: 'Miracle Finder', desc: 'Find all the miracles' },
+  { id: 'roshchodesh', icon: '🌙', name: 'New Moon', desc: 'Bring the Rosh Chodesh Musaf' },
+  { id: 'payis', icon: '🎲', name: 'Chosen by Lot', desc: 'Win the Payis (the morning lottery)' },
   { id: 'kohen_gadol', icon: '👑', name: 'Kohen Gadol', desc: 'Unlock the garments of the Kohen Gadol' },
 ];
 

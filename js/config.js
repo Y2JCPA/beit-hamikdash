@@ -89,6 +89,9 @@ export const VISITOR_SPOTS = {
   reuven: { x: 15.5, z: -13.6 }, miriam: { x: 15.5, z: 13.6 }, yehuda: { x: 15.5, z: -17.8 },
   family: { x: 15.5, z: 18 }, chana: { x: 15.5, z: 22.4 }, bikkurim: { x: 15.5, z: -22.6 },
 };
+// each day's visitors take these places, nearest to Nikanor Gate first
+export const VISITOR_SLOTS = ['miriam', 'reuven', 'family', 'yehuda', 'chana', 'bikkurim'].map(k => VISITOR_SPOTS[k]);
+export const VISITORS_PER_DAY = 4;
 
 export const NORTH_LINE_Z = MIZBEACH.cz - M.base / 2; // north of the altar's north edge
 

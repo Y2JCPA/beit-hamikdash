@@ -2,12 +2,15 @@
 import { PLACES, MIRACLES, ACHIEVEMENTS } from './data.js';
 import { AZARA, EZRAT_NASHIM, MIZBEACH, KEVESH, ULAM, HEICHAL, P } from './config.js';
 import { audio } from './audio.js';
+import { hebrewDate, roshChodesh, upcoming, calendarSupported } from './calendar.js';
+import { lang, tr } from './i18n.js';
 
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 function speakable(t) {
-  // strip emoji and Hebrew so the English voice reads cleanly
+  // strip emoji (and the other language) so the voice reads cleanly
+  if (lang === 'he') return String(tr(t)).replace(/[A-Za-z]+/g, ' ').replace(/[\u0591-\u05C7]/g, '').replace(/[\u{1F000}-\u{1FAFF}\u2600-\u27BF]/gu, ' ').replace(/\s+/g, ' ').trim();
   return String(t).replace(/[\u0590-\u05FF]+/g, ' ').replace(/[\u{1F000}-\u{1FAFF}\u2600-\u27BF]/gu, ' ').replace(/\s+/g, ' ').trim();
 }
 
@@ -51,7 +54,7 @@ export class UI {
       if (!('speechSynthesis' in window)) return;
       speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(speakable(text));
-      u.rate = 0.95; u.pitch = 1.05; u.lang = 'en-US';
+      u.rate = 0.95; u.pitch = 1.05; u.lang = lang === 'he' ? 'he-IL' : 'en-US';
       speechSynthesis.speak(u);
     } catch { }
   }
@@ -337,8 +340,9 @@ export class UI {
     return true;
   }
 
-  openJournal(state) {
-    this.openPanel('📖 Sefer HaMikdash', ['Places', 'Miracles', 'Lessons'], (tab, body) => {
+  openJournal(state, extra = {}, startTab = 0) {
+    this.openPanel('📖 Sefer HaMikdash', ['Places', 'Miracles', 'Lessons', '📅 Calendar'], (tab, body) => {
+      if (tab === 3) return this.renderCalendar(body, extra);
       if (tab === 0) {
         const n = PLACES.filter(p => state.discovered.includes(p.id)).length;
         body.innerHTML = `<div class="progress-line">🗺️ Discovered ${n} / ${PLACES.length} places — walk around to find them all!</div>` +
@@ -361,7 +365,29 @@ export class UI {
           `<div class="entry"><div class="e-icon">📜</div><div><div class="e-name">${esc(f.title || '')}</div><div class="e-text">${esc(f.text)}</div><div class="e-src">${esc(f.src || '')}</div></div></div>`).join('')
           : '<div class="entry"><div class="e-text">Do the avodah and talk to people to learn!</div></div>');
       }
-    });
+    }, startTab);
+  }
+
+  renderCalendar(body, extra) {
+    const when = (n) => n === 0 ? 'Today' : n === 1 ? 'Tomorrow' : `In ${n} days`;
+    const tag = { rc: '▶ In the game', yomtov: 'Coming soon to the game', holiday: 'Coming soon to the game', shabbat: 'Coming soon to the game' };
+    let html = '';
+    if (calendarSupported()) {
+      const h = hebrewDate(), rc = roshChodesh();
+      html += `<div class="progress-line">📅 Today is ${h.day} ${esc(h.name)} ${h.year} <span class="e-he">${esc(h.he)}</span></div>`;
+      if (rc) html += `<div class="entry cal-today"><div class="e-icon">🌙</div><div><div class="e-name">Rosh Chodesh ${esc(rc.name)}!</div><div class="e-text">A new month begins. On Rosh Chodesh the Musaf korbanot are part of the day's Avodah.</div></div></div>`;
+    } else {
+      html += '<div class="progress-line">📅 This browser can\'t show the Hebrew calendar, but you can still practise below.</div>';
+    }
+    html += '<div class="cal-play"><button class="btn btn-gold" id="cal-rc">🌙 Practise the Rosh Chodesh Musaf</button></div>';
+    const ev = upcoming(70).filter(e => !(e.inDays === 0 && e.kind === 'rc'));
+    if (ev.length) {
+      html += '<div class="cal-head">Coming up</div>' + ev.map(e => `<div class="entry"><div class="e-icon">${e.icon}</div><div><div class="e-name">${esc(e.title)} <span class="e-he">${e.h.day} ${esc(e.h.he)}</span></div>
+        <div class="e-text"><span>${when(e.inDays)}</span> · <span class="cal-tag ${e.kind}">${tag[e.kind]}</span></div></div></div>`).join('');
+    }
+    html += '<div class="cal-note">🕯️ On Shabbat and Yom Tov we put our phones away — so the holidays will be playable any time, to practise in the days before. More holidays are coming to the game!</div>';
+    body.innerHTML = html;
+    body.querySelector('#cal-rc').onclick = () => { audio.play('click'); extra.practiceRC?.(); };
   }
 
   openAchievements(state) {
@@ -378,6 +404,7 @@ export class UI {
     this.openPanel('⚙️ Settings', [], (tab, body) => {
       const seg = (key, opts) => `<div class="seg" data-key="${key}">${opts.map(([v, l]) => `<button data-v="${v}" class="${settings[key] === v ? 'sel' : ''}">${l}</button>`).join('')}</div>`;
       body.innerHTML = `
+        <div class="set-row"><span>🌐 Language</span>${seg('lang', [['en', 'English'], ['he', 'עברית']])}</div>
         <div class="set-row"><span>🎨 Graphics</span>${seg('quality', [['low', 'Fast'], ['medium', 'Nice'], ['high', 'Beautiful']])}</div>
         <div class="set-row"><span>🎶 Music</span><input type="range" min="0" max="1" step="0.05" value="${settings.music}" data-key="music"></div>
         <div class="set-row"><span>🔔 Sounds</span><input type="range" min="0" max="1" step="0.05" value="${settings.sfx}" data-key="sfx"></div>

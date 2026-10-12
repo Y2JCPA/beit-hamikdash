@@ -60,7 +60,7 @@ button { font-family: var(--font); cursor: pointer; }
 .profile .p-av { font-size: 30px; }
 .profile .p-name { font-weight: 700; font-size: 18px; }
 .profile .p-info { font-size: 13px; color: #7a6440; }
-.profile .p-del { margin-left: auto; background: none; border: none; font-size: 18px; opacity: .5; }
+.profile .p-del { margin-inline-start: auto; background: none; border: none; font-size: 18px; opacity: .5; }
 .profile .p-del:hover { opacity: 1; }
 .title-card .btn-big { width: 100%; }
 .title-foot { font-size: 13px; color: rgba(255,255,255,.75); text-align: center; text-shadow: 0 2px 6px #000; }
@@ -84,7 +84,7 @@ button { font-family: var(--font); cursor: pointer; }
 #pc-avatar { font-size: 28px; }
 #pc-name { font-weight: 700; font-size: 17px; }
 #pc-title { font-size: 12.5px; color: var(--gold-2); }
-#pc-stars { margin-left: auto; font-weight: 700; font-size: 18px; background: rgba(0,0,0,.25); padding: 4px 10px; border-radius: 12px; }
+#pc-stars { margin-inline-start: auto; font-weight: 700; font-size: 18px; background: rgba(0,0,0,.25); padding: 4px 10px; border-radius: 12px; }
 #pc-stars.pop { animation: pop .5s; }
 @keyframes pop { 40% { transform: scale(1.35); } }
 #quest-card { background: rgba(251,243,223,.95); color: var(--ink); border-radius: 16px; padding: 10px 12px; box-shadow: 0 8px 26px rgba(0,0,0,.3); border: 2px solid rgba(242,193,78,.7); pointer-events: auto; }
@@ -188,7 +188,7 @@ button { font-family: var(--font); cursor: pointer; }
 .entry.locked { opacity: .55; filter: grayscale(.7); }
 .entry .e-icon { font-size: 28px; flex: none; width: 36px; text-align: center; }
 .entry .e-name { font-weight: 700; }
-.entry .e-he { font-family: var(--he); color: #8a6a2a; margin-left: 6px; }
+.entry .e-he { font-family: var(--he); color: #8a6a2a; margin-inline-start: 6px; }
 .entry .e-text { font-size: 14.5px; line-height: 1.35; margin-top: 2px; }
 .entry .e-src { font-size: 12.5px; font-style: italic; color: #8a6a2a; margin-top: 2px; }
 .progress-line { font-weight: 600; color: #6b4a14; margin: 4px 0 10px; }
@@ -244,6 +244,29 @@ button { font-family: var(--font); cursor: pointer; }
 #ar-seq span.cur { background: var(--gold); animation: blink 1s infinite; }
 #ar-pad { display: grid; grid-template-columns: repeat(3, 64px); grid-template-rows: repeat(2, 64px); gap: 8px; justify-content: center; }
 #ar-pad button { font-size: 28px; border: none; border-radius: 16px; background: linear-gradient(180deg, #ffe08a, #e6a92a); box-shadow: 0 4px 0 #9b6a12; }
+#payis { position: fixed; z-index: 35; left: 50%; top: calc(14px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); width: min(460px, 94vw); background: rgba(251,243,223,.97); color: var(--ink); border-radius: 22px; padding: 12px 16px 14px; text-align: center; box-shadow: 0 18px 50px rgba(0,0,0,.5), inset 0 0 0 3px rgba(242,193,78,.85); }
+#py-title { font-weight: 700; font-size: 20px; }
+#py-text { font-size: 15px; margin: 6px 0; line-height: 1.35; }
+#py-count { font-size: 46px; font-weight: 700; color: #a8650c; min-height: 0; line-height: 1.1; }
+#py-count:empty { display: none; }
+#py-btn { margin-top: 6px; }
+#tally { position: fixed; z-index: 35; left: 50%; bottom: calc(24px + var(--safe-b)); transform: translateX(-50%); width: min(620px, 96vw); max-height: calc(100vh - 40px); overflow-y: auto; background: rgba(251,243,223,.97); color: var(--ink); border-radius: 22px; padding: 14px; text-align: center; box-shadow: 0 18px 50px rgba(0,0,0,.5), inset 0 0 0 3px rgba(242,193,78,.85); }
+#tl-title { font-weight: 700; font-size: 18px; }
+#tl-hint { font-size: 14px; opacity: .8; margin: 4px 0 10px; min-height: 1em; }
+#tl-items { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.tl-card { position: relative; width: 112px; padding: 10px 6px 8px; border-radius: 16px; background: #eadbb5; cursor: pointer; user-select: none; transition: transform .1s, background .2s; }
+.tl-card:active { transform: scale(.95); }
+.tl-card.some { background: #ffe9a8; }
+.tl-card.good { background: #a9e09a; }
+.tl-card.bad { background: #f3b3a8; animation: shake .3s; }
+.tl-card.hint { outline: 3px dashed #c47d0e; }
+.tl-icon { font-size: 38px; line-height: 1.1; }
+.tl-label { font-size: 13px; font-weight: 600; margin-top: 2px; min-height: 2.4em; }
+.tl-count { font-size: 26px; font-weight: 700; color: #7a4a0c; }
+.tl-minus { position: absolute; top: 6px; right: 6px; width: 30px; height: 30px; border-radius: 50%; border: none; background: rgba(0,0,0,.12); font-size: 20px; line-height: 30px; padding: 0; color: var(--ink); }
+#tl-actions { display: flex; justify-content: center; gap: 12px; margin-top: 12px; }
+@keyframes shake { 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+body.phone .tl-card { width: 96px; }
 #ar-pad button:active { transform: translateY(3px); box-shadow: 0 1px 0 #9b6a12; }
 
 /* Verses (Birkat Kohanim) */
@@ -312,7 +335,7 @@ body.mg #hud-tl, body.mg #hud-tr, body.mg #zone-name, body.mg #fact-card { displ
 /* ── Clearing text away ── */
 #fc-x { position: absolute; top: 4px; right: 4px; width: 30px; height: 30px; border: none; border-radius: 50%; background: rgba(0,0,0,.08); color: #6b4a14; font-size: 15px; font-weight: 700; }
 #fact-card { touch-action: none; padding-right: 36px; }
-#fc-more { display: none; margin-left: 8px; font-size: 12px; font-weight: 600; color: #a87a2a; }
+#fc-more { display: none; margin-inline-start: 8px; font-size: 12px; font-weight: 600; color: #a87a2a; }
 #fact-card.compact { width: auto; max-width: min(360px, 70vw); padding: 7px 38px 7px 12px; border-radius: 22px; }
 #fact-card.compact #fc-text, #fact-card.compact #fc-src { display: none; }
 #fact-card.compact #fc-more { display: inline; }
@@ -336,7 +359,7 @@ body.cleared #world-labels, body.cleared #zone-name, body.cleared .hud-buttons {
 /* ── Phones ── */
 body.phone #pc-avatar, body.phone #pc-title, body.phone #pc-name { display: none; }
 body.phone #player-card { padding: 4px 8px; width: max-content; }
-body.phone #pc-stars { margin-left: 0; font-size: 15px; padding: 3px 8px; }
+body.phone #pc-stars { margin-inline-start: 0; font-size: 15px; padding: 3px 8px; }
 body.phone #hud-tl { width: min(300px, 52vw); gap: 6px; left: max(8px, env(safe-area-inset-left, 0px)); top: max(8px, env(safe-area-inset-top, 0px)); }
 body.phone #hud-tr { right: max(8px, env(safe-area-inset-right, 0px)); top: max(8px, env(safe-area-inset-top, 0px)); gap: 6px; }
 body.phone .hud-btn { width: 38px; height: 38px; font-size: 18px; border-radius: 12px; }
@@ -389,3 +412,19 @@ body.touch:not(.phone) #toasts { top: auto; bottom: calc(210px + var(--safe-b));
   body.touch:not(.phone) #toasts { bottom: calc(286px + var(--safe-b)); }
 }
 #cine-skip { position: absolute; right: 16px; bottom: calc(9vh + 10px); font-size: 13px; font-weight: 600; color: rgba(255,255,255,.75); background: rgba(0,0,0,.35); padding: 4px 10px; border-radius: 10px; }
+
+/* 📅 Calendar tab */
+.cal-play { text-align: center; margin: 10px 0 6px; }
+.cal-head { font-weight: 700; margin: 14px 0 4px; color: #8a6a2a; }
+.entry.cal-today { background: linear-gradient(90deg, rgba(255,214,110,.35), transparent); border-radius: 12px; }
+.cal-tag { font-weight: 600; font-size: 12px; padding: 1px 8px; border-radius: 8px; background: #e8dcc0; }
+.cal-tag.rc { background: #ffd36e; }
+.cal-note { margin-top: 14px; font-size: 13px; color: #8a6a2a; }
+#title-date { margin-top: 8px; font-size: 15px; color: #ffe6a8; text-shadow: 0 2px 6px rgba(0,0,0,.6); }
+@media (orientation: portrait) { body.phone .tl-card { width: calc(50% - 10px); max-width: 160px; } }
+@media (orientation: landscape) { body.phone .tl-card { width: 118px; padding: 6px 4px; } body.phone .tl-icon { font-size: 30px; } body.phone .tl-label { min-height: 0; } }
+#lang-switch { position: absolute; top: calc(12px + env(safe-area-inset-top, 0px)); right: calc(12px + env(safe-area-inset-right, 0px)); z-index: 3; font: 600 16px 'Fredoka', sans-serif; padding: 8px 14px; border-radius: 14px; border: 2px solid rgba(255,214,110,.8); background: rgba(20,24,44,.6); color: #ffe6a8; cursor: pointer; }
+html[dir=rtl] #lang-switch { right: auto; left: calc(12px + env(safe-area-inset-left, 0px)); }
+/* Hebrew: right-to-left text */
+html[dir=rtl] #cel-lines { text-align: right; }
+html[dir=rtl] #vs-en { display: none; }

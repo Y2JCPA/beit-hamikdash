@@ -1,5 +1,8 @@
 // Entry point
 import { Game } from './game.js';
+import { initLanguage } from './i18n.js';
+
+await initLanguage();
 
 function webglOK() {
   try {
@@ -16,4 +19,9 @@ if (!webglOK()) {
     console.error(e);
     document.getElementById('load-text').textContent = 'Something went wrong while building the Mikdash: ' + e.message;
   });
+}
+
+// offline play: keep a copy of the game on the device (only works over https or localhost)
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+  addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => { }));
 }

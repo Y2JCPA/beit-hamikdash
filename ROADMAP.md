@@ -1,6 +1,6 @@
 # Roadmap — ideas for what comes next
 
-Nothing here is built yet. Items are grouped by theme and roughly ordered by how much they would add for the effort.
+Items are grouped by theme and roughly ordered by how much they would add for the effort. ✅ marks what is already in the game.
 
 ## 1. Holidays and the Jewish calendar
 
@@ -8,13 +8,13 @@ Today the game only knows the day of the week (for the Shir Shel Yom). Every day
 
 **How it should work**
 - **Holiday calendar in the menu.** Any holiday can be played at any time. Kids can practise the Yom Kippur Avodah in the days before Yom Kippur, since nobody will be on a phone on Shabbat, Yom Tov or Yom Kippur itself.
-- **The game knows the Hebrew date.** The browser can work this out offline (`Intl.DateTimeFormat` with the `hebrew` calendar), so no library or server is needed.
+- ✅ **The game knows the Hebrew date.** The browser can work this out offline (`Intl.DateTimeFormat` with the `hebrew` calendar), so no library or server is needed.
   - On days when phones are used (Rosh Chodesh, Chol HaMoed, Chanukah), that day's content turns on by itself: *"Today is Rosh Chodesh Cheshvan!"*
   - Before Shabbat, Yom Tov and Yom Kippur it shows a countdown instead: *"Yom Kippur is in 5 days — practise the Kohen Gadol's Avodah!"*
   - The day should change at sunset, not midnight.
 
 **Content, in suggested order**
-1. **Rosh Chodesh:** the Musaf korbanot (2 bulls, 1 ram, 7 lambs and a goat for a Chatat), with the chatzotzrot blown over the korbanot (Bamidbar 28:11-15, 10:10).
+1. ✅ **Rosh Chodesh:** the Musaf korbanot (2 bulls, 1 ram, 7 lambs and a goat for a Chatat), with the chatzotzrot blown over the korbanot (Bamidbar 28:11-15, 10:10).
 2. **Yom Kippur:** the Avodah of the Kohen Gadol as a story, from Mishnah Yoma.
    - Change from the gold garments to white.
    - Bring the ketoret into the Kodesh HaKodashim. This is the only time the Paroches opens.
@@ -28,8 +28,8 @@ Today the game only knows the day of the week (for the Shir Shel Yom). Every day
 
 ## 2. Make it fun to come back to
 
-- **The Payis (morning lottery).** Real and fun (Yoma 2:1-4, Tamid 1:2). Each morning starts with the Kohanim standing in a circle while the Memuneh counts fingers. The lottery picks your avodah for the day, so every day starts differently.
-- **Visitors change each day.** Today the same 6 visitors come every time. Pick 3-4 from a larger group, and add new ones:
+- ✅ **The Payis (morning lottery).** Real and fun (Yoma 2:1-4, Tamid 1:2). Each morning starts with the Kohanim standing in a circle while the Memuneh counts fingers. The lottery picks your avodah for the day, so every day starts differently.
+- ✅ **Visitors change each day** (the Todah, Asham and Bechor were added; more to come). Today the same 6 visitors come every time. Pick 3-4 from a larger group, and add new ones:
   - a Todah with its breads
   - a Nazir finishing his nezirut
   - a poor person's Mincha
@@ -49,7 +49,7 @@ Today the game only knows the day of the week (for the Shir Shel Yom). Every day
 
 ## 4. UI and phone polish
 
-- **Hebrew language option.** This would make the game usable for Israeli kids. All the text is in one place, so it can be translated.
+- ✅ **Hebrew language option.** This would make the game usable for Israeli kids. All the text is in one place, so it can be translated.
 - **Bigger-text setting**, and **left-handed controls** (joystick on the right).
 - **Full map.** Tap the minimap to open a big map of the Mikdash, then tap a place to have Guide me walk there.
 - **Fewer words on screen.**
@@ -67,7 +67,7 @@ Today the game only knows the day of the week (for the Shir Shel Yom). Every day
 
 ## 6. Under the hood
 
-- **Works offline.** Add a service worker so the installed app opens without internet (on trips, in the car). It is already installable, but needs a connection.
+- ✅ **Works offline.** Add a service worker so the installed app opens without internet (on trips, in the car). It is already installable, but needs a connection.
 - **Automated play-tests in the repository.** The touch-only bots that played the whole game during development should run on every change through GitHub Actions. That catches broken quests before they go live.
 - **Move a save to another device** using a short code.
 - **Slow and old phones:** a lighter "battery saver" mode, and fewer textures on low-memory devices.
