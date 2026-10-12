@@ -24,6 +24,7 @@ The Beit HaMikdash is laid out to the proportions of Mishnah Middot (1 amah ≈ 
 The quests follow Mishnah Tamid, simplified for kids:
 
 1. 💧 Washing hands and feet at the **Kiyor**
+   - 🎲 Then the **Payis**, the morning lottery (Yoma 2). The Kohanim stand in a circle and hold up one finger each (we count fingers, never people). The Memuneh calls out a number and counts around the circle. If it lands on you, you win that day's honor (Terumat HaDeshen, the Tamid, the Menorah, the Ketoret or the Nesachim), worth 2 bonus stars.
 2. 🌅 **Terumat HaDeshen**: take the silver machta, scoop the ashes, and place them east of the ramp
 3. 🪵 **Siddur Ma'arachah**: bring wood up to the fire. Then the watchman calls ***"Barkai!"*** and the sun rises.
 4. 🐑 **Korban Tamid**: take a lamb from the lamb chamber, check it for blemishes, and give it water from the golden cup. Then do shechita in the north, kabbalah, holacha, zerika (two placements that are four: NE then SW), shirayim on the southern yesod, salting, and haktarah.
@@ -31,14 +32,25 @@ The quests follow Mishnah Tamid, simplified for kids:
 6. 💨 **Ketoret** on the golden altar (the goats of Yericho sneeze 🐐)
 7. 🙌 **Birkat Kohanim** from the steps of the Ulam. The crowd bows and answers *Baruch Shem*.
 8. 🎵 **Nesachim and the Shir Shel Yom**: pour the wine, then play the real weekday's song with the Leviim in a rhythm game. At each pause the trumpets sound and everyone bows.
+9. 🌙 **On Rosh Chodesh, the Musaf**: count out the right animals (2 bulls, a ram, 7 lambs and a goat), blow the chatzotzrot over the korbanot (Bamidbar 10:10), and bring the parts to the fire.
+
+### The Hebrew calendar 📅
+The game works out today's Hebrew date on the device, with no internet needed.
+- On Rosh Chodesh the Musaf is added to the day automatically, and the title screen says so.
+- The **📅 Calendar** tab in the Sefer shows today's date and what's coming up: Rosh Chodesh, Shabbat and the holidays. The Rosh Chodesh Musaf can be practised there any time.
+- Nobody plays on Shabbat, Yom Tov or Yom Kippur, so holidays will be playable any day, to practise before them.
 
 ### Visitors with their own korbanot
+Each day 4 of these 9 visitors come, and ones you haven't met yet come first.
 - Reuven brings an **Olah**.
 - Miriam brings a **turtledove**. *"Whether one brings a lot or a little…"*
 - Yehuda brings a **Chatat**: four horns in order SE, NE, NW, SW, and the Kohanim eat the meat.
 - A family brings a **Shelamim**. It can be slaughtered anywhere in the Azara, and you wave the parts in the **tenufah** game.
 - Chana brings a **Mincha** for the **kemitzah** timing game.
 - A farmer from the Galil brings **Bikkurim**, with an ox with golden horns.
+- Binyamin came home safely from a stormy sea voyage and brings a **Todah**, with its 40 breads. The Kohen gets one of each kind.
+- Naftali brings an **Asham**: he kept his neighbor's tools and said they weren't his. He gave them back with an extra fifth.
+- Elisheva brings a **Bechor**, her sheep's firstborn lamb. It has no semicha and one placement, on a corner that has a yesod (the south-east corner has none).
 
 When everyone has been helped, you unlock the **eight garments of the Kohen Gadol**. The bells on the me'il really jingle when you walk.
 
@@ -68,7 +80,8 @@ When everyone has been helped, you unlock the **eight garments of the Kohen Gado
   - 👁 hides all the text at once.
 - **Guide me (🧭).** It plans a walking route through the Mikdash, up the 15 steps, the Kevesh and the Ulam steps, and walks you there. Every quest target is covered by an automated route test.
 - **Stays smooth.** Resolution adjusts itself to keep the frame rate up, and glow and shadows switch off on slow phones. Holding the phone upright gives a wider camera view.
-- **Can be installed.** Add it to the home screen to play full-screen. In ⚙️ Settings you can choose the card size, read-aloud, and full screen on Android.
+- **Can be installed, and works offline.** Add it to the home screen to play full-screen. Once it has been opened online, it also opens with no internet (in the car, on a trip). In ⚙️ Settings you can choose the card size, read-aloud, and full screen on Android.
+- **עברית.** The whole game can be played in Hebrew, right to left, with Hebrew read-aloud and sources written the traditional way (זבחים ה:א). Use the 🌐 button on the title screen or ⚙️ Settings. Phones set to Hebrew start in Hebrew.
 
 ## Tech
 - Vanilla ES modules with **Three.js r170 vendored** in `vendor/three/`. No build step and no CDN; it runs straight from GitHub Pages.
@@ -99,7 +112,11 @@ js/sky.js             sun path, sky, IBL, stars and moon
 js/player.js          controller and third-person camera
 js/physics.js         AABB collisions and ramps
 js/nav.js             "Guide me" route planning (waypoint graph checked by simulated walking)
-js/minigames.js       hotspots, rhythm game, kemitzah meter, tenufah, verses
+js/calendar.js        Hebrew date, Rosh Chodesh and upcoming holidays (built-in browser calendar)
+js/i18n.js, he.js     Hebrew: the translation engine and the Hebrew text
+sw.js                 offline play (service worker)
+js/voice.js, voice/   recorded voices for read-aloud (see voice/README.md); tools/voice-lines.mjs lists the lines
+js/minigames.js       hotspots, rhythm game, kemitzah meter, tenufah, verses, tally (counting)
 js/audio.js           synthesized music and sound effects
 js/ui.js, input.js    HUD, dialogs, journal, minimap, keyboard, mouse and touch
 js/textures.js, materials.js, builder.js   procedural textures, materials, geometry merging

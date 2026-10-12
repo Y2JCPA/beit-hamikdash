@@ -5,7 +5,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
-import { P, MIZBEACH, HEICHAL, AZARA, EZRAT_NASHIM, HORNS, CORNERS, SAVE_KEY, SAVE_PREFIX, SETTINGS_KEY } from './config.js';
+import { P, MIZBEACH, HEICHAL, AZARA, EZRAT_NASHIM, HORNS, CORNERS, SAVE_KEY, SAVE_PREFIX, SETTINGS_KEY, VISITOR_SLOTS, VISITORS_PER_DAY } from './config.js';
 import { buildMaterials, MAT } from './materials.js';
 import { Physics } from './physics.js';
 import { buildWorld } from './world.js';
@@ -20,7 +20,9 @@ import { audio, noteFreq } from './audio.js';
 import { Minigames } from './minigames.js';
 import { QuestRunner } from './questRunner.js';
 import { Nav } from './nav.js';
-import { DAILY, VISITORS, setNpcPosResolver, shirForToday } from './quests.js';
+import { DAILY, VISITORS, ROSH_CHODESH, setNpcPosResolver, shirForToday } from './quests.js';
+import { roshChodesh, hebrewDate } from './calendar.js';
+import { lang } from './i18n.js';
 import { PLACES, MIRACLES, ACHIEVEMENTS, TITLES, NPC_NAMES } from './data.js';
 
 const $ = (s) => document.querySelector(s);
@@ -36,6 +38,7 @@ function loadSettings() {
 export class Game {
   constructor() {
     this.settings = loadSettings();
+    this.settings.lang = lang;
     this.ui = new UI();
     this.minigames = new Minigames();
     this.audio = audio;
@@ -415,6 +418,11 @@ export class Game {
     this.ui.show('#mobile', false);
     this.setHourNow(7.1);
     this.renderProfiles();
+    const h = hebrewDate(), rc = roshChodesh();
+    if (h && lang === 'he') {
+      const heDate = new Intl.DateTimeFormat('he-u-ca-hebrew', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
+      document.getElementById('title-date').textContent = `📅 ${heDate}${rc ? ` · 🌙 ראש חודש ${rc.he}!` : ''}`;
+    } else if (h) document.getElementById('title-date').textContent = `📅 ${h.day} ${h.name} ${h.year}${rc ? ` · 🌙 Rosh Chodesh ${rc.name}!` : ''}`;
   }
 
   profiles() { try { return JSON.parse(localStorage.getItem(SAVE_KEY) || '[]'); } catch { return []; } }
@@ -443,6 +451,14 @@ export class Game {
   }
 
   bindUI() {
+    // English ⇄ עברית on the title screen
+    const ls = $('#lang-switch');
+    ls.textContent = lang === 'he' ? '🌐 English' : '🌐 עברית';
+    ls.onclick = () => {
+      this.settings.lang = lang === 'he' ? 'en' : 'he';
+      try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(this.settings)); } catch { }
+      location.reload();
+    };
     let skin = 1, hair = 0;
     const sw = (el, colors, sel, set) => {
       el.innerHTML = '';
@@ -491,7 +507,7 @@ export class Game {
     addEventListener('keydown', (e) => { if (['Space', 'Enter', 'KeyE', 'Escape'].includes(e.code)) skip(); }, true);
   }
 
-  openJournal() { audio.play('click'); this.ui.openJournal(this.state); }
+  openJournal(tab = 0) { audio.play('click'); this.ui.openJournal(this.state, { practiceRC: () => this.practiceRoshChodesh() }, tab); }
   openSettings() {
     audio.play('click');
     this.ui.openSettings(this.settings, (k, v) => {
@@ -500,6 +516,7 @@ export class Game {
       if (k === 'camSpeed') this.rig.sens = v;
       if (k === 'readAloud') { this.ui.readAloud = v; if (!v) this.ui.stopSpeaking(); }
       if (k === 'facts') this.ui.factMode = v;
+      if (k === 'lang') { this.save(); setTimeout(() => location.reload(), 150); }
     }, { toTitle: () => this.toTitle() });
   }
 
@@ -535,8 +552,13 @@ export class Game {
     const prof = this.profiles().find(p => p.id === id);
     if (!st) st = this.newState(prof?.name || 'Kohen', 1, 0);
     st = { ...this.newState(st.name, st.skin, st.hair), ...st };
-    if (!DAILY[st.dailyIndex]) st.dailyIndex = 0;
-    if (st.dayDone && !st.night && VISITORS.every(d => st.visitorsDone.includes(d.id))) st.night = true;
+    // on Rosh Chodesh the day gets the Musaf at the end (worked out when the day begins)
+    if (st.extra === undefined || (st.dailyIndex === 0 && !st.dayDone)) this.planDay(st);
+    if (!this.dailyList(st)[st.dailyIndex]) st.dailyIndex = 0;
+    // saves from before visitors changed daily: that day had the original six
+    if (st.dayDone && !st.todayVisitors) st.todayVisitors = ['reuven', 'miriam', 'yehuda', 'family', 'chana', 'bikkurim'];
+    this.state = st;
+    if (st.dayDone && !st.night && this.todaysVisitors().every(d => st.visitorsDone.includes(d.id))) st.night = true;
     this.state = st;
     this.profileId = id;
     await this.ui.fade(true);
@@ -558,8 +580,9 @@ export class Game {
       this.lightAllLamps();
       this.spawnVisitors();
     } else {
-      this.setHourNow(DAILY[st.dailyIndex]?.hour ?? 5.2);
-      if (st.dailyIndex > 2) this.setHourNow(Math.max(6.4, DAILY[st.dailyIndex].hour));
+      const dq = this.dailyList(st)[st.dailyIndex];
+      this.setHourNow(dq?.hour ?? 5.2);
+      if (st.dailyIndex > 2) this.setHourNow(Math.max(6.4, dq.hour));
       if (st.dailyIndex > 4) this.lightAllLamps();
     }
     this.ui.fade(false);
@@ -624,14 +647,180 @@ export class Game {
 
   // ───────────────────────── Quest flow ─────────────────────────
   async startDaily(i) {
-    const q = DAILY[i];
+    const q = this.dailyList()[i];
     if (!q) return;
     this.state.dailyIndex = i;
     if (q.hour && Math.abs(this.hour - q.hour) > 0.05) this.setHour(Math.max(this.hour, q.hour), 2.5);
     if (q.id === 'menorah') { this.lampFires.forEach((f, k) => f.setVisible(k === 0)); this.lampsLit = 1; }
-    if (q.id === 'deshen') this.props.machta.visible = true;
+    if (q.id === 'deshen') { this.props.machta.visible = true; await this.runPayis(); }
     for (const line of q.intro || []) await this.say(line.who, line.text);
+    if (i === 0 && this.state.extra === 'rc') {
+      this.ui.banner('🌙', `Rosh Chodesh ${this.state.rcMonth || ''}!`, 'ראש חודש');
+      await this.say('memuneh', `Today is Rosh Chodesh ${this.state.rcMonth || ''} — a new month! After the morning Avodah we will bring the special Musaf korbanot.`);
+    }
+    if (this.payisHonor(q)) this.ui.toast(`🎲 This is your Payis honor — 2 bonus stars!`);
     this.runner.start(q);
+  }
+
+  // today's list of avodot: the daily order, plus the Musaf on Rosh Chodesh
+  planDay(st = this.state) {
+    const rc = roshChodesh();
+    st.extra = rc ? 'rc' : null;
+    st.rcMonth = rc ? rc.name : null;
+  }
+  dailyList(st = this.state) { return st?.extra === 'rc' ? [...DAILY, ROSH_CHODESH] : DAILY; }
+
+  // play the Rosh Chodesh Musaf any day, from the 📅 calendar
+  async practiceRoshChodesh() {
+    if (this.mode !== 'play') return;
+    this.ui.closePanel();
+    if (this.runner.active || this.ui.dialogOpen || this.minigames.busy || this.player.frozen) { this.ui.toast('🌙 You can practise the Rosh Chodesh Musaf after today\'s morning Avodah is done.'); return; }
+    this.setHour(Math.max(this.hour, 9.2), 2);
+    for (const line of ROSH_CHODESH.intro) await this.say(line.who, line.text);
+    this.runner.start({ ...ROSH_CHODESH, practice: true });
+  }
+
+  // ───────────────────────── The Payis (morning lottery) ─────────────────────────
+  // Yoma 2:1-4 and Tamid 1:2, 3:1, 5:2. The Kohanim stand in a circle and each holds up one finger
+  // (we count fingers, never people). The Memuneh calls out a big number and counts around the
+  // circle, starting from the Kohen whose turban he lifted. Whoever the count ends on wins.
+  async runPayis() {
+    const st = this.state;
+    if (st.payis && st.payis.day === st.days) return;
+    const HONORS = ['deshen', 'tamid', 'menorah', 'ketoret', 'shir'];
+    let choices = HONORS.filter(id => id !== st.payis?.honor);
+    // the Ketoret lottery is only for Kohanim who never offered it (Yoma 2:4)
+    if ((st.payisKetoret || 0) > 0) choices = choices.filter(id => id !== 'ketoret');
+    const honor = choices[Math.floor(Math.random() * choices.length)];
+    const q = DAILY.find(d => d.id === honor);
+    const win = !st.payisWins || Math.random() < 0.7;     // the first lottery is always a win
+
+    await this.say('memuneh', 'Kohanim, come stand in a circle — it\'s time for the Payis, the lottery! It decides who gets each avodah today. That way it\'s fair for everyone.');
+    this.player.frozen = true;
+    await this.ui.fade(true);
+    const back = { x: this.player.pos.x, y: this.player.pos.y, z: this.player.pos.z, f: this.player.facing };
+    const C = { x: 7.5, z: -21.5 }, R = 2.3, N = 9;
+    const names = ['Pinchas', 'Matitya', 'Shemaya', 'Yonatan', 'Tzadok', 'Achiya', 'Natan', 'Elyashiv'];
+    const ring = [];
+    for (let i = 0; i < N; i++) {
+      const a = (i / N) * Math.PI * 2 + Math.PI / 2;
+      const x = C.x + Math.sin(a) * R, z = C.z + Math.cos(a) * R, facing = Math.atan2(C.x - x, C.z - z);
+      if (i === 0) { this.player.teleport(x, 0, z, facing); ring.push({ x, z, me: true }); continue; }
+      const ch = makeCharacter({ role: 'kohen', skin: SKIN_TONES[(i * 2) % 5], hair: HAIR_COLORS[(i * 3) % 5], beard: i % 3 !== 0 });
+      ch.group.position.set(x, 0, z); ch.group.rotation.y = facing;
+      this.scene.add(ch.group);
+      ring.push({ x, z, ch, name: names[i - 1] });
+    }
+    const boss = makeCharacter({ role: 'kohen', skin: SKIN_TONES[1], hair: 0xd8d4cc, beard: true });
+    boss.group.position.set(C.x, 0, C.z); boss.group.rotation.y = Math.PI / 2;
+    this.scene.add(boss.group);
+    const markM = new THREE.MeshBasicMaterial({ color: 0xffd36e, transparent: true, opacity: 0.9, depthWrite: false });
+    const mark = new THREE.Mesh(new THREE.RingGeometry(0.42, 0.62, 32), markM);
+    mark.rotation.x = -Math.PI / 2; mark.visible = false;
+    const startM = new THREE.MeshBasicMaterial({ color: 0x7fc3ff, transparent: true, opacity: 0.85, depthWrite: false });
+    const startMark = new THREE.Mesh(new THREE.RingGeometry(0.66, 0.78, 32), startM);
+    startMark.rotation.x = -Math.PI / 2; startMark.visible = false;
+    this.scene.add(mark, startMark);
+    let running = true;
+    this.tasks = this.tasks || [];
+    this.tasks.push((dt) => {
+      for (const r of ring) r.ch?.update(dt, 0);
+      boss.update(dt, 0);
+      // a little tag so you can find yourself in the circle
+      const pp = this.project(new THREE.Vector3(ring[0].x, 2.25, ring[0].z));
+      this.ui.setLabel('payis_me', '⭐ You', pp.x, pp.y, running && pp.visible);
+      if (!running) this.ui.removeLabel('payis_me');
+      return !running;
+    });
+    await this.closeUp(new THREE.Vector3(C.x + 5.2, 6.2, C.z + 1.5), new THREE.Vector3(C.x, 0.6, C.z), 6.5);
+    this.rig.snap(this.player);
+    this.ui.fade(false);
+
+    // 1. raise a finger
+    const box = document.getElementById('payis'), txt = document.getElementById('py-text'), cnt = document.getElementById('py-count'), btn = document.getElementById('py-btn');
+    txt.textContent = `Today's lottery is for: ${q.icon} ${q.title}. Hold up ONE finger to join!`;
+    cnt.textContent = '';
+    btn.classList.remove('hidden');
+    box.classList.remove('hidden');
+    await new Promise((res) => {
+      const go = () => { btn.onclick = null; this.minigames.active = { key: () => { } }; res(); };
+      btn.onclick = go;
+      this.minigames.active = { key: (code) => { if (['KeyE', 'Enter', 'Space'].includes(code)) go(); } };
+    });
+    btn.classList.add('hidden');
+    audio.play('pickup');
+    this.player.char.pose = 'raise';
+    ring.forEach(r => { if (r.ch) r.ch.pose = 'raise'; });
+    this.fact('We count fingers, not people! The Jewish people are never counted directly — so each Kohen holds up a finger, and the fingers are counted.', 'Yoma 22b', 'The Payis');
+
+    // 2. the Memuneh lifts one turban and calls a number
+    const startIdx = 1 + Math.floor(Math.random() * (N - 1));
+    const winIdx = win ? 0 : 1 + ((startIdx + Math.floor(Math.random() * (N - 2))) % (N - 1));
+    const steps = (winIdx - startIdx + N) % N;
+    const num = steps + 1 + N * (4 + Math.floor(Math.random() * 5));
+    startMark.position.set(ring[startIdx].x, 0.03, ring[startIdx].z); startMark.visible = true;
+    txt.textContent = `The Memuneh lifts ${ring[startIdx].name}'s turban — the counting starts from him! He calls out a number…`;
+    await this.wait(2.2);
+    txt.textContent = 'The Memuneh calls out:';
+    cnt.textContent = `${num}!`;
+    audio.play('step');
+    await this.wait(1.6);
+    txt.textContent = `Counting fingers up to ${num}…`;
+
+    // 3. count around the circle — fast in the middle, slow at the end
+    mark.visible = true;
+    for (let k = 1; k <= num; k++) {
+      const idx = (startIdx + k - 1) % N;
+      mark.position.set(ring[idx].x, 0.04, ring[idx].z);
+      cnt.textContent = k;
+      const left = num - k;
+      audio.bell(left < 6 ? 1046 : 784, left < 6 ? 0.12 : 0.05, 0, 0.25);
+      const dtk = this.cineSkip ? 0.01 : left < 6 ? 0.42 - left * 0.05 : k < 6 ? 0.22 : 0.035;
+      await this.wait(dtk);
+    }
+    markM.color.set(win ? 0x7dff8a : 0xffd36e);
+    const w = ring[winIdx];
+    this.fx.sparkle(w.x, 1.6, w.z, { count: 60, color: 0xffd36e, color2: 0xffffff, speed: 3, up: 3, size: 0.25 });
+    if (win) {
+      audio.play('complete');
+      txt.textContent = `It landed on YOU! You won the honor: ${q.icon} ${q.title}!`;
+      st.payisWins = (st.payisWins || 0) + 1;
+      if (honor === 'ketoret') st.payisKetoret = (st.payisKetoret || 0) + 1;
+      this.achieve('payis');
+    } else {
+      audio.play('success');
+      txt.textContent = `It landed on ${w.name}! He gets this honor today. Next time it could be you!`;
+    }
+    st.payis = { day: st.days, honor: win ? honor : null, won: win };
+    this.save();
+    await this.wait(2.6);
+
+    // 4. back to work
+    box.classList.add('hidden');
+    this.minigames.active = null;
+    await this.ui.fade(true);
+    running = false;
+    for (const r of ring) if (r.ch) { this.scene.remove(r.ch.group); disposeBaked(r.ch.group); }
+    this.scene.remove(boss.group); disposeBaked(boss.group);
+    this.scene.remove(mark, startMark); mark.geometry.dispose(); startMark.geometry.dispose(); markM.dispose(); startM.dispose();
+    this.player.char.pose = 'idle';
+    this.player.teleport(back.x, back.y, back.z, back.f);
+    this.camTween = null; this.rig.override = null; this.camOverride = null;
+    this.rig.yaw = this.player.facing + Math.PI; this.rig.snap(this.player);
+    this.player.frozen = false;
+    this.ui.fade(false);
+    if (win) {
+      await this.say('memuneh', `Mazal tov! Today you have the honor of ${q.title}. Do it with all your heart — it's worth 2 bonus stars! (In our game you still help with every avodah.)`);
+      if (honor === 'ketoret') this.fact('Only Kohanim who had NEVER offered the Ketoret could join its lottery — it brings a special blessing, so everyone deserves a turn!', 'Yoma 2:4; 26a', 'The Ketoret lottery');
+    } else {
+      await this.say('memuneh', `${w.name} won this time. That's the Payis — fair for everyone! You'll still help with all the avodah today. Tomorrow, maybe it will be your turn!`);
+    }
+    this.fact('Long ago, two Kohanim raced up the Kevesh to win an avodah, and one got hurt. So the Sages made the Payis — a fair lottery — instead of a race.', 'Yoma 2:1-2', 'Why a lottery?');
+  }
+
+  payisHonor(q) {
+    const p = this.state?.payis;
+    return !!(p && p.day === this.state.days && p.honor && p.honor === q.id);
   }
 
   async onQuestComplete(q, stars, mistakes) {
@@ -641,7 +830,8 @@ export class Game {
     // first time: the stars you earned; replays: any improvement, and at least one bonus star
     const gained = prev === undefined ? stars : Math.max(1, stars - prev);
     st.questStars[q.id] = Math.max(prev || 0, stars);
-    st.stars += gained;
+    const honorBonus = this.payisHonor(q) ? 2 : 0;
+    st.stars += gained + honorBonus;
     if (q.achievement) this.achieve(q.achievement);
     if (q.korban && mistakes === 0) this.achieve('perfect');
     if (q.id === 'shir' && stars === 3) this.achieve('music3');
@@ -654,15 +844,19 @@ export class Game {
       lines.push(`<p>📜 ${q.outroFact[0]}<br><span class="src">— ${q.outroFact[1]}</span></p>`);
       this.recordFact(q.title, q.outroFact[0], q.outroFact[1]);
     }
-    lines.push(`<p>⭐ +${gained} star${gained === 1 ? '' : 's'}${mistakes ? ` · ${mistakes} thing${mistakes === 1 ? '' : 's'} to remember for next time` : ' · Perfect!'}</p>`);
+    if (honorBonus) lines.push('<p>🎲 Your Payis honor: +2 bonus stars!</p>');
+    lines.push(`<p>${gained === 1 ? '⭐ +1 star' : `⭐ +${gained} stars`}</p>`);
+    lines.push(`<p>${!mistakes ? '✨ Perfect!' : mistakes === 1 ? '💡 1 thing to remember for next time' : `💡 ${mistakes} things to remember for next time`}</p>`);
     await this.ui.celebrate({ icon: q.icon, title: `${q.title} — complete!`, stars, lines });
     if (q.after) await q.after(this);
     this.save();
 
     if (q.visitor) return this.finishVisitor(q);
-    const idx = DAILY.findIndex(d => d.id === q.id);
+    if (q.practice) return;             // played from the 📅 calendar: not part of today's list
+    const list = this.dailyList();
+    const idx = list.findIndex(d => d.id === q.id);
     if (idx >= 0) {
-      if (idx + 1 < DAILY.length) { st.dailyIndex = idx + 1; this.save(); this.startDaily(idx + 1); }
+      if (idx + 1 < list.length) { st.dailyIndex = idx + 1; this.save(); this.startDaily(idx + 1); }
       else await this.dayComplete();
     }
   }
@@ -670,6 +864,7 @@ export class Game {
   async dayComplete() {
     const st = this.state;
     st.dayDone = true; st.days++; st.dailyIndex = 0;
+    st.todayVisitors = this.pickVisitors();
     this.achieve('day');
     this.save();
     await this.cinematicOrbit(7, 'You finished a whole day of Avodah in the Beit HaMikdash!', 'יְהִי רָצוֹן שֶׁיִּבָּנֶה בֵּית הַמִּקְדָּשׁ');
@@ -686,11 +881,24 @@ export class Game {
   }
 
   // ───────────────────────── Visitors ─────────────────────────
+  // a different group of visitors comes each day: ones you haven't met yet come first
+  pickVisitors() {
+    const ever = this.state.visitorsEver || [];
+    const shuffle = (a) => a.map(x => [Math.random(), x]).sort((p, q) => p[0] - q[0]).map(x => x[1]);
+    const ids = VISITORS.map(v => v.id);
+    return [...shuffle(ids.filter(i => !ever.includes(i))), ...shuffle(ids.filter(i => ever.includes(i)))].slice(0, VISITORS_PER_DAY);
+  }
+  todaysVisitors() {
+    const st = this.state;
+    if (!st.todayVisitors) st.todayVisitors = this.pickVisitors();
+    return st.todayVisitors.map(id => VISITORS.find(v => v.id === id)).filter(Boolean);
+  }
+
   spawnVisitors() {
     this.clearVisitors();
-    for (const def of VISITORS) {
-      if (this.state.visitorsDone.includes(def.id)) continue;
-      const o = def.npc;
+    this.todaysVisitors().forEach((def, slot) => {
+      if (this.state.visitorsDone.includes(def.id)) return;
+      const o = { ...def.npc, at: VISITOR_SLOTS[slot] };
       const ch = makeCharacter({ role: o.role, beard: o.beard, robe: o.robe, accent: o.accent, skin: SKIN_TONES[(def.id.length) % 5], hair: HAIR_COLORS[def.id.length % 5] });
       const facing = -Math.PI / 2;
       ch.group.position.set(o.at.x, 0, o.at.z);
@@ -713,8 +921,9 @@ export class Game {
       }
       if (def.id === 'miriam') ch.setHeld(makeItem('tor'));
       if (def.id === 'chana') ch.setHeld(makeItem('mincha'));
+      v.home = o.at;
       this.visitors.push(v);
-    }
+    });
   }
   clearVisitors() {
     for (const v of this.visitors) { this.removeVisitorModels(v); this.ui.removeLabel('v_' + v.def.id); }
@@ -735,7 +944,7 @@ export class Game {
   }
   visitorGoHome() {
     const v = this.visitor;
-    if (v) this.walkVisitor(v, v.def.npc.at, -Math.PI / 2);
+    if (v) this.walkVisitor(v, v.home, -Math.PI / 2);
   }
   walkVisitor(v, to, endFacing) {
     return new Promise((resolve) => {
@@ -790,7 +999,7 @@ export class Game {
     this.visitor = null;
     if (VISITORS.every(d => st.visitorsEver.includes(d.id))) this.achieve('visitors');
     this.save();
-    if (VISITORS.every(d => st.visitorsDone.includes(d.id))) await this.allVisitorsDone();
+    if (this.todaysVisitors().every(d => st.visitorsDone.includes(d.id))) await this.allVisitorsDone();
   }
 
   walkAway(v) {
@@ -851,7 +1060,8 @@ export class Game {
 
   async newDay() {
     const st = this.state;
-    st.dayDone = false; st.dailyIndex = 0; st.dayOffset++; st.visitorsDone = []; st.night = false;
+    st.dayDone = false; st.dailyIndex = 0; st.dayOffset++; st.visitorsDone = []; st.night = false; st.todayVisitors = null;
+    this.planDay(st);
     this.clearVisitors();
     await this.ui.fade(true);
     this.resetDayProps();
@@ -1223,13 +1433,13 @@ export class Game {
     switch (it.type) {
       case 'memuneh': {
         const st = this.state;
-        if (this.runner.active) { await this.say('memuneh', 'You are doing great! ' + this.runner.step.text + '.'); break; }
+        if (this.runner.active) { await this.say('memuneh', `You are doing great! ${this.runner.step.text}.`); break; }
         if (st.dayDone && st.night && !this.hourTween) {
           const ok = await this.ui.dialog({ icon: '👴', name: NPC_NAMES.memuneh.name, text: 'Ready to start a brand-new day of Avodah? (The Leviim will sing a different Shir!)', buttons: [{ label: 'Not yet', value: false }, { label: 'New day! ☀️', value: true }] });
           if (ok) this.newDay();
         } else if (st.dayDone) {
-          const left = VISITORS.filter(v => !st.visitorsDone.includes(v.id)).length;
-          if (left) await this.say('memuneh', `${left} visitor${left === 1 ? ' is' : 's are'} waiting in Ezrat Yisrael with korbanot. Look for the ❗!`);
+          const left = this.todaysVisitors().filter(v => !st.visitorsDone.includes(v.id)).length;
+          if (left) await this.say('memuneh', left === 1 ? '1 visitor is waiting in Ezrat Yisrael with a korban. Look for the ❗!' : `${left} visitors are waiting in Ezrat Yisrael with korbanot. Look for the ❗!`);
           else { const ok = await this.ui.dialog({ icon: '👴', name: NPC_NAMES.memuneh.name, text: 'Wonderful work today! Ready for a brand-new day?', buttons: [{ label: 'Not yet', value: false }, { label: 'New day! ☀️', value: true }] }); if (ok) this.newDay(); }
         } else await this.say('memuneh', 'Let\'s continue the Avodah!');
         break;

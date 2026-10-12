@@ -2,7 +2,7 @@
 // the player through. Halachic details follow the Mishnah (Tamid, Zevachim,
 // Menachot, Middot) — simplified for kids where noted.
 import * as THREE from 'three';
-import { P, CORNERS, HORNS, MIZBEACH, KEVESH, AZARA, NORTH_LINE_Z, HEICHAL, VISITOR_SPOTS as VS } from './config.js';
+import { P, CORNERS, HORNS, MIZBEACH, KEVESH, AZARA, NORTH_LINE_Z, HEICHAL } from './config.js';
 import { BIRKAT_KOHANIM, DAILY_SHIR } from './data.js';
 import { makeChart } from './minigames.js';
 
@@ -90,7 +90,7 @@ function zerikaOlahStep(label = 'Olah', src = 'Zevachim 5:4') {
     kind: 'choose', icon: '💧', prompt: 'Zerika here',
     options: ['NE', 'NW', 'SE', 'SW'].map(id => ({ id, at: cornerAt(id), label: CORNERS[id].label })),
     need: ['NE', 'SW'],
-    wrong: { msg: `${label === 'Olah' ? 'An' : 'A'} ${label} gets "two placements that are four": first the north-east corner, then the south-west — each placement touches two sides of the Mizbeach!`, src },
+    wrong: { msg: `${/^[AEIOU]/.test(label) ? 'An' : 'A'} ${label} gets "two placements that are four": first the north-east corner, then the south-west — each placement touches two sides of the Mizbeach!`, src },
     onOption: async (g, id) => {
       g.player.char.pose = 'work';
       g.addBloodMark(id, false);
@@ -188,7 +188,7 @@ function haktarahStep(text = 'Haktarah: place it on the big fire (hold)') {
 
 function takeAnimalFromOwner(owner, animal, verb = 'Take the animal') {
   return {
-    text: `${verb} from ${owner.name}`,
+    text: verb,
     kind: 'use', at: () => owner.pos(), r: 2.6, icon: '🤝', prompt: verb,
     run: async (g) => {
       g.player.addFollower(animal);
@@ -440,12 +440,59 @@ export const DAILY = [
 ];
 
 // ─────────────────────────────────────────────────────────
+// Rosh Chodesh: the Musaf of the new month (added to the day on Rosh Chodesh,
+// and playable any time from the 📅 calendar)
+// ─────────────────────────────────────────────────────────
+export const ROSH_CHODESH = {
+  id: 'roshchodesh', icon: '🌙', title: 'The Rosh Chodesh Musaf', he: 'מוּסַף רֹאשׁ חֹדֶשׁ', hour: 9.2, achievement: 'roshchodesh',
+  intro: [{ who: 'memuneh', text: 'A new month begins today — Rosh Chodesh! On Rosh Chodesh we bring extra korbanot, called the Musaf. Come, let\'s choose the animals at the Lishkat HaTla\'im.' }],
+  steps: [
+    { text: 'Go to the Lishkat HaTla\'im (the lamb chamber) in the north to choose the animals for the Musaf', kind: 'go', at: at(P.lambPen), r: 3.4, icon: '🚶' },
+    {
+      text: 'Choose the animals for the Rosh Chodesh Musaf', kind: 'auto',
+      run: async (g) => {
+        const r = await g.minigames.tally({
+          title: 'Which animals do we bring for the Rosh Chodesh Musaf? Tap to count them out!',
+          hint: 'The Torah says: "two young bulls, one ram, seven lambs… and one goat for a Chatat"',
+          items: [
+            { icon: '🐂', label: 'Bulls', target: 2 },
+            { icon: '🐏', label: 'Rams', target: 1 },
+            { icon: '🐑', label: 'Lambs', target: 7 },
+            { icon: '🐐', label: 'Goats', target: 1 },
+          ],
+        });
+        if (r.tries > 1) g.mistakeSoft();
+        g.audio.play('baa');
+      },
+      fact: ['The Musaf of Rosh Chodesh: 2 bulls, 1 ram and 7 lambs as Olot — and 1 goat as a Chatat.', 'Bamidbar 28:11-15'],
+    },
+    {
+      text: 'Blow the silver chatzotzrot over the korbanot! Join the Kohanim with the trumpets (hold)', kind: 'hold', hold: 1.8, at: { x: -4.6, y: 0, z: 16 }, r: 2.8, icon: '🎺', prompt: 'Blow the chatzotzrot — hold',
+      start: (g) => { g.player.char.pose = 'raise'; },
+      cancel: (g) => { g.player.char.pose = 'idle'; },
+      run: async (g) => {
+        g.trumpeters.forEach(t => { t.char.pose = 'raise'; });
+        g.audio.trumpet('tashrat', 0.35);
+        await g.wait(2.2);
+        g.trumpeters.forEach(t => { t.char.pose = 'idle'; });
+        g.player.char.pose = 'idle';
+      },
+      fact: ['"On your Rosh Chodesh days, blow the trumpets over your Olot" — so Hashem will remember you for good.', 'Bamidbar 10:10'],
+    },
+    { ...partsStep('whole'), text: 'Take the parts of the Musaf korbanot from the marble tables in the north', fact: ['The parts of each Olah are carried up the Kevesh, salted and placed on the fire.', 'Vayikra 1:8-9; Menachot 21a'] },
+    saltStep(),
+    haktarahStep('Haktarah: place the Musaf on the big fire (hold)'),
+  ],
+  outroFact: ['Why a Chatat on Rosh Chodesh? Chazal tell that the moon was made smaller than the sun — and Hashem said: "Bring a korban for Me, for making the moon smaller!"', 'Chullin 60b; Bamidbar 28:15'],
+};
+
+// ─────────────────────────────────────────────────────────
 // Visitors who bring their own korbanot
 // ─────────────────────────────────────────────────────────
 export const VISITORS = [
   {
     id: 'reuven', icon: '🐑', title: 'Reuven\'s Olah', he: 'עוֹלַת נְדָבָה', korban: true,
-    npc: { name: 'Reuven', role: 'yisrael', beard: true, robe: 0x6b7a8f, at: VS.reuven, animal: 'keves' },
+    npc: { name: 'Reuven', role: 'yisrael', beard: true, robe: 0x6b7a8f, animal: 'keves' },
     intro: [
       { who: 'visitor', text: 'Shalom, Kohen! I want to bring an Olah — a present to Hashem, just because I love Him! Will you help me?' },
     ],
@@ -464,7 +511,7 @@ export const VISITORS = [
   },
   {
     id: 'miriam', icon: '🕊️', title: 'Miriam\'s Dove', he: 'עוֹלַת הָעוֹף', korban: true,
-    npc: { name: 'Miriam', role: 'woman', robe: 0x8a3b4a, accent: 0x3d5a8a, at: VS.miriam },
+    npc: { name: 'Miriam', role: 'woman', robe: 0x8a3b4a, accent: 0x3d5a8a },
     intro: [{ who: 'visitor', text: 'Shalom! I don\'t have much money, but I brought a turtledove for an Olah. Is a little bird good enough for Hashem?' }],
     steps: (v) => [
       {
@@ -492,7 +539,7 @@ export const VISITORS = [
   },
   {
     id: 'yehuda', icon: '🐐', title: 'Yehuda\'s Chatat', he: 'קָרְבַּן חַטָּאת', korban: true,
-    npc: { name: 'Yehuda', role: 'yisrael', beard: true, robe: 0x5d6b4a, at: VS.yehuda, animal: 'ez' },
+    npc: { name: 'Yehuda', role: 'yisrael', beard: true, robe: 0x5d6b4a, animal: 'ez' },
     intro: [{ who: 'visitor', text: 'Shalom, Kohen. Last Shabbat I carried something by mistake — I forgot it was Shabbat! I brought a goat for a Chatat, to come back close to Hashem.' }],
     steps: (v) => [
       takeAnimalFromOwner(v, 'ez', 'Take Yehuda\'s goat'),
@@ -514,7 +561,7 @@ export const VISITORS = [
   },
   {
     id: 'family', icon: '🎉', title: 'A Family\'s Shelamim', he: 'קָרְבַּן שְׁלָמִים', korban: true,
-    npc: { name: 'Avraham & family', role: 'yisrael', beard: true, robe: 0xa0522d, at: VS.family, animal: 'keves' },
+    npc: { name: 'Avraham & family', role: 'yisrael', beard: true, robe: 0xa0522d, animal: 'keves' },
     intro: [{ who: 'visitor', text: 'Shalom! We have a new baby, healthy and strong, baruch Hashem! We brought a Shelamim to celebrate — we\'ll share it with the Kohanim and have a big feast!' }],
     steps: (v) => [
       takeAnimalFromOwner(v, 'keves', 'Take the family\'s lamb'),
@@ -542,7 +589,7 @@ export const VISITORS = [
   },
   {
     id: 'chana', icon: '🌾', title: 'Chana\'s Mincha', he: 'מִנְחַת סֹלֶת', korban: true,
-    npc: { name: 'Chana', role: 'woman', robe: 0x6e5a7e, accent: 0xc79a3e, at: VS.chana },
+    npc: { name: 'Chana', role: 'woman', robe: 0x6e5a7e, accent: 0xc79a3e },
     intro: [{ who: 'visitor', text: 'Shalom, Kohen! I made a Minchat Solet — fine flour, with oil and frankincense (levonah). Can you offer it for me?' }],
     steps: (v) => [
       {
@@ -571,7 +618,7 @@ export const VISITORS = [
   },
   {
     id: 'bikkurim', icon: '🧺', title: 'Bikkurim — First Fruits', he: 'בִּכּוּרִים',
-    npc: { name: 'Shimon the farmer', role: 'yisrael', beard: true, robe: 0x9c7b52, at: VS.bikkurim },
+    npc: { name: 'Shimon the farmer', role: 'yisrael', beard: true, robe: 0x9c7b52 },
     intro: [{ who: 'visitor', text: 'Shalom! I came all the way from the Galil with the first fruits of my field! We marched with flutes and an ox with golden horns. Will you take my basket?' }],
     steps: (v) => [
       {
@@ -607,6 +654,108 @@ export const VISITORS = [
       },
     ],
     thanks: 'Todah! Hashem gave us such a good land. See you next year with more fruit!',
+  },
+  {
+    id: 'todah', icon: '🍞', title: 'Binyamin\'s Todah', he: 'קָרְבַּן תּוֹדָה', korban: true,
+    npc: { name: 'Binyamin', role: 'yisrael', beard: true, robe: 0x3f6f7a, animal: 'par' },
+    intro: [{ who: 'visitor', text: 'Shalom, Kohen! I just came home from a long trip across the sea — there was a terrible storm, and Hashem saved us! I brought a Korban Todah to say thank you.' }],
+    steps: (v) => [
+      {
+        ...takeAnimalFromOwner(v, 'par', 'Take Binyamin\'s bull'),
+        fact: ['Four people bring thanks: someone who crossed the sea, crossed the desert, got better from an illness, or came out of prison.', 'Berachot 54b; Tehillim 107'],
+      },
+      shechitaStep({ north: false, name: 'A Todah', owner: 'Binyamin' }),
+      kabbalahStep(),
+      { ...holachaStep('olah'), text: 'Holacha: walk carefully to the corner of the Mizbeach where the dam goes first' },
+      zerikaOlahStep('Todah', 'Zevachim 5:6'),
+      shirayimStep(),
+      {
+        text: 'The Todah breads: take the Kohen\'s portion — one of each kind', kind: 'auto',
+        run: async (g) => {
+          const r = await g.minigames.tally({
+            title: 'Binyamin brought 40 breads — 10 of each kind. The Kohen gets ONE of each kind!',
+            hint: 'Tap each kind of bread to take it, then press Done',
+            items: [
+              { icon: '🍞', label: 'Chametz loaves', target: 1 },
+              { icon: '🥯', label: 'Matzah challot', target: 1 },
+              { icon: '🫓', label: 'Rekikin (thin wafers)', target: 1 },
+              { icon: '🥞', label: 'Revuchah (soft, with oil)', target: 1 },
+            ],
+          });
+          if (r.tries > 1) g.mistakeSoft();
+          g.audio.play('pickup');
+        },
+        fact: ['A Todah comes with 40 breads: 10 chametz and 30 matzah of three kinds. The Kohen gets one of each kind.', 'Vayikra 7:12-14; Menachot 77b'],
+      },
+      partsStep('emurim'),
+      saltStep(),
+      haktarahStep('Haktarah: place the emurim on the big fire (hold)'),
+    ],
+    thanks: 'Todah, Kohen! Now I\'ll share the meat and the breads with my friends, and tell everyone how Hashem saved me!',
+    outroFact: ['Our Sages taught: in the future every other korban may stop — but the Korban Todah will never stop, because there will always be something to thank Hashem for!', 'Vayikra Rabbah 9:7'],
+  },
+  {
+    id: 'naftali', icon: '🐏', title: 'Naftali\'s Asham', he: 'קָרְבַּן אָשָׁם', korban: true,
+    npc: { name: 'Naftali', role: 'yisrael', beard: true, robe: 0x7a5a3a, animal: 'ayil' },
+    intro: [{ who: 'visitor', text: 'Shalom, Kohen. My neighbor lent me his tools, and I kept them and said they weren\'t his. That was wrong! I gave them back with an extra fifth, and I brought a ram for an Asham.' }],
+    steps: (v) => [
+      {
+        ...takeAnimalFromOwner(v, 'ayil', 'Take Naftali\'s ram'),
+        fact: ['Someone who kept what wasn\'t his and swore falsely gives it back plus an extra fifth — and then brings a ram as an Asham.', 'Vayikra 5:20-25'],
+      },
+      shechitaStep({ north: true, name: 'An Asham', owner: 'Naftali', vidui: true }),
+      kabbalahStep(),
+      { ...holachaStep('olah'), text: 'Holacha: walk carefully to the corner of the Mizbeach where the dam goes first' },
+      zerikaOlahStep('Asham', 'Zevachim 5:5'),
+      shirayimStep(),
+      partsStep('emurim'),
+      saltStep(),
+      haktarahStep('Haktarah: place the emurim on the big fire (hold)'),
+      {
+        text: 'The meat of an Asham is eaten by the Kohanim — join them at the tables in the Azara', kind: 'use', at: at(P.tables), r: 2.6, icon: '🍽️', prompt: 'Eat with the Kohanim',
+        run: async (g) => { g.audio.play('success'); g.miracle('meat'); },
+        fact: ['An Asham is eaten only by male Kohanim, inside the Azara, that day and night until midnight.', 'Zevachim 5:5'],
+      },
+    ],
+    thanks: 'Thank you, Kohen. I learned my lesson — from now on I\'ll always give back what isn\'t mine!',
+  },
+  {
+    id: 'bechor', icon: '🥇', title: 'Elisheva\'s Bechor', he: 'בְּכוֹר', korban: true,
+    npc: { name: 'Elisheva', role: 'woman', robe: 0x4a6e8a, accent: 0xd9a441, animal: 'keves' },
+    intro: [{ who: 'visitor', text: 'Shalom, Kohen! Our sheep had her very first lamb — a firstborn male, a Bechor! The Torah says a Bechor belongs to the Kohen. Will you offer it?' }],
+    steps: (v) => [
+      {
+        ...takeAnimalFromOwner(v, 'keves', 'Take the Bechor'),
+        fact: ['Every firstborn male calf, lamb or kid is holy. It is given to a Kohen, who offers it on the Mizbeach.', 'Bamidbar 18:17-18'],
+      },
+      {
+        ...shechitaStep({ north: false, name: 'A Bechor' }),
+        text: 'Shechita: a Bechor may be slaughtered anywhere in the Azara (and it has no semicha!)',
+        fact: ['A Bechor is "Kodashim Kalim": it may be slaughtered anywhere in the Azara — and unlike most korbanot, there is no semicha.', 'Zevachim 5:8; Menachot 9:7'],
+      },
+      kabbalahStep(),
+      {
+        text: 'Zerika: a Bechor gets just ONE placement — on a corner of the Mizbeach that has a yesod (base) under it',
+        kind: 'choose', icon: '💧', prompt: 'Zerika here',
+        options: ['NE', 'NW', 'SE', 'SW'].map(id => ({ id, at: cornerAt(id), label: CORNERS[id].label })),
+        need: ['SW'], anyOf: ['NE', 'NW', 'SW'],
+        wrong: { msg: 'The south-east corner has no yesod under it! A Bechor\'s one placement must be over the yesod — try another corner.', src: 'Zevachim 5:8; Middot 3:1' },
+        onOption: async (g, id) => {
+          g.player.char.pose = 'work';
+          g.addBloodMark(id, false);
+          g.audio.play('pour');
+          await g.wait(0.6);
+          g.player.setHeld([]);
+          g.player.char.pose = 'idle';
+        },
+        fact: ['The yesod runs along the whole north and west sides of the Mizbeach, but only one amah of the south and east — so the south-east corner has no yesod.', 'Middot 3:1; Zevachim 53b'],
+      },
+      partsStep('emurim'),
+      saltStep(),
+      haktarahStep('Haktarah: place the emurim on the big fire (hold)'),
+    ],
+    thanks: 'Thank you, Kohen! Every Bechor reminds us how Hashem saved the firstborn of Israel in Egypt.',
+    outroFact: ['The meat of a Bechor belongs to the Kohen — he and his family eat it in Yerushalayim, for two days and one night.', 'Zevachim 5:8'],
   },
 ];
 

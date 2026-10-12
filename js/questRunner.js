@@ -105,7 +105,8 @@ export class QuestRunner {
       if (!near) { return false; }
       g.ui.setPrompt({ text: `${s.prompt} (${near.label})`, icon: s.icon });
       if (input.actionPressed) {
-        if (near.id === s.need[this.k]) {
+        // `anyOf`: any one of these options is right (e.g. any corner that has a yesod)
+        if (s.anyOf ? s.anyOf.includes(near.id) : near.id === s.need[this.k]) {
           this.runThen(() => s.onOption?.(g, near.id)).then((same) => {
             if (!same) return;
             this.k++;

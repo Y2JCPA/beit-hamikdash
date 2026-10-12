@@ -317,8 +317,15 @@ export function makeAnimal(type) {
   let bodyH = 0.55, headZ = 0.6;
   const add = (m, x, y, z) => { m.position.set(x, y, z); m.castShadow = true; root.add(m); return m; };
   const eyeM = std(0x111111, { roughness: 0.3 });
-  if (type === 'keves' || type === 'lamb') {
-    const s = type === 'lamb' ? 0.85 : 1;
+  if (type === 'keves' || type === 'lamb' || type === 'ayil') {
+    const s = type === 'lamb' ? 0.85 : type === 'ayil' ? 1.2 : 1;
+    if (type === 'ayil') {
+      // a ram: bigger, with curled horns
+      for (const x of [-1, 1]) {
+        const horn = add(new THREE.Mesh(new THREE.TorusGeometry(0.1 * s, 0.035 * s, 7, 14, Math.PI * 1.5), std(0xbfae8a, { roughness: 0.7 })), x * 0.15 * s, 0.8 * s, 0.44 * s);
+        horn.rotation.set(0, x * Math.PI / 2, 0.4);
+      }
+    }
     add(fluffy(0.36 * s, 0.3 * s, 0.5 * s, 0xf6f0e2, 3), 0, 0.55 * s, 0);
     for (let i = 0; i < 5; i++) add(fluffy(0.14 * s, 0.12 * s, 0.14 * s, 0xfbf6ea, i), (Math.random() - 0.5) * 0.4 * s, 0.78 * s, (Math.random() - 0.5) * 0.6 * s);
     const head = add(new THREE.Mesh(new THREE.SphereGeometry(0.17 * s, 14, 10), std(0x3a2f2a)), 0, 0.72 * s, 0.5 * s);

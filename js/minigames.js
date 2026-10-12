@@ -268,6 +268,57 @@ export class Minigames {
     });
   }
 
+  // ───────── Tally: tap to count out the right number of each thing ─────────
+  // items: [{ icon, label, target }]. After two wrong tries the answer is shown.
+  tally({ title, hint = '', items }) {
+    return new Promise((resolve) => {
+      const counts = items.map(() => 0);
+      let tries = 0, done = false, shown = false;
+      $('#tl-title').textContent = title;
+      $('#tl-hint').textContent = hint;
+      const box = $('#tl-items');
+      box.innerHTML = '';
+      const cards = items.map((it, i) => {
+        const c = document.createElement('div');
+        c.className = 'tl-card';
+        c.innerHTML = `<div class="tl-icon">${it.icon}</div><div class="tl-label"></div><div class="tl-count">0</div><button class="tl-minus" aria-label="minus">−</button>`;
+        c.querySelector('.tl-label').textContent = it.label;
+        c.onclick = () => { if (done || shown) return; counts[i] = Math.min(counts[i] + 1, 12); audio.bell(noteFreq(counts[i] % 8, 1), 0.1, 0, 0.6); show(); };
+        c.querySelector('.tl-minus').onclick = (e) => { e.stopPropagation(); if (done || shown) return; counts[i] = Math.max(0, counts[i] - 1); audio.play('step'); show(); };
+        box.appendChild(c);
+        return c;
+      });
+      const show = () => cards.forEach((c, i) => { c.querySelector('.tl-count').textContent = counts[i]; c.classList.toggle('some', counts[i] > 0); c.classList.remove('bad'); });
+      const check = () => {
+        if (done) return;
+        const wrong = items.map((it, i) => counts[i] !== it.target);
+        if (!wrong.some(Boolean)) {
+          done = true;
+          cards.forEach(c => c.classList.add('good'));
+          audio.play('success');
+          setTimeout(() => { $('#tally').classList.add('hidden'); this.active = null; resolve({ tries }); }, 1100);
+          return;
+        }
+        tries++;
+        audio.play('error');
+        cards.forEach((c, i) => c.classList.toggle('bad', wrong[i]));
+        if (tries >= 2) {
+          // show the answer so nobody gets stuck
+          items.forEach((it, i) => { counts[i] = it.target; });
+          shown = true;
+          show();
+          cards.forEach(c => c.classList.add('hint'));
+          $('#tl-hint').innerHTML = `<span>Here is the right answer:</span> <b>${items.map(it => `${it.icon} × ${it.target}`).join('   ')}</b> <span>— press Done!</span>`;
+        }
+      };
+      $('#tl-done').onclick = check;
+      $('#tl-reset').onclick = () => { if (done || shown) return; counts.fill(0); show(); };
+      $('#tally').classList.remove('hidden');
+      show();
+      this.active = { key: (code) => { if (code === 'Enter' || code === 'KeyE') check(); } };
+    });
+  }
+
   key(code) { this.active?.key?.(code); }
 }
 
