@@ -33,6 +33,7 @@ const CORE = [
   './js/nav.js',
   './js/physics.js',
   './js/player.js',
+  './js/progress.js',
   './js/questRunner.js',
   './js/quests.js',
   './js/sky.js',

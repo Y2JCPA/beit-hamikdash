@@ -432,3 +432,20 @@ html[dir=rtl] #vs-en { display: none; }
 html.nikud body { line-height: 1.55; }
 html.nikud #dlg-text, html.nikud #fc-text, html.nikud .e-text, html.nikud #cel-lines { line-height: 1.75; }
 html.nikud #dlg-text, html.nikud #fc-text, html.nikud #qc-step, html.nikud #prompt-text, html.nikud #cel-lines { font-size: 1.12em; }
+
+/* 💎 My Path */
+#player-card { cursor: pointer; }
+.path-fire { display: flex; gap: 12px; align-items: center; padding: 8px 4px; }
+.pf-flame { font-size: calc(30px + var(--lvl) * 1px); filter: drop-shadow(0 0 calc(4px + var(--lvl) * .4px) #ffb040); animation: flick 1.2s ease-in-out infinite alternate; }
+@keyframes flick { to { transform: scale(1.08) rotate(-3deg); } }
+.choshen { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; max-width: 320px; margin: 10px auto 4px; padding: 12px; border-radius: 16px; background: linear-gradient(160deg, #e8c766, #b8892a); box-shadow: inset 0 0 0 3px #f6e19a, 0 6px 18px rgba(0,0,0,.25); }
+.gem-cell { text-align: center; padding: 6px 2px; border-radius: 10px; background: rgba(255,255,255,.18); }
+.gem { width: 38px; height: 30px; margin: 0 auto 3px; border-radius: 9px; border: 2px dashed rgba(90,60,10,.45); }
+.gem-cell.got .gem { border: 2px solid #fff6d0; box-shadow: inset 0 -6px 10px rgba(0,0,0,.25), inset 0 6px 10px rgba(255,255,255,.45), 0 0 10px rgba(255,255,255,.5); }
+.gem-tribe { font-size: 12px; font-weight: 700; color: #4a3208; }
+.gem-he { font-family: var(--he); font-size: 13px; color: #5a3d0a; }
+.gem-cell:not(.got) .gem-tribe, .gem-cell:not(.got) .gem-he { opacity: .55; }
+#pc-badges { display: flex; gap: 6px; font-weight: 700; font-size: 14px; }
+#pc-badges span { background: rgba(0,0,0,.25); padding: 3px 7px; border-radius: 10px; }
+body.phone #pc-badges { font-size: 13px; gap: 4px; }
+body.phone #pc-badges span { padding: 2px 6px; }

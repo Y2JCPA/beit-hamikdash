@@ -61,6 +61,10 @@
    "text": "Any wood may be used — except olive wood and grapevine. They mostly used fig, walnut and pine."
   },
   {
+   "id": "cd8d78fa",
+   "text": "As Kohen Gadol, you raise your hands for Birkat Kohanim only up to the Tzitz — because Hashem's Name is written on it."
+  },
+  {
    "id": "24b5a5a5",
    "text": "At each pause in the song, the Kohanim blew the silver trumpets and all the people bowed down."
   },
@@ -75,6 +79,10 @@
   {
    "id": "f4ea34d2",
    "text": "Behind these two curtains is the Kodesh HaKodashim. Only the Kohen Gadol enters — only on Yom Kippur."
+  },
+  {
+   "id": "d11f9b80",
+   "text": "Ben Gever is closing the gates of the Azara for the night, and his helper is needed! Meet him at Nikanor Gate."
   },
   {
    "id": "dbe33e54",
@@ -107,6 +115,14 @@
   {
    "id": "7256e695",
    "text": "Four people bring thanks: someone who crossed the sea, crossed the desert, got better from an illness, or came out of prison."
+  },
+  {
+   "id": "67376f0f",
+   "text": "Gevini the Crier's voice was heard three parsa'ot away — King Agrippas heard it from far off and sent him gifts!"
+  },
+  {
+   "id": "634c254b",
+   "text": "Good morning, helper! Call out loudly so everyone wakes up for the Avodah!"
   },
   {
    "id": "a62e802f",
@@ -165,6 +181,10 @@
    "text": "Kohanim, come stand in a circle — it's time for the Payis, the lottery! It decides who gets each avodah today. That way it's fair for everyone."
   },
   {
+   "id": "aa7e38ba",
+   "text": "Kohen Gadol! Every day you bring your own Mincha, the Chavitin — half in the morning and half in the evening. It is made in the chamber beside Nikanor Gate."
+  },
+  {
    "id": "bdb55e71",
    "text": "Last one! Pour the wine (nesachim) on the Mizbeach — and when the wine is poured, the Leviim sing the Song of the Day!"
   },
@@ -179,6 +199,10 @@
   {
    "id": "cdf2e412",
    "text": "Mazal tov to us! Now the whole family will eat the Shelamim in Yerushalayim — for two days and one night!"
+  },
+  {
+   "id": "7039033d",
+   "text": "Most menachot are made of 10 loaves, but the Chavitin of the Kohen Gadol has 12."
   },
   {
    "id": "4cddc2bf",
@@ -207,6 +231,10 @@
   {
    "id": "c79ebeba",
    "text": "On the nights of Sukkot, young Kohanim climbed ladders to fill the giant golden lamps, and the light shone into every courtyard in Yerushalayim!"
+  },
+  {
+   "id": "a6af7d25",
+   "text": "Only Beit Garmu knew how to take the loaves out of the oven without breaking them!"
   },
   {
    "id": "495a4d3f",
@@ -321,6 +349,10 @@
    "text": "The Chatzotzrot were silver trumpets, blown by Kohanim. They blew tekiah-teruah-tekiah!"
   },
   {
+   "id": "93e9e13f",
+   "text": "The Chavitin were baked a little and then fried in a flat pan with oil."
+  },
+  {
    "id": "8f3481b8",
    "text": "The Ketoret is made of 11 spices. The family of Avtinas knew the secret recipe!"
   },
@@ -339,6 +371,10 @@
   {
    "id": "70e9328c",
    "text": "The Kohen takes the silver machta from the corner between the Kevesh and the Mizbeach and walks up to the top."
+  },
+  {
+   "id": "ea4ad845",
+   "text": "The Lechem HaPanim is set in two stacks of six, with a spoon of levonah on each stack."
   },
   {
    "id": "acca4221",
@@ -411,6 +447,10 @@
   {
    "id": "9204ad79",
    "text": "The great altar: 32 amot wide and 10 amot tall, built of whole stones that iron never touched. Iron shortens life — the Mizbeach lengthens it!"
+  },
+  {
+   "id": "40be7f26",
+   "text": "The great gates were so heavy that it took twenty men to close one of them!"
   },
   {
    "id": "e05af1e4",
@@ -493,6 +533,10 @@
    "text": "Todah, Kohen! Now I'll share the meat and the breads with my friends, and tell everyone how Hashem saved me!"
   },
   {
+   "id": "1a36106f",
+   "text": "Today is Erev Shabbat! Beit Garmu needs their helper: tomorrow 12 fresh loaves go on the Shulchan. Come to their oven in Beit HaMoked, next to the lamb chamber."
+  },
+  {
    "id": "566083e6",
    "text": "We count fingers, not people! The Jewish people are never counted directly — so each Kohen holds up a finger, and the fingers are counted."
   },
@@ -501,8 +545,16 @@
    "text": "What a day! Explore the Mikdash at night — look at the lamps in Ezrat Nashim! (They were lit on the nights of Sukkot.) When you're ready for a new day, come talk to me."
   },
   {
+   "id": "e69e6e74",
+   "text": "When the Kohen Gadol wanted to offer, he went up the Kevesh with the Segan at his right hand. At the top, Ben Arza clashed the cymbal and the Leviim sang."
+  },
+  {
    "id": "d981afe6",
    "text": "Wonderful work today! Ready for a brand-new day?"
+  },
+  {
+   "id": "5ddc763e",
+   "text": "Your week as Kohen Gadol is over — thank you! Now help the visitors again and collect the 12 stones of the Choshen once more."
   }
  ],
  "he": [
@@ -567,6 +619,10 @@
    "text": "אפשר להשתמש בכל עץ — חוץ מעץ זית וגפן. בדרך כלל השתמשו בעצי תאנה, אגוז ואורן."
   },
   {
+   "id": "b01bc5dc",
+   "text": "בתור כהן גדול, אתם מרימים את הידיים בברכת כהנים רק עד הציץ — כי שם ה׳ כתוב עליו."
+  },
+  {
    "id": "0c3ffa7b",
    "text": "בכל הפסקה בשיר, הכהנים תקעו בחצוצרות הכסף וכל העם השתחווה."
   },
@@ -581,6 +637,10 @@
   {
    "id": "83951467",
    "text": "מאחורי שתי הפרוכות האלה נמצא קודש הקודשים. רק הכהן הגדול נכנס לשם — ורק ביום כיפור."
+  },
+  {
+   "id": "b3df064b",
+   "text": "בן גבר סוגר את שערי העזרה ללילה, והוא צריך את העוזר שלו! פגוש אותו בשער ניקנור."
   },
   {
    "id": "8deb6dc1",
@@ -613,6 +673,14 @@
   {
    "id": "e4c69f6e",
    "text": "ארבעה צריכים להודות: מי שעבר את הים, מי שעבר את המדבר, מי שהבריא ממחלה, ומי שיצא מבית הסוהר."
+  },
+  {
+   "id": "c63e0e6a",
+   "text": "קולו של גביני הכרוז נשמע למרחק שלוש פרסאות — אגריפס המלך שמע אותו מרחוק ושלח לו מתנות!"
+  },
+  {
+   "id": "1bdb2727",
+   "text": "בוקר טוב, עוזר! קרא בקול רם כדי שכולם יתעוררו לעבודה!"
   },
   {
    "id": "3e6cb16b",
@@ -671,6 +739,10 @@
    "text": "כהנים, בואו תעמדו במעגל — הגיע הזמן לפייס, הגורל! הוא מחליט מי יעשה כל עבודה היום. ככה זה הוגן לכולם."
   },
   {
+   "id": "c409f42a",
+   "text": "כהן גדול! בכל יום אתה מביא מנחה משלך, החביתין — חצי בבוקר וחצי בערב. מכינים אותה בלשכה שליד שער ניקנור."
+  },
+  {
    "id": "5083fec1",
    "text": "אחרון! שפכו את היין (נסכים) על המזבח — וכשהיין נשפך, הלויים שרים את השיר של יום!"
   },
@@ -685,6 +757,10 @@
   {
    "id": "dbdcf170",
    "text": "מזל טוב לנו! עכשיו כל המשפחה תאכל את השלמים בירושלים — במשך שני ימים ולילה אחד!"
+  },
+  {
+   "id": "5519aff3",
+   "text": "רוב המנחות הן של 10 כיכרות, אבל בחביתין של הכהן הגדול יש 12."
   },
   {
    "id": "10c72c09",
@@ -713,6 +789,10 @@
   {
    "id": "f0b7f16a",
    "text": "בלילות של סוכות, כהנים צעירים טיפסו על סולמות כדי למלא את מנורות הזהב הענקיות, והאור האיר כל חצר בירושלים!"
+  },
+  {
+   "id": "01e89194",
+   "text": "רק בית גרמו ידעו איך להוציא את הכיכרות מהתנור בלי לשבור אותן!"
   },
   {
    "id": "ba631cea",
@@ -827,6 +907,10 @@
    "text": "החצוצרות היו חצוצרות כסף, והכהנים תקעו בהן. הם תקעו תקיעהתרועהתקיעה!"
   },
   {
+   "id": "468000a1",
+   "text": "החביתין נאפו מעט ואחר כך טוגנו במחבת שטוחה עם שמן."
+  },
+  {
    "id": "061de099",
    "text": "הקטורת עשויה מ-11 סוגי בשמים. משפחת אבטינס ידעה את המתכון הסודי!"
   },
@@ -845,6 +929,10 @@
   {
    "id": "7551b159",
    "text": "הכהן לוקח את מחתת הכסף מהפינה שבין הכבש למזבח ועולה לראש המזבח."
+  },
+  {
+   "id": "fe79ec8c",
+   "text": "לחם הפנים מסודר בשתי ערימות של שש, ועל כל ערימה כף של לבונה."
   },
   {
    "id": "bbad62a7",
@@ -917,6 +1005,10 @@
   {
    "id": "055f0466",
    "text": "המזבח הגדול: רוחבו 32 אמות וגובהו 10 אמות, בנוי מאבנים שלמות שברזל מעולם לא נגע בהן. הברזל מקצר חיים — והמזבח מאריך אותם!"
+  },
+  {
+   "id": "d36e4854",
+   "text": "השערים הגדולים היו כל כך כבדים שהיו צריכים עשרים איש כדי לסגור אחד מהם!"
   },
   {
    "id": "98b954ed",
@@ -999,6 +1091,10 @@
    "text": "תודה, כהן! עכשיו אחלק את הבשר והלחמים עם החברים שלי, ואספר לכולם איך ה׳ הציל אותי!"
   },
   {
+   "id": "57c2358b",
+   "text": "היום ערב שבת! בית גרמו צריכים את העוזר שלהם: מחר מניחים 12 כיכרות טריות על השולחן. בוא לתנור שלהם בבית המוקד, ליד לשכת הטלאים."
+  },
+  {
    "id": "e2017297",
    "text": "סופרים אצבעות, לא אנשים! את עם ישראל אף פעם לא סופרים ישירות — לכן כל כהן מרים אצבע, וסופרים את האצבעות."
   },
@@ -1007,8 +1103,16 @@
    "text": "איזה יום! טייל במקדש בלילה — תסתכל על המנורות בעזרת נשים! (הדליקו אותן בלילות של סוכות.) כשתהיה מוכן ליום חדש, בוא לדבר איתי."
   },
   {
+   "id": "5e63fe98",
+   "text": "כשהכהן הגדול רצה להקריב, הוא עלה בכבש והסגן מימינו. בראש הכבש, בן ארזא הקיש במצלתיים והלויים שרו."
+  },
+  {
    "id": "69649ba7",
    "text": "עבודה נפלאה היום! מוכן ליום חדש לגמרי?"
+  },
+  {
+   "id": "5d2afaf3",
+   "text": "השבוע שלך ככהן גדול נגמר — תודה! עכשיו עזור שוב למבקרים, ואסוף מחדש את 12 אבני החושן."
   }
  ]
 }

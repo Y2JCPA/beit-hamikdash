@@ -20,8 +20,9 @@ import { audio, noteFreq } from './audio.js';
 import { Minigames } from './minigames.js';
 import { QuestRunner } from './questRunner.js';
 import { Nav } from './nav.js';
-import { DAILY, VISITORS, ROSH_CHODESH, setNpcPosResolver, shirForToday } from './quests.js';
+import { DAILY, VISITORS, ROSH_CHODESH, CHAVITIN, LECHEM_HAPANIM, GATES, setNpcPosResolver, shirForToday } from './quests.js';
 import { roshChodesh, hebrewDate } from './calendar.js';
+import { TRIBES, JOBS, KG_DAYS, tendFire, fireLevel, kgActive, assignTribes, tribe } from './progress.js';
 import { lang, nikud } from './i18n.js';
 import { PLACES, MIRACLES, ACHIEVEMENTS, TITLES, NPC_NAMES } from './data.js';
 
@@ -495,6 +496,7 @@ export class Game {
     $('#np-name').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.repeat) create(); e.stopPropagation(); });
     const hudBtn = (id, fn) => { $(id).onclick = (e) => { e.currentTarget.blur(); if (this.locked) return; fn(); }; };
     hudBtn('#btn-journal', () => this.openJournal());
+    $('#player-card').addEventListener('click', () => { if (this.mode === 'play' && !this.locked) this.openJournal(0); });
     hudBtn('#btn-achieve', () => { audio.play('click'); this.ui.openAchievements(this.state); });
     hudBtn('#btn-settings', () => this.openSettings());
     $('#prompt').addEventListener('pointerdown', (e) => { e.preventDefault(); this.input.actionDown = true; this.input.actionPressed = true; });
@@ -538,6 +540,7 @@ export class Game {
       name, skin, hair, stars: 0, dailyIndex: 0, dayDone: false, days: 0, dayOffset: 0,
       visitorsDone: [], visitorsEver: [], achievements: [], discovered: [], miracles: [], facts: [],
       kg: false, wearKG: false, questStars: {}, intro: false, night: false,
+      stones: [], kgUntil: null, kgTimes: 0, jobs: [], fire: null, visitorTribes: {},
     };
   }
 
@@ -553,8 +556,13 @@ export class Game {
     const prof = this.profiles().find(p => p.id === id);
     if (!st) st = this.newState(prof?.name || 'Kohen', 1, 0);
     st = { ...this.newState(st.name, st.skin, st.hair), ...st };
+    // the Kohen Gadol used to be a reward after the first day; those Kohanim keep it one more week
+    if (st.kg && st.kgUntil === undefined) { st.kgUntil = Date.now() + KG_DAYS * 864e5; st.wearKG = true; }
+    let kgEnded = false;
+    if (st.kgUntil && !kgActive(st)) { st.kgUntil = null; st.stones = []; kgEnded = true; }
+    const fire = tendFire(st);
     // on Rosh Chodesh the day gets the Musaf at the end (worked out when the day begins)
-    if (st.extra === undefined || (st.dailyIndex === 0 && !st.dayDone)) this.planDay(st);
+    if (st.extra === undefined || (st.dailyIndex === 0 && !st.dayDone)) this.planDay(st, st.dailyIndex === 0 && !st.dayDone);
     if (!this.dailyList(st)[st.dailyIndex]) st.dailyIndex = 0;
     // saves from before visitors changed daily: that day had the original six
     if (st.dayDone && !st.todayVisitors) st.todayVisitors = ['reuven', 'miriam', 'yehuda', 'family', 'chana', 'bikkurim'];
@@ -564,7 +572,8 @@ export class Game {
     this.profileId = id;
     await this.ui.fade(true);
     this.ui.show('#title', false);
-    this.player.setLook({ skin: SKIN_TONES[st.skin ?? 1], hair: HAIR_COLORS[st.hair ?? 0], kohenGadol: !!(st.kg && st.wearKG) });
+    this.player.setLook({ skin: SKIN_TONES[st.skin ?? 1], hair: HAIR_COLORS[st.hair ?? 0], kohenGadol: this.isKG() });
+    this.applyFire();
     // where to begin
     if (st.dailyIndex === 0 && !st.dayDone) this.player.teleport(P.spawn.x, EZRAT_NASHIM.floorY, P.spawn.z, -Math.PI / 2);
     else this.player.teleport(12, 0, 2.5, -Math.PI / 2);
@@ -599,6 +608,7 @@ export class Game {
       });
     }
     this.maybeRotateHint();
+    await this.greetDay(fire, kgEnded);
     if (!st.dayDone) this.startDaily(st.dailyIndex);
     else {
       this.ui.toast(st.night ? '🌙 Imagine it\'s Sukkot — the Simchat Beit HaShoevah lamps are lit! Explore, or talk to Elazar for a new day.' : '❗ Visitors are waiting in Ezrat Yisrael!');
@@ -635,10 +645,13 @@ export class Game {
   refreshCard() {
     const st = this.state;
     const title = [...TITLES].reverse().find(t => st.stars >= t.stars) || TITLES[0];
-    this.ui.setPlayerCard(st.name, title.name, st.stars, st.kg && st.wearKG ? '👑' : '🙂');
+    const name = this.isKG() ? 'Kohen Gadol' : title.name;
+    this.ui.setPlayerCard(st.name, name, st.stars, this.isKG() ? '👑' : '🙂');
+    document.getElementById('pc-fire').textContent = `🔥${st.fire?.streak || 1}`;
+    document.getElementById('pc-gems').textContent = this.isKG() ? '👑' : `💎${(st.stones || []).length}`;
     const ps = this.profiles();
     const p = ps.find(x => x.id === this.profileId);
-    if (p) { p.stars = st.stars; p.title = title.name; p.kg = st.kg; this.saveProfiles(ps); }
+    if (p) { p.stars = st.stars; p.title = name; p.kg = this.isKG(); this.saveProfiles(ps); }
   }
 
   save() {
@@ -653,7 +666,9 @@ export class Game {
     this.state.dailyIndex = i;
     if (q.hour && Math.abs(this.hour - q.hour) > 0.05) this.setHour(Math.max(this.hour, q.hour), 2.5);
     if (q.id === 'menorah') { this.lampFires.forEach((f, k) => f.setVisible(k === 0)); this.lampsLit = 1; }
+    if (i === 0 && (this.state.jobs || []).includes('gevini')) await this.geviniCall();
     if (q.id === 'deshen') { this.props.machta.visible = true; await this.runPayis(); }
+    if (q.id === 'bracha' && this.isKG()) this.fact('As Kohen Gadol, you raise your hands for Birkat Kohanim only up to the Tzitz — because Hashem\'s Name is written on it.', 'Sotah 7:6', '👑 The Kohen Gadol');
     for (const line of q.intro || []) await this.say(line.who, line.text);
     if (i === 0 && this.state.extra === 'rc') {
       this.ui.banner('🌙', `Rosh Chodesh ${this.state.rcMonth || ''}!`, 'ראש חודש');
@@ -664,12 +679,139 @@ export class Game {
   }
 
   // today's list of avodot: the daily order, plus the Musaf on Rosh Chodesh
-  planDay(st = this.state) {
+  // `fresh`: the day is just beginning, so extra avodot may be added in the middle of it
+  planDay(st = this.state, fresh = true) {
     const rc = roshChodesh();
     st.extra = rc ? 'rc' : null;
     st.rcMonth = rc ? rc.name : null;
+    st.dayKG = fresh && kgActive(st);                                       // the Kohen Gadol's Minchat Chavitin
+    st.dayFriday = (st.jobs || []).includes('garmu') && shirForToday(st.dayOffset).index === 5;   // Erev Shabbat
   }
-  dailyList(st = this.state) { return st?.extra === 'rc' ? [...DAILY, ROSH_CHODESH] : DAILY; }
+  dailyList(st = this.state) {
+    let list = [...DAILY];
+    if (st?.dayKG) list.splice(list.findIndex(q => q.id === 'tamid') + 1, 0, CHAVITIN);
+    if (st?.dayFriday) list.push(LECHEM_HAPANIM);
+    if (st?.extra === 'rc') list.push(ROSH_CHODESH);
+    return list;
+  }
+
+  // ───────────────────────── Coming back each day ─────────────────────────
+  isKG() { return kgActive(this.state) && this.state.wearKG !== false; }
+
+  // the fire on the Mizbeach grows with the streak (and never goes out)
+  applyFire() {
+    const f = this.fireBig;
+    if (!f) return;
+    f._base0 = f._base0 ?? f.base;
+    f.base = f._base0 * (1 + fireLevel(this.state) * 0.025);
+    f.target = f.base;
+  }
+
+  async greetDay(fire, kgEnded) {
+    const st = this.state;
+    if (fire && !fire.first) {
+      this.ui.banner('🔥', `Esh Tamid — day ${fire.streak}!`, 'אֵשׁ תָּמִיד');
+      if (fire.missed) this.ui.toast('🔥 The other Kohanim kept the fire burning while you were away. Keep coming to make it big again!');
+      if (fire.streak >= 7) this.achieve('fire7');
+      if (fire.streak >= 30) this.achieve('fire30');
+    }
+    if (kgEnded) await this.say('memuneh', 'Your week as Kohen Gadol is over — thank you! Now help the visitors again and collect the 12 stones of the Choshen once more.');
+    else if (this.isKG()) {
+      const days = Math.max(1, Math.ceil((st.kgUntil - Date.now()) / 864e5));
+      this.ui.toast(days === 1 ? '👑 Your last day as Kohen Gadol!' : `👑 Kohen Gadol — ${days} more days`);
+    }
+  }
+
+  // a stone for the Choshen: from a visitor's tribe, or Levi's from the Leviim
+  async awardStone(id) {
+    const st = this.state, t = tribe(id);
+    if (!t || this.isKG() || st.stones.includes(id)) return;
+    st.stones.push(id);
+    this.refreshCard();
+    audio.play('star');
+    const n = st.stones.length;
+    await this.ui.celebrate({
+      icon: '💎', title: `A stone for the Choshen: ${t.stone}!`, stars: 0, maxStars: 0,
+      lines: [
+        `<p class="he">${t.stoneHe} — ${t.he}</p>`,
+        `<p>${n === 12 ? 'All 12 stones! The Choshen is complete!' : `${n} of the 12 stones of the Choshen`}</p>`,
+        `<p class="src">${id === 'levi' ? 'The Leviim give you the stone of shevet Levi.' : `The stone of shevet ${t.name}`} · Shemot 28:17-21</p>`,
+      ],
+      button: n === 12 ? 'Become Kohen Gadol! 👑' : 'Continue ▶',
+    });
+    if (n === 12) await this.becomeKG();
+    this.save();
+  }
+
+  async becomeKG() {
+    const st = this.state;
+    st.kg = true; st.wearKG = true;
+    st.kgUntil = Date.now() + KG_DAYS * 864e5;
+    st.kgTimes = (st.kgTimes || 0) + 1;
+    this.achieve('choshen');
+    this.achieve('kohen_gadol');
+    await this.ui.celebrate({
+      icon: '👑', title: 'The garments of the Kohen Gadol!', stars: 0, maxStars: 0,
+      lines: [
+        '<p>You collected all 12 stones! For one week, imagine you are the Kohen Gadol — only he wore these 8 garments:</p>',
+        '<p>💙 The <b>Me\'il</b> — a techelet robe with golden bells and pomegranates (listen when you walk!)<br>🌈 The <b>Ephod</b> and the <b>Choshen</b> with 12 stones — one for each tribe<br>✨ The <b>Tzitz</b> — a golden plate saying "Kodesh LaHashem"</p>',
+        '<p>👑 As Kohen Gadol you also bring the <b>Minchat Chavitin</b> every morning, and lead the Tamid with the Segan at your side.</p>',
+        '<span class="src">Shemot 28; Yoma 7:5; Vayikra 6:12-15; Tamid 7:3</span>',
+      ],
+      button: 'Imagine it! 👑',
+    });
+    this.player.setLook({ ...this.player.look, kohenGadol: true });
+    this.refreshCard();
+    this.save();
+  }
+
+  // Tamid 7:3 — when the Kohen Gadol offers, the Segan walks at his right, Ben Arza strikes
+  // the cymbal and the Leviim sing
+  async kgCeremony() {
+    this.player.frozen = true;
+    this.beginSkippable();
+    this.ui.cine(true, 'You are the Kohen Gadol! The Segan walks at your right side, a Kohen hands you the parts, and Ben Arza strikes the cymbal — the Leviim begin to sing.', 'כֹּהֵן גָּדוֹל');
+    this.trumpeters.forEach(t => { t.char.pose = 'raise'; });
+    audio.trumpet('tashrat', 0.3);
+    this.leviimSing(5);
+    this.crowd.setBow(true);
+    await this.cineWait(4.2);
+    this.crowd.setBow(false);
+    this.trumpeters.forEach(t => { t.char.pose = 'idle'; });
+    this.ui.cine(false);
+    this.endSkippable();
+    this.player.frozen = false;
+    this.fact('When the Kohen Gadol wanted to offer, he went up the Kevesh with the Segan at his right hand. At the top, Ben Arza clashed the cymbal and the Leviim sang.', 'Tamid 7:3', '👑 The Kohen Gadol');
+  }
+
+  // Memunim (Shekalim 5:1): a new appointment after each full day of Avodah
+  async appointJobs() {
+    const st = this.state;
+    for (const j of JOBS) {
+      if (st.days < j.after || st.jobs.includes(j.id)) continue;
+      st.jobs.push(j.id);
+      this.achieve('appointed');
+      await this.ui.celebrate({
+        icon: j.icon, title: `You are now: ${j.name}!`, stars: 0, maxStars: 0,
+        lines: [`<p>${j.job}</p>`, `<p class="src">${j.src}</p>`, '<p>📖 See all your jobs in the Sefer, under "My Path".</p>'],
+        button: 'Continue ▶',
+      });
+      break;            // one appointment at a time
+    }
+    this.save();
+  }
+
+  // Gevini the Crier's morning call (Yoma 20b)
+  async geviniCall() {
+    await this.ui.dialog({ icon: '📣', name: 'Gevini the Crier', text: 'Good morning, helper! Call out loudly so everyone wakes up for the Avodah!', buttons: [{ label: '📣 Call out!', value: true }] });
+    this.ui.cine(true, '"Kohanim, arise to your Avodah! Leviim, to your Duchan! Yisrael, to your Ma\'amad!"', 'עִמְדוּ כֹּהֲנִים לַעֲבוֹדַתְכֶם');
+    audio.trumpet('tashrat', 0.2);
+    this.player.char.pose = 'raise';
+    await this.wait(2.8);
+    this.player.char.pose = 'idle';
+    this.ui.cine(false);
+    this.fact('Gevini the Crier\'s voice was heard three parsa\'ot away — King Agrippas heard it from far off and sent him gifts!', 'Yoma 20b; Tamid 3:8', '📣 Gevini');
+  }
 
   // play the Rosh Chodesh Musaf any day, from the 📅 calendar
   async practiceRoshChodesh() {
@@ -852,6 +994,7 @@ export class Game {
     if (q.after) await q.after(this);
     this.save();
 
+    if (q.id === 'shir') await this.awardStone('levi');
     if (q.visitor) return this.finishVisitor(q);
     if (q.practice) return;             // played from the 📅 calendar: not part of today's list
     const list = this.dailyList();
@@ -877,6 +1020,7 @@ export class Game {
         '<p>🧺 Now visitors from all over Eretz Yisrael have come with their own korbanot. Find everyone with a <b>❗</b> in Ezrat Yisrael!</p>',
       ],
     });
+    await this.appointJobs();
     this.setHour(10.5, 4);
     this.spawnVisitors();
   }
@@ -892,7 +1036,14 @@ export class Game {
   todaysVisitors() {
     const st = this.state;
     if (!st.todayVisitors) st.todayVisitors = this.pickVisitors();
+    // each visitor comes from a tribe; some bring a stone you don't have yet
+    if (!st.visitorTribes || st.todayVisitors.some(id => !st.visitorTribes[id])) st.visitorTribes = assignTribes(st, st.todayVisitors);
     return st.todayVisitors.map(id => VISITORS.find(v => v.id === id)).filter(Boolean);
+  }
+  visitorTribe(id) { return tribe(this.state.visitorTribes?.[id]); }
+  visitorName(def) {
+    const t = this.visitorTribe(def.id);
+    return t ? `${def.npc.name} · shevet ${t.name}` : def.npc.name;
   }
 
   spawnVisitors() {
@@ -976,7 +1127,9 @@ export class Game {
       await this.say({ icon: '🙂', name: v.def.npc.name }, 'Please finish the avodah you are doing first — I\'ll wait right here!');
       return;
     }
-    const ok = await this.ui.dialog({ icon: v.def.icon, name: v.def.npc.name, text: v.def.intro[0].text, buttons: [{ label: 'Not now', value: false }, { label: 'Yes, I\'ll help! ▶', value: true }] });
+    const t = this.visitorTribe(v.def.id), st = this.state;
+    if (t && !st.stones.includes(t.id) && !this.isKG()) this.ui.toast(`💎 ${v.def.npc.name} is from shevet ${t.name} — help and earn a new stone for your Choshen!`);
+    const ok = await this.ui.dialog({ icon: v.def.icon, name: this.visitorName(v.def), text: v.def.intro[0].text, buttons: [{ label: 'Not now', value: false }, { label: 'Yes, I\'ll help! ▶', value: true }] });
     if (!ok) return;
     this.visitor = v;
     v.char.setHeld(null);
@@ -997,6 +1150,8 @@ export class Game {
     if (!st.visitorsDone.includes(q.id)) st.visitorsDone.push(q.id);
     if (!st.visitorsEver.includes(q.id)) st.visitorsEver.push(q.id);
     this.achieve('visitor');
+    const t = this.visitorTribe(q.id);
+    if (t) await this.awardStone(t.id);
     this.visitor = null;
     if (VISITORS.every(d => st.visitorsEver.includes(d.id))) this.achieve('visitors');
     this.save();
@@ -1031,21 +1186,6 @@ export class Game {
 
   async allVisitorsDone() {
     const st = this.state;
-    if (!st.kg) {
-      st.kg = true; st.wearKG = true;
-      this.achieve('kohen_gadol');
-      await this.ui.celebrate({
-        icon: '👑', title: 'The garments of the Kohen Gadol!', stars: 0, maxStars: 0,
-        lines: [
-          '<p>You helped everyone! As a reward, imagine you are the Kohen Gadol — only he wore these 8 garments:</p>',
-          '<p>💙 The <b>Me\'il</b> — a techelet robe with golden bells and pomegranates (listen when you walk!)<br>🌈 The <b>Ephod</b> and the <b>Choshen</b> with 12 stones — one for each tribe<br>✨ The <b>Tzitz</b> — a golden plate saying "Kodesh LaHashem"</p>',
-          '<span class="src">Shemot 28; Yoma 7:5</span>',
-        ],
-        button: 'Imagine it! 👑',
-      });
-      this.player.setLook({ ...this.player.look, kohenGadol: true });
-      this.refreshCard();
-    }
     this.player.frozen = true;
     this.ui.cine(true, 'Evening falls… Imagine it is Sukkot: the great golden lamps of Simchat Beit HaShoevah light up all of Yerushalayim!', 'שִׂמְחַת בֵּית הַשּׁוֹאֵבָה');
     this.beginSkippable();
@@ -1057,12 +1197,16 @@ export class Game {
     this.save();
     await this.say('memuneh', 'What a day! Explore the Mikdash at night — look at the lamps in Ezrat Nashim! (They were lit on the nights of Sukkot.) When you\'re ready for a new day, come talk to me.');
     this.fact('On the nights of Sukkot, young Kohanim climbed ladders to fill the giant golden lamps, and the light shone into every courtyard in Yerushalayim!', 'Sukkah 5:2-3', '🏮 Simchat Beit HaShoevah');
+    if (st.jobs.includes('bengever') && !this.runner.active) {
+      for (const line of GATES.intro) await this.say(line.who, line.text);
+      this.runner.start({ ...GATES, practice: true });
+    }
   }
 
   async newDay() {
     const st = this.state;
-    st.dayDone = false; st.dailyIndex = 0; st.dayOffset++; st.visitorsDone = []; st.night = false; st.todayVisitors = null;
-    this.planDay(st);
+    st.dayDone = false; st.dailyIndex = 0; st.dayOffset++; st.visitorsDone = []; st.night = false; st.todayVisitors = null; st.visitorTribes = {};
+    this.planDay(st, true);
     this.clearVisitors();
     await this.ui.fade(true);
     this.resetDayProps();
@@ -1836,7 +1980,8 @@ export class Game {
     for (const v of this.visitors) {
       if (v.leaving) continue;
       const busy = this.visitor === v;
-      show('v_' + v.def.id, v.x, 2.25, v.z, busy ? `<span class="bubble">${v.def.npc.name}</span>` : `<span class="bang">!</span>`, 60);
+      const vt = this.visitorTribe(v.def.id), gem = vt && !this.state.stones.includes(vt.id) && !this.isKG();
+      show('v_' + v.def.id, v.x, 2.25, v.z, busy ? `<span class="bubble">${v.def.npc.name}</span>` : `<span class="bang">${gem ? '💎' : '!'}</span>`, 60);
     }
   }
 }
