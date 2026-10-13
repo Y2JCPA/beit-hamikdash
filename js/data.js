@@ -70,7 +70,11 @@ export const ACHIEVEMENTS = [
   { id: 'miracles', icon: '🌟', name: 'Miracle Finder', desc: 'Find all the miracles' },
   { id: 'roshchodesh', icon: '🌙', name: 'New Moon', desc: 'Bring the Rosh Chodesh Musaf' },
   { id: 'payis', icon: '🎲', name: 'Chosen by Lot', desc: 'Win the Payis (the morning lottery)' },
-  { id: 'kohen_gadol', icon: '👑', name: 'Kohen Gadol', desc: 'Unlock the garments of the Kohen Gadol' },
+  { id: 'kohen_gadol', icon: '👑', name: 'Kohen Gadol', desc: 'Serve a week as Kohen Gadol' },
+  { id: 'choshen', icon: '💎', name: 'The Choshen', desc: 'Collect all 12 stones of the Choshen' },
+  { id: 'fire7', icon: '🔥', name: 'Esh Tamid', desc: 'Keep the fire burning 7 days' },
+  { id: 'fire30', icon: '🔥', name: 'A Month of Fire', desc: 'Keep the fire burning 30 days' },
+  { id: 'appointed', icon: '📜', name: 'Appointed!', desc: 'Become a helper to one of the Memunim' },
 ];
 
 // Shir Shel Yom — Tamid 7:4
@@ -94,8 +98,8 @@ export const TITLES = [
   { stars: 0, name: 'Young Kohen', he: 'כהן צעיר' },
   { stars: 12, name: 'Kohen', he: 'כהן' },
   { stars: 30, name: 'Kohen of the Mishmar', he: 'כהן המשמר' },
-  { stars: 50, name: 'Memuneh', he: 'ממונה' },
-  { stars: 70, name: 'Kohen Gadol', he: 'כהן גדול' },
+  { stars: 50, name: 'Rosh Beit Av', he: 'ראש בית אב' },
+  { stars: 80, name: 'Rosh Mishmar', he: 'ראש משמר' },
 ];
 
 export const NPC_NAMES = {

@@ -67,3 +67,12 @@ export function upcoming(days = 60, from = new Date()) {
   }
   return out;
 }
+
+// Shabbat or Yom Tov (in Eretz Yisrael): days nobody is expected to play
+export function isRestDay(d) {
+  if (d.getDay() === 6) return true;
+  const h = hebrewDate(d);
+  if (!h) return false;
+  if (h.month === 'Tishri' && h.day === 2) return true;          // 2nd day of Rosh Hashanah
+  return HOLIDAYS.some(x => x.yt && x.m === h.month && x.d === h.day);
+}

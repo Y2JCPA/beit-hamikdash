@@ -169,11 +169,12 @@ function saltStep() {
   };
 }
 
-function haktarahStep(text = 'Haktarah: place it on the big fire (hold)') {
+function haktarahStep(text = 'Haktarah: place it on the big fire (hold)', ceremony = false) {
   return {
     text, kind: 'hold', hold: 1.6, icon: '🔥', prompt: 'Haktarah — hold',
     at: { x: P.fireBig.x - 1.8, y: TOP, z: P.fireBig.z + 1.0 }, r: 2.6,
     run: async (g) => {
+      if (ceremony && g.isKG()) await g.kgCeremony();          // the Kohen Gadol offers with the full ceremony (Tamid 7:3)
       g.player.setHeld([]);
       g.fireBig.flare(2.6, 5);
       g.smokeBurst();
@@ -330,7 +331,7 @@ export const DAILY = [
       shirayimStep(),
       partsStep('whole'),
       saltStep(),
-      haktarahStep('Haktarah: carry the parts up to the big fire and place them on it (hold)'),
+      haktarahStep('Haktarah: carry the parts up to the big fire and place them on it (hold)', true),
     ],
     outroFact: ['The Tamid was offered every day, morning and afternoon — even on Shabbat and Yom Kippur! (In the real Mikdash its parts were burned a little later, after the Ketoret and Birkat Kohanim. We kept it simple.)', 'Bamidbar 28:3-10; Tamid 7:3'],
   },
@@ -484,6 +485,90 @@ export const ROSH_CHODESH = {
     haktarahStep('Haktarah: place the Musaf on the big fire (hold)'),
   ],
   outroFact: ['Why a Chatat on Rosh Chodesh? Chazal tell that the moon was made smaller than the sun — and Hashem said: "Bring a korban for Me, for making the moon smaller!"', 'Chullin 60b; Bamidbar 28:15'],
+};
+
+// ─────────────────────────────────────────────────────────
+// The Kohen Gadol's own daily Mincha (only while you are Kohen Gadol)
+// ─────────────────────────────────────────────────────────
+export const CHAVITIN = {
+  id: 'chavitin', icon: '🫓', title: 'The Minchat Chavitin', he: 'מִנְחַת חֲבִתִּין', hour: 6.6,
+  intro: [{ who: 'memuneh', text: 'Kohen Gadol! Every day you bring your own Mincha, the Chavitin — half in the morning and half in the evening. It is made in the chamber beside Nikanor Gate.' }],
+  steps: [
+    { text: 'Go to the chamber of the Chavitin makers, beside Nikanor Gate', kind: 'go', at: { x: 17.6, y: 0, z: 3.5 }, r: 3.4, icon: '🚶' },
+    {
+      text: 'Shape the 12 loaves of the Chavitin', kind: 'auto',
+      run: async (g) => {
+        const r = await g.minigames.tally({ title: 'The Chavitin: shape 12 loaves from fine flour and oil', hint: 'Tap the loaf 12 times, then press Done', items: [{ icon: '🫓', label: 'Loaves', target: 12 }] });
+        if (r.tries > 1) g.mistakeSoft();
+      },
+      fact: ['Most menachot are made of 10 loaves, but the Chavitin of the Kohen Gadol has 12.', 'Menachot 76a'],
+    },
+    {
+      text: 'Fry the loaves in the flat pan with oil', kind: 'auto',
+      run: async (g) => {
+        g.player.char.pose = 'work';
+        const r = await g.minigames.meter({ title: 'Fry the Chavitin in oil — stop when they are golden!', hint: 'Press when the needle is in the green zone', button: '🍳 Golden!' });
+        if (r.tries > 1) g.mistakeSoft();
+        g.player.char.pose = 'idle';
+        g.player.setHeld(['eivarim']);
+      },
+      fact: ['The Chavitin were baked a little and then fried in a flat pan with oil.', 'Vayikra 6:14; Menachot 50b'],
+    },
+    haktarahStep('Offer half of each loaf on the big fire (hold) — the other half is for the evening'),
+  ],
+  outroFact: ['The Kohen Gadol brought the Chavitin every single day, paid for with his own money — half in the morning and half in the evening.', 'Vayikra 6:13; Menachot 4:5'],
+};
+
+// ─────────────────────────────────────────────────────────
+// Jobs for the helpers of the Memunim (Shekalim 5:1)
+// ─────────────────────────────────────────────────────────
+// Beit Garmu: on Erev Shabbat the Lechem HaPanim is baked; on Shabbat it goes on the Shulchan
+export const LECHEM_HAPANIM = {
+  id: 'lechem', icon: '🍞', title: 'Baking the Lechem HaPanim', he: 'לֶחֶם הַפָּנִים', hour: 9.6,
+  intro: [{ who: 'memuneh', text: 'Today is Erev Shabbat! Beit Garmu needs their helper: tomorrow 12 fresh loaves go on the Shulchan. Come to their oven in Beit HaMoked, next to the lamb chamber.' }],
+  steps: [
+    { text: 'Go to Beit Garmu\'s oven in Beit HaMoked, next to the lamb chamber', kind: 'go', at: at(P.lambPen), r: 3.4, icon: '🚶' },
+    {
+      text: 'Bake the 12 loaves — one for each tribe', kind: 'auto',
+      run: async (g) => {
+        const r = await g.minigames.tally({ title: 'Bake the Lechem HaPanim: 12 loaves, one for each tribe of Israel', hint: 'Tap the loaf 12 times, then press Done', items: [{ icon: '🍞', label: 'Loaves', target: 12 }] });
+        if (r.tries > 1) g.mistakeSoft();
+      },
+      fact: ['Only Beit Garmu knew how to take the loaves out of the oven without breaking them!', 'Yoma 3:11; Menachot 94b'],
+    },
+    {
+      text: 'Get them ready for tomorrow: two stacks, and the levonah', kind: 'auto',
+      run: async (g) => {
+        const r = await g.minigames.tally({
+          title: 'Get ready for Shabbat: how will the loaves go on the Shulchan?',
+          hint: 'The Torah says: "two stacks, six in each stack — and put pure levonah on each stack"',
+          items: [{ icon: '🍞', label: 'Right stack', target: 6 }, { icon: '🍞', label: 'Left stack', target: 6 }, { icon: '🥄', label: 'Spoons of levonah', target: 2 }],
+        });
+        if (r.tries > 1) g.mistakeSoft();
+        g.audio.play('success');
+      },
+      fact: ['The Lechem HaPanim is set in two stacks of six, with a spoon of levonah on each stack.', 'Vayikra 24:5-7; Menachot 11:5'],
+    },
+  ],
+  outroFact: ['On Shabbat, four Kohanim carried the new loaves in while four others took the old ones out — so the Shulchan was never empty for a moment!', 'Menachot 11:7'],
+  after: async (g) => { g.miracle('lechem'); },
+};
+
+// Ben Gever: closing the gates of the Azara at night
+export const GATES = {
+  id: 'gates', icon: '🚪', title: 'Closing the Gates', he: 'נְעִילַת שְׁעָרִים',
+  intro: [{ who: 'memuneh', text: 'Ben Gever is closing the gates of the Azara for the night, and his helper is needed! Meet him at Nikanor Gate.' }],
+  steps: [
+    { text: 'Go to Nikanor Gate to help Ben Gever', kind: 'go', at: { x: 18.6, y: 0, z: 0 }, r: 3.2, icon: '🚶' },
+    {
+      text: 'Push the heavy doors closed together (hold)', kind: 'hold', hold: 2.4, at: { x: 18.6, y: 0, z: 0 }, r: 3.4, icon: '🚪', prompt: 'Close the gate — hold',
+      start: (g) => { g.player.char.pose = 'work'; },
+      cancel: (g) => { g.player.char.pose = 'idle'; },
+      run: async (g) => { g.player.char.pose = 'idle'; g.audio.play('whoosh'); },
+      fact: ['The great gates were so heavy that it took twenty men to close one of them!', 'Josephus, Wars 6:5:3'],
+    },
+  ],
+  outroFact: ['Ben Gever was the Memuneh in charge of closing the gates of the Mikdash each night.', 'Shekalim 5:1'],
 };
 
 // ─────────────────────────────────────────────────────────

@@ -4,6 +4,7 @@ import { AZARA, EZRAT_NASHIM, MIZBEACH, KEVESH, ULAM, HEICHAL, P } from './confi
 import { audio } from './audio.js';
 import { hebrewDate, roshChodesh, upcoming, calendarSupported } from './calendar.js';
 import { lang, nikud, trPlain } from './i18n.js';
+import { TRIBES, JOBS, kgActive } from './progress.js';
 import { cleanForSpeech, playRecorded, stopRecorded } from './voice.js';
 
 const $ = (s) => document.querySelector(s);
@@ -344,8 +345,10 @@ export class UI {
   }
 
   openJournal(state, extra = {}, startTab = 0) {
-    this.openPanel('📖 Sefer HaMikdash', ['Places', 'Miracles', 'Lessons', '📅 Calendar'], (tab, body) => {
-      if (tab === 3) return this.renderCalendar(body, extra);
+    this.openPanel('📖 Sefer HaMikdash', ['💎 My Path', 'Places', 'Miracles', 'Lessons', '📅 Calendar'], (tab, body) => {
+      if (tab === 0) return this.renderPath(body, state);
+      if (tab === 4) return this.renderCalendar(body, extra);
+      tab--;
       if (tab === 0) {
         const n = PLACES.filter(p => state.discovered.includes(p.id)).length;
         body.innerHTML = `<div class="progress-line">🗺️ Discovered ${n} / ${PLACES.length} places — walk around to find them all!</div>` +
@@ -369,6 +372,29 @@ export class UI {
           : '<div class="entry"><div class="e-text">Do the avodah and talk to people to learn!</div></div>');
       }
     }, startTab);
+  }
+
+  // 🔥 the fire, 💎 the Choshen, 📜 the jobs
+  renderPath(body, st) {
+    const f = st.fire || { streak: 1, best: 1 };
+    const kg = kgActive(st), have = new Set(st.stones || []);
+    let html = `<div class="entry path-fire"><div class="pf-flame" style="--lvl:${Math.min(30, f.streak)}">🔥</div><div>
+      <div class="e-name">${f.streak === 1 ? 'Esh Tamid: the fire has burned 1 day' : `Esh Tamid: the fire has burned ${f.streak} days`}</div>
+      <div class="e-text">Play each day to make the fire on the Mizbeach grow. Shabbat and Yom Tov never break it, and it never goes out.</div>
+      <div class="e-src"><span>Best: ${f.best}</span> · <span>Vayikra 6:6</span></div></div></div>`;
+    html += `<div class="cal-head">💎 The Choshen</div><div class="e-text">${kg
+      ? `👑 You are Kohen Gadol until ${new Date(st.kgUntil).toLocaleDateString(lang === 'he' ? 'he-IL' : undefined, { weekday: 'long', day: 'numeric', month: 'long' })}!`
+      : 'Help visitors from each tribe to earn its stone (look for 💎 over a visitor). The Leviim give you Levi\'s stone after the Shir Shel Yom. All 12 make you Kohen Gadol for a week!'}</div>`;
+    html += '<div class="choshen">' + TRIBES.map(t => {
+      const ok = kg || have.has(t.id);
+      return `<div class="gem-cell ${ok ? 'got' : ''}"><div class="gem" style="background:${ok ? t.color : 'transparent'}"></div><div class="gem-tribe">${esc(t.name)}</div><div class="gem-he">${ok ? t.stoneHe : t.he}</div></div>`;
+    }).join('') + `</div><div class="e-src" style="text-align:center">${kg ? 12 : have.size} / 12 · Shemot 28:17-21</div>`;
+    html += '<div class="cal-head">📜 My jobs</div>' + JOBS.map(j => {
+      const ok = (st.jobs || []).includes(j.id);
+      return `<div class="entry ${ok ? '' : 'locked'}"><div class="e-icon">${ok ? j.icon : '🔒'}</div><div><div class="e-name">${esc(j.name)}</div>
+        <div class="e-text">${ok ? esc(j.job) : (j.after === 1 ? 'After your first full day of Avodah' : `After ${j.after} full days of Avodah`)}</div>${ok ? `<div class="e-src">${esc(j.src)}</div>` : ''}</div></div>`;
+    }).join('') + '<div class="cal-note">More jobs with the Memunim are coming!</div>';
+    body.innerHTML = html;
   }
 
   renderCalendar(body, extra) {

@@ -54,6 +54,23 @@ Each day 4 of these 9 visitors come, and ones you haven't met yet come first.
 
 When everyone has been helped, you unlock the **eight garments of the Kohen Gadol**. The bells on the me'il really jingle when you walk.
 
+### Coming back every day
+- **🔥 Esh Tamid.** "The fire on the Mizbeach shall never go out" (Vayikra 6:6). Every day you play, the fire on the Mizbeach grows. Shabbat and Yom Tov never break the streak, and a missed day only makes the fire smaller; it never goes out.
+- **💎 The Choshen.** Every visitor comes from one of the 12 tribes. Help visitors to earn their tribes' stones; the Leviim give you Levi's stone after the Shir Shel Yom. Up to 2 new stones come each day, so it takes about a week.
+- **👑 Kohen Gadol for a week.** With all 12 stones you serve as Kohen Gadol for 7 days:
+  - you wear the 8 garments
+  - you bring the **Minchat Chavitin** every morning
+  - you offer the Tamid with the full ceremony of Tamid 7:3 (the Segan at your right, Ben Arza's cymbal)
+  - for Birkat Kohanim you raise your hands only up to the Tzitz
+
+  Then you go back to being a Kohen and collect the stones again.
+- **📜 The Memunim (Shekalim 5:1).** After each full day of Avodah, Elazar appoints you as a helper to another officer of the Mikdash:
+  - **Gevini the Crier:** the morning call
+  - **Ben Gever:** closing the gates at night
+  - **Beit Garmu:** baking the Lechem HaPanim on Erev Shabbat
+
+  Tap your player card to see everything in **💎 My Path**.
+
 ### Learning built in
 - **Mistakes teach.** If you try to slaughter an Olah in the south, Elazar the Memuneh explains why it must be in the north, with the source (Zevachim 5:1).
 - **📖 Sefer HaMikdash (journal)** has three sections:
@@ -112,6 +129,7 @@ js/sky.js             sun path, sky, IBL, stars and moon
 js/player.js          controller and third-person camera
 js/physics.js         AABB collisions and ramps
 js/nav.js             "Guide me" route planning (waypoint graph checked by simulated walking)
+js/progress.js        the fire streak, Choshen stones, Kohen Gadol week and Memunim jobs
 js/calendar.js        Hebrew date, Rosh Chodesh and upcoming holidays (built-in browser calendar)
 js/i18n.js, he.js     Hebrew: the translation engine and the Hebrew text (he-nikud.js: the same with nikud)
 sw.js                 offline play (service worker)

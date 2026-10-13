@@ -86,13 +86,13 @@ export const tr = (s) => trWith(shown, s);
 export const trPlain = (s) => trWith(plain, s);       // without nikud, for read-aloud
 
 function trWith(T, s) {
-  if (lang !== 'he' || typeof s !== 'string' || !hasLatin(s) || /[\u05D0-\u05EA]/.test(s)) return s;   // already Hebrew
+  if (lang !== 'he' || typeof s !== 'string' || !hasLatin(s)) return s;
   const hit = T.memo.get(s);
   if (hit !== undefined) return hit;
   const lead = s.match(/^\s*/)[0], trail = s.match(/\s*$/)[0];
   const t = trCore(norm(s), T);
   const res = t === null ? s : lead + t + trail;
-  if (t === null) missed.add(norm(s));
+  if (t === null && !/[\u05D0-\u05EA]/.test(s)) missed.add(norm(s));     // (mixed text like "WASD להליכה" is fine as is)
   T.memo.set(s, res);
   return res;
 }

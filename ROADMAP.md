@@ -71,3 +71,16 @@ Today the game only knows the day of the week (for the Shir Shel Yom). Every day
 - **Automated play-tests in the repository.** The touch-only bots that played the whole game during development should run on every change through GitHub Actions. That catches broken quests before they go live.
 - **Move a save to another device** using a short code.
 - **Slow and old phones:** a lighter "battery saver" mode, and fewer textures on low-memory devices.
+
+## 7. Coming back every day
+- ✅ **🔥 Esh Tamid:** a Shabbat-safe daily streak that never goes out.
+- ✅ **💎 The Choshen:** 12 stones from visitors of the 12 tribes, leading to a week as Kohen Gadol, with the Minchat Chavitin and the Tamid ceremony.
+- ✅ **📜 Memunim:** first jobs with Gevini, Ben Gever and Beit Garmu.
+- **More Memunim jobs:**
+  - Petachya over the birds
+  - Ben Arza's cymbal
+  - Matitya ben Shmuel running the Payis
+  - Elazar over the Paroches
+  - Pinchas over the garments
+- **Elazar's question of the day:** a bonus star for answering from your own Sefer.
+
