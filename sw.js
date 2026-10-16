@@ -1,7 +1,7 @@
 // Offline support: every file the game loads is kept in a cache, so the installed
 // app opens without internet (in the car, on a trip). Online, the newest files are
 // always fetched first, so updates arrive as soon as they are published.
-const CACHE = 'avodah-v1';
+const CACHE = 'avodah-v2';
 const FONT_CACHE = 'avodah-fonts-v1';
 const CORE = [
   './', './index.html', './manifest.json', './css/style.css',
@@ -83,7 +83,8 @@ self.addEventListener('fetch', (e) => {
   e.respondWith((async () => {
     const c = await caches.open(CACHE);
     try {
-      const r = await Promise.race([fetch(req), timeout(6000)]);
+      // 'no-cache' asks the server whether a file changed, so a new version is never missed
+      const r = await Promise.race([fetch(req, { cache: 'no-cache' }), timeout(8000)]);
       if (r.ok) c.put(req, r.clone());
       return r;
     } catch {
