@@ -2,7 +2,7 @@
 
 A 3D educational game for kids. You play a young Kohen in the Beit HaMikdash and do a full day of the Avodah, in the order of Mishnah Tamid, from before sunrise to the golden lamps of Simchat Beit HaShoevah at night.
 
-**Play:** https://y2jcpa.github.io/beit-hamikdash/
+**Play:** https://beit-hamikdash-ashen.vercel.app/
 
 ## What's in the game
 
