@@ -25,5 +25,14 @@ if (!webglOK()) {
 
 // offline play: keep a copy of the game on the device (only works over https or localhost)
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
-  addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => { }));
+  // when a new version is published, switch to it right away (on the title screen) instead of
+  // showing the copy saved on the device
+  const hadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (hadController && window.__game?.mode !== 'play' && !sessionStorage.getItem('avodah-reloaded')) {
+      sessionStorage.setItem('avodah-reloaded', '1');
+      location.reload();
+    }
+  });
+  addEventListener('load', () => navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).then(r => r.update()).catch(() => { }));
 }
