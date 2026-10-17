@@ -9,8 +9,8 @@ export const AMAH = 0.5;
 // Azara (inner courtyard) — Middot 5:1 (187 x 135 amot)
 export const AZARA = { minX: -76, maxX: 19.5, minZ: -34, maxZ: 34, wallH: 12, wallT: 2 };
 
-// Ezrat Nashim (women's courtyard) — lower by 15 steps
-export const EZRAT_NASHIM = { minX: 21.5, maxX: 61.5, minZ: -20, maxZ: 20, floorY: -3, wallH: 9 };
+// Ezrat Nashim (women's courtyard) — Middot 2:5: 135 x 135 amot, as wide as the Azara; lower by 15 steps
+export const EZRAT_NASHIM = { minX: 21.5, maxX: 89, minZ: -34, maxZ: 34, floorY: -3, wallH: 9 };
 export const NIKANOR = { x: 20.5, halfW: 3, h: 10 };
 export const STEPS15 = { cx: 21.5, cz: 0, count: 15, rise: 0.2, depth: 0.35 };
 
@@ -78,11 +78,23 @@ export const P = {
   paroches:    { x: -47.6, z: 0 },
   avtinas:     { x: -12.6, z: -9.5 },        // Kohen with the ketoret, by the Ulam steps
   wineSpot:    { x: 4.4, z: 8.5 },
-  spawn:       { x: 54, z: 0 },
+  spawn:       { x: 70, z: 0 },
   memuneh:     { x: 9.6, z: 8.5 },
   nikanor:     { x: 20.5, z: 0 },
-  gazit:       { x: 8, z: -32 },
+  gazit:       { x: 16, z: 32 },             // the door of Lishkat HaGazit, in the SOUTH wall (Middot 5:4)
+  westYesod:   { x: -8.9, z: -4 },           // the western yesod of the Mizbeach (Zevachim 5:2)
+  parSpot:     { x: 14.2, z: 30 },           // where the bull of the Sanhedrin waits
+  // the corner chambers of Ezrat Nashim (Middot 2:5) and the Leviim's instrument rooms (Middot 2:6)
+  etzim:       { x: 79, z: -26 },
+  nezirim:     { x: 79, z: 26 },
+  metzoraim:   { x: 31.5, z: -26 },
+  shemanya:    { x: 31.5, z: 26 },
+  kleiShir:    { x: 23.2, z: -9.5 },
 };
+
+// Lishkat HaGazit, where the Sanhedrin sat: a basilica (Yoma 25a), half inside the holy area
+// and half outside, with the 71 sages in half a circle (Sanhedrin 4:3)
+export const GAZIT = { minX: 12.5, maxX: 40, minZ: 36, maxZ: 50, wallH: 9, door: 16, cx: 27, cz: 39.6 };
 
 // Where visitors with korbanot wait in Ezrat Yisrael (in front of the crowd)
 export const VISITOR_SPOTS = {

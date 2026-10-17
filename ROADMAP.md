@@ -36,7 +36,14 @@ Today the game only knows the day of the week (for the Shir Shel Yom). Every day
   - a Metzora's birds
   - a convert's first korban
 - **Afternoon Tamid and lighting the Menorah in the evening.** This makes the day a full circle.
-- **The Leviim's music room.** After the Shir Shel Yom, a free-play mode where kids play the kinor, nevel, cymbals and trumpets themselves.
+- ✅ **The Leviim's music room.** In the instrument rooms under Ezrat Yisrael, a Levi plays a tune and you play it back.
+- ✅ **Secret missions in the chambers:** the four corner chambers of Ezrat Nashim, and the Sanhedrin's Par He'elem Davar in Lishkat HaGazit.
+- **More mini-games:**
+  - Rabban Shimon ben Gamliel juggling eight burning torches at Simchat Beit HaShoevah (Sukkah 53a)
+  - Ben Katin's *mukhni*, the wheel that lowered the Kiyor into the water every night (Yoma 3:10)
+  - grinding the Ketoret: "hadek heitev, heitev hadek" as a rhythm game (Keritot 6b)
+  - sorting donations into the 13 shofarot (Shekalim 6:5)
+  - the Lishkat Chasha'im, where people gave in secret and the poor took in secret (Shekalim 5:6)
 - **Photo mode.** Take a picture anywhere in the Mikdash and share it to the family chat. Easy to build, and kids love it.
 
 ## 3. Younger and older kids

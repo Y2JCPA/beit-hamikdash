@@ -9,9 +9,10 @@ A 3D educational game for kids. You play a young Kohen in the Beit HaMikdash and
 ### The world
 The Beit HaMikdash is laid out to the proportions of Mishnah Middot (1 amah ≈ ½ m):
 
-- **Ezrat Nashim** has its balcony, four corner chambers, and the 50-amah golden lamp towers of Simchat Beit HaShoevah, which light up at night.
+- **Ezrat Nashim** is 135 by 135 amot, as wide as the Azara (Middot 2:5). It has its balcony, the four 40-amah corner chambers, the Leviim's instrument rooms under Ezrat Yisrael (Middot 2:6), and the 50-amah golden lamp towers of Simchat Beit HaShoevah, which light up at night.
 - **The 15 semicircular steps** lead up to **Nikanor Gate** and its bronze doors.
-- **The Azara** has the Duchan with the Leviim and their instruments, and gilded gates with Hebrew signs. It also has the lishkot, including Lishkat HaGazit and the lamb chamber.
+- **The Azara** has the Duchan with the Leviim and their instruments, and gilded gates with Hebrew signs. Its six lishkot are where Middot 5:3-4 puts them: salt, parvah and rinsing in the north; wood, the Golah and **Lishkat HaGazit** in the south. There is also the lamb chamber.
+- **Lishkat HaGazit** is a basilica (Yoma 25a). The 71 sages of the Sanhedrin sit inside in half a circle, with their two scribes in front (Sanhedrin 4:3).
 - **The Mizbeach** is 32 amot of whitewashed whole stones. It has the Kevesh (ramp), the red line (chut ha-sikra), the four kranot, the ash heap, three fires, the silver shitin bowls and the salt pile.
 - **The Kiyor** has Ben Katin's 12 spouts.
 - **Beit HaMitbachayim** has 24 rings, 8 pillars with hooks and 8 marble tables.
@@ -27,9 +28,9 @@ The quests follow Mishnah Tamid, simplified for kids:
    - 🎲 Then the **Payis**, the morning lottery (Yoma 2). The Kohanim stand in a circle and hold up one finger each (we count fingers, never people). The Memuneh calls out a number and counts around the circle. If it lands on you, you win that day's honor (Terumat HaDeshen, the Tamid, the Menorah, the Ketoret or the Nesachim), worth 2 bonus stars.
 2. 🌅 **Terumat HaDeshen**: take the silver machta, scoop the ashes, and place them east of the ramp
 3. 🪵 **Siddur Ma'arachah**: bring wood up to the fire. Then the watchman calls ***"Barkai!"*** and the sun rises.
-4. 🐑 **Korban Tamid**: take a lamb from the lamb chamber, check it for blemishes, and give it water from the golden cup. Then do shechita in the north, kabbalah, holacha, zerika (two placements that are four: NE then SW), shirayim on the southern yesod, salting, and haktarah.
-5. 🕎 **Hatavat HaNerot**: clean and relight the Menorah (the Ner Ma'aravi is still burning!)
-6. 💨 **Ketoret** on the golden altar (the goats of Yericho sneeze 🐐)
+4. 🕎 **Hatavat HaNerot**, in the Mishnah's order: before the Tamid, prepare five lamps. The two eastern lamps are still burning, and you leave them for now (Tamid 3:9; Yoma 33a).
+5. 🐑 **Korban Tamid**: take a lamb from the lamb chamber, check it for blemishes, and give it water from the golden cup. Then do shechita in the north, kabbalah, holacha, zerika (two placements that are four: NE then SW), shirayim on the southern yesod, salting, and haktarah.
+6. 💨 **Ketoret** on the golden altar (the goats of Yericho sneeze 🐐). First you go back in for the last two lamps: prepare the eastern one and leave the **Ner Ma'aravi** burning (Tamid 6:1).
 7. 🙌 **Birkat Kohanim** from the steps of the Ulam. The crowd bows and answers *Baruch Shem*.
 8. 🎵 **Nesachim and the Shir Shel Yom**: pour the wine, then play the real weekday's song with the Leviim in a rhythm game. At each pause the trumpets sound and everyone bows.
 9. 🌙 **On Rosh Chodesh, the Musaf**: count out the right animals (2 bulls, a ram, 7 lambs and a goat), blow the chatzotzrot over the korbanot (Bamidbar 10:10), and bring the parts to the fire.
@@ -54,6 +55,20 @@ Each day 4 of these 9 visitors come, and ones you haven't met yet come first.
 
 When everyone has been helped, you unlock the **eight garments of the Kohen Gadol**. The bells on the me'il really jingle when you walk.
 
+### 🗝️ Secret missions in the chambers
+Explore and you'll find people in the chambers who need help. A mission can be done once the day's Avodah is done, or right between two avodot. The next avodah waits for you.
+- **Lishkat HaEtzim (wood):** a Kohen with a mum checks the wood for worms (Middot 2:5). Take out the wormy logs, the olive wood and the grapevine (Tamid 2:3), then carry the good logs to the wood pile.
+- **Lishkat HaNezirim:** Gidon finishes his nezirut. His hair goes into the fire under the pot of his Shelamim, then you do the tenufah with the cooked foreleg (Nazir 6:8-9).
+- **Lishkat HaMetzora'im:** Yoav, who was healed, immerses and then waits at Nikanor Gate. You put the dam of his Asham on his right ear, thumb and big toe, in order (Negaim 14:8-9).
+- **Beit Shemanya (oil and wine):** measure half a log of oil for each lamp of the Menorah (Menachot 89a), and the wine for the nesachim (Bamidbar 28:14).
+- **The Leviim's instrument rooms:** Uziel the Levi plays a tune on the kinor, nevel, chalil and cymbals, and you play it back (Middot 2:6; Arachin 2:3-6).
+- **Lishkat HaGazit, the Sanhedrin:** a sage tells what happens when the Sanhedrin rules by mistake and Israel follows it. You bring the **Par He'elem Davar** (Vayikra 4:13-21):
+  - three sages do semicha (Sanhedrin 1:3; Rabbi Yehuda says five)
+  - shechita in the north
+  - the dam is sprinkled seven times toward the Paroches and put on the horns of the golden Mizbeach. As Kohen Gadol you do this yourself; otherwise you watch the Kohen Gadol.
+  - the rest of the dam goes on the western yesod
+  - the emurim go on the fire, and the bull is burned outside Yerushalayim (Zevachim 5:2)
+
 ### Coming back every day
 - **🔥 Esh Tamid.** "The fire on the Mizbeach shall never go out" (Vayikra 6:6). Every day you play, the fire on the Mizbeach grows. Shabbat and Yom Tov never break the streak, and a missed day only makes the fire smaller; it never goes out.
 - **💎 The Choshen.** Every visitor comes from one of the 12 tribes. Help visitors to earn their tribes' stones; the Leviim give you Levi's stone after the Shir Shel Yom. Up to 2 new stones come each day, so it takes about a week.
@@ -74,10 +89,10 @@ When everyone has been helped, you unlock the **eight garments of the Kohen Gado
 ### Learning built in
 - **Mistakes teach.** If you try to slaughter an Olah in the south, Elazar the Memuneh explains why it must be in the north, with the source (Zevachim 5:1).
 - **📖 Sefer HaMikdash (journal)** has three sections:
-  - 18 places to discover
+  - 23 places to discover
   - 9 miracles to find (the smoke pillar that the wind never scattered, the warm Lechem HaPanim…)
   - every lesson you've learned, each with its source
-- There are 16 achievements, stars, and titles from *Young Kohen* up to *Kohen Gadol*.
+- There are 25 achievements, stars, and titles from *Young Kohen* up to *Kohen Gadol*.
 
 ## Controls
 | | Keyboard / mouse | Phone / tablet |
@@ -119,6 +134,7 @@ js/main.js            entry point
 js/game.js            orchestrator: world, NPCs, cinematics, flow, render loop
 js/questRunner.js     quest engine (go / use / hold / choose / auto steps)
 js/quests.js          the Avodah and the visitors' korbanot, step by step, with sources
+js/lishkot.js         the secret missions in the chambers, and the Sanhedrin's Par He'elem Davar
 js/data.js            places, miracles, achievements, Shir Shel Yom, Birkat Kohanim
 js/world.js           Yerushalayim, Har HaBayit, Ezrat Nashim, Azara, Mizbeach, Ulam, Heichal
 js/config.js          layout in metres (from Middot)
@@ -134,7 +150,7 @@ js/calendar.js        Hebrew date, Rosh Chodesh and upcoming holidays (built-in 
 js/i18n.js, he.js     Hebrew: the translation engine and the Hebrew text (he-nikud.js: the same with nikud)
 sw.js                 offline play (service worker)
 js/voice.js, voice/   recorded voices for read-aloud (see voice/README.md); tools/voice-lines.mjs lists the lines
-js/minigames.js       hotspots, rhythm game, kemitzah meter, tenufah, verses, tally (counting)
+js/minigames.js       hotspots, rhythm game, kemitzah meter, tenufah, verses, tally (counting), echo (play a tune back)
 js/audio.js           synthesized music and sound effects
 js/ui.js, input.js    HUD, dialogs, journal, minimap, keyboard, mouse and touch
 js/textures.js, materials.js, builder.js   procedural textures, materials, geometry merging
@@ -143,7 +159,7 @@ js/textures.js, materials.js, builder.js   procedural textures, materials, geome
 To run it locally, serve the folder with any static server (for example `npx http-server .`) and open `index.html`.
 
 ## Sources
-Mishnah **Tamid**, **Middot**, **Zevachim** (ch. 5–6), **Menachot**, **Yoma**, **Sukkah**, **Bikkurim**, **Arachin**, **Avot** 5:5. Also Vayikra 1–7, Shemot 25–30, Bamidbar 28, and Rambam *Hilchot Temidin*. The game simplifies things for children; each in-game fact cites its source so families can learn more together.
+Mishnah **Tamid**, **Middot**, **Zevachim** (ch. 5–6), **Menachot**, **Yoma**, **Sukkah**, **Bikkurim**, **Arachin**, **Horayot**, **Nazir**, **Negaim**, **Sanhedrin**, **Avot** 5:5. Also Vayikra 1–7, Shemot 25–30, Bamidbar 28, and Rambam *Hilchot Temidin*, *Beit HaBechirah* and *Maaseh HaKorbanot*. The game simplifies things for children; each in-game fact cites its source so families can learn more together.
 
 ---
 *By Y2JCPA*
