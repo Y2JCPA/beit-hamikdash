@@ -1,7 +1,7 @@
 // Instanced crowds (cheap: a handful of draw calls for ~100 people) and doves.
 import * as THREE from 'three';
 import { std, SKIN_TONES, HAIR_COLORS } from './characters.js';
-import { VISITOR_SPOTS } from './config.js';
+import { VISITOR_SPOTS, GAZIT, AZARA } from './config.js';
 
 const ROBES = [0x8a5a3c, 0x6b7a8f, 0xa0522d, 0x5d6b4a, 0x9c7b52, 0x7d4e57, 0x4f6d7a, 0xb08850, 0x6e5a7e, 0x8f3f2f, 0xc2a878, 0x3f5f4f];
 const SCARVES = [0x8a3b4a, 0x3d5a8a, 0xc79a3e, 0x6b4f7a, 0x9c5a3a, 0xe0d4b8, 0x4f7a5a];
@@ -68,7 +68,7 @@ export class Crowd {
         p.hat = ci++;
         this.caps.setColorAt(p.hat, c.set([0xe9dfca, 0xd8c9a8, 0xf2ece0, 0xbfa77a][i % 4]));
         p.beardIdx = bi++;
-        this.beards.setColorAt(p.beardIdx, c.set(HAIR_COLORS[i % HAIR_COLORS.length]));
+        this.beards.setColorAt(p.beardIdx, c.set(p.beardC ?? HAIR_COLORS[i % HAIR_COLORS.length]));
       }
     });
     this.scarves.count = this.drapes.count = wi; this.caps.count = ci; this.beards.count = bi;
@@ -146,12 +146,13 @@ export function crowdLayout() {
       for (const x of [16.6, 18.2]) {
         if (rnd() < 0.18) continue;
         if (Object.values(VISITOR_SPOTS).some(v => Math.hypot(v.x + 0.8 - x, v.z - z) < 2.4)) continue;
+        if (Math.hypot(x - GAZIT.door, z - AZARA.maxZ) < 4.5) continue;         // the way into Lishkat HaGazit
         people.push({ x: x + (rnd() - 0.5) * 0.4, y: 0, z: z + (rnd() - 0.5) * 0.4, yaw: -Math.PI / 2, child: rnd() < 0.12 });
       }
     }
   }
   // Ezrat Nashim — families
-  const groups = [[30, -9], [32, 10], [42, -14], [44, 13], [54, -10], [56, 9], [40, 2.5], [28, -4.5], [50, -3.8]];
+  const groups = [[37, -7.5], [38, 8], [44, -14], [46, 13], [56, -12], [58, 11], [44, 3], [28, -4.5], [54, -3.8], [66, -18], [64, 20], [74, -6], [76, 7], [52, 24], [56, -25], [82, 3]];
   for (const [gx, gz] of groups) {
     const n = 3 + Math.floor(rnd() * 4);
     for (let k = 0; k < n; k++) {
@@ -166,7 +167,7 @@ export function crowdLayout() {
   for (let k = 0; k < 16; k++) {
     const a = rnd() * Math.PI * 2;
     const gx = -10 + Math.cos(a) * (120 + rnd() * 30), gz = Math.sin(a) * (85 + rnd() * 40);
-    if (Math.abs(gz) < 60 && gx > -100 && gx < 85) continue;
+    if (Math.abs(gz) < 60 && gx > -100 && gx < 112) continue;
     const n = 2 + Math.floor(rnd() * 4);
     for (let i = 0; i < n; i++) {
       const x = gx + (rnd() - 0.5) * 3, z = gz + (rnd() - 0.5) * 3;
@@ -181,6 +182,19 @@ export function crowdLayout() {
     }
   }
   return people;
+}
+
+// The sages of the Sanhedrin on their seats in Lishkat HaGazit (one seat is for the
+// sage who talks with you, a real character)
+export function sanhedrinLayout(seats, skip) {
+  const GREY = [0xd8d4cc, 0xb8b2a8, 0xe8e4dc, 0x9a948a, 0x5a4a3a];
+  const sages = seats.filter(s => s !== skip).map((s, i) => ({
+    x: s.x, y: s.y - 0.5, z: s.z, yaw: s.yaw, fixedYaw: true, scale: 0.98,
+    robeC: [0xf2ece0, 0xe4d9c2, 0x6b7a8f, 0xd8c9a8, 0x4f6d7a][i % 5], beardC: GREY[(i * 3) % GREY.length],
+  }));
+  // and the two scribes standing before them, at their desks (Sanhedrin 4:3)
+  for (const dx of [-3.4, 3.4]) sages.push({ x: GAZIT.cx + dx, y: 0, z: GAZIT.cz + 2.75, yaw: Math.PI, fixedYaw: true, robeC: 0x8a5a3c, beardC: 0x5a3a1e });
+  return sages;
 }
 
 // ─────────────────────────────────────────────────────────

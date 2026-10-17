@@ -4,7 +4,7 @@ import { MAT, TEX } from './materials.js';
 import { StaticBuilder } from './builder.js';
 import { signTexture } from './textures.js';
 import {
-  AZARA, EZRAT_NASHIM, STEPS15, OUTER_Y, MIZBEACH, KEVESH, ULAM, HEICHAL, ULAM_STEPS, P,
+  AZARA, EZRAT_NASHIM, GAZIT, STEPS15, OUTER_Y, MIZBEACH, KEVESH, ULAM, HEICHAL, ULAM_STEPS, P,
 } from './config.js';
 
 // ── Terrain noise ──
@@ -61,6 +61,7 @@ export function buildWorld(scene, physics, quality) {
   buildMount(b, scene, quality);
   buildEzratNashim(b, scene, out);
   buildAzara(b, scene, out);
+  buildGazit(b, scene, out);
   buildMizbeach(b, scene, out);
   buildKiyor(b, scene, out);
   buildSlaughterArea(b, scene, out);
@@ -218,7 +219,7 @@ function buildMount(b, scene, quality) {
   b.boxMM(MAT.stoneWarm, x1 - 1, top, z0, x1, top + 13, z1, far);
 
   // Soreg (lattice fence) around the holy area & the Chel terrace
-  const sx0 = -96, sx1 = 80, sz0 = -54, sz1 = 54;
+  const sx0 = -96, sx1 = 108, sz0 = -54, sz1 = 54;
   const postGeo = new THREE.BoxGeometry(0.2, 1.5, 0.2);
   for (let x = sx0; x <= sx1; x += 2) {
     for (const z of [sz0, sz1]) { m.makeTranslation(x, top + 0.75, z); b.add(MAT.lattice, postGeo, m, far); }
@@ -233,9 +234,9 @@ function buildMount(b, scene, quality) {
     b.boxMM(MAT.lattice, sx1 - 0.05, top + yy, sz0, sx1 + 0.05, top + yy + 0.12, sz1, far);
   }
   // Chel: the raised terrace with steps
-  b.boxMM(MAT.stone, -88, top - 1, -46, 72, -3.1, 46, { collide: true });
+  b.boxMM(MAT.stone, -88, top - 1, -46, 100, -3.1, 46, { collide: true });
   for (let i = 0; i < 6; i++) {
-    b.boxMM(MAT.stone, 72 + i * 0.5, top - 1, -10, 72.5 + i * 0.5, -3.1 - (i + 1) * 0.48, 10, far);
+    b.boxMM(MAT.stone, 100 + i * 0.5, top - 1, -10, 100.5 + i * 0.5, -3.1 - (i + 1) * 0.48, 10, far);
   }
   // The Azara sits higher again
   b.boxMM(MAT.stone, -80, -3.2, -38, 21.4, -0.1, 38, { collide: true });
@@ -263,24 +264,27 @@ function buildEzratNashim(b, scene, out) {
   const colG = new THREE.CylinderGeometry(0.28, 0.32, 4.2, 10);
   const m = new THREE.Matrix4();
   const balY = fy + 4.2;
-  for (let x = 33; x <= 51; x += 4) for (const z of [-17, 17]) {
+  const CH = 20;                                   // corner chambers: 40 x 40 amot
+  const bx0 = E.minX + CH, bx1 = E.maxX - CH, bz = E.maxZ - 3.4, bxE = E.maxX - 3.4, bzE = E.maxZ - CH;
+  for (let x = bx0 + 2; x <= bx1 - 2; x += 4) for (const z of [-bz, bz]) {
     m.makeTranslation(x, fy + 2.1, z); b.add(MAT.marble, colG, m); physics_col(b, x, fy, z, 0.3, 4.2);
   }
-  for (let z = -9; z <= 9; z += 4) { m.makeTranslation(58.6, fy + 2.1, z); b.add(MAT.marble, colG, m); physics_col(b, 58.6, fy, z, 0.3, 4.2); }
-  b.boxMM(MAT.stoneTrim, E.minX, balY, E.minZ, E.maxX, balY + 0.4, -16.6, { collide: true });
-  b.boxMM(MAT.stoneTrim, E.minX, balY, 16.6, E.maxX, balY + 0.4, E.maxZ, { collide: true });
-  b.boxMM(MAT.stoneTrim, 58.2, balY, -16.6, E.maxX, balY + 0.4, 16.6, { collide: true });
-  b.boxMM(MAT.lattice, E.minX, balY + 0.4, -16.75, E.maxX, balY + 1.3, -16.6);
-  b.boxMM(MAT.lattice, E.minX, balY + 0.4, 16.6, E.maxX, balY + 1.3, 16.75);
-  b.boxMM(MAT.lattice, 58.2, balY + 0.4, -16.6, 58.35, balY + 1.3, 16.6);
+  for (let z = -bzE + 2; z <= bzE - 2; z += 4) { if (Math.abs(z) < 4) continue; m.makeTranslation(bxE, fy + 2.1, z); b.add(MAT.marble, colG, m); physics_col(b, bxE, fy, z, 0.3, 4.2); }
+  b.boxMM(MAT.stoneTrim, bx0, balY, E.minZ, bx1, balY + 0.4, -bz + 0.4, { collide: true });
+  b.boxMM(MAT.stoneTrim, bx0, balY, bz - 0.4, bx1, balY + 0.4, E.maxZ, { collide: true });
+  b.boxMM(MAT.stoneTrim, bxE - 0.4, balY, -bzE, E.maxX, balY + 0.4, bzE, { collide: true });
+  b.boxMM(MAT.lattice, bx0, balY + 0.4, -bz + 0.25, bx1, balY + 1.3, -bz + 0.4);
+  b.boxMM(MAT.lattice, bx0, balY + 0.4, bz - 0.4, bx1, balY + 1.3, bz - 0.25);
+  b.boxMM(MAT.lattice, bxE - 0.4, balY + 0.4, -bzE, bxE - 0.25, balY + 1.3, bzE);
 
   // Four corner chambers (Middot 2:5)
   const ch = [
-    { x0: 21.5, z0: -20, x1: 31, z1: -11, door: 'S', he: 'לשכת המצורעים', en: 'Chamber of the Metzora\'im' },
-    { x0: 52, z0: -20, x1: 61.5, z1: -11, door: 'S', he: 'לשכת דיר העצים', en: 'Wood Chamber' },
-    { x0: 21.5, z0: 11, x1: 31, z1: 20, door: 'N', he: 'לשכת בית שמניה', en: 'Oil Chamber' },
-    { x0: 52, z0: 11, x1: 61.5, z1: 20, door: 'N', he: 'לשכת הנזירים', en: 'Chamber of the Nezirim' },
+    { x0: E.minX, z0: E.minZ, x1: E.minX + CH, z1: E.minZ + CH, door: 'S', he: 'לשכת המצורעים', en: 'Chamber of the Metzora\'im' },
+    { x0: E.maxX - CH, z0: E.minZ, x1: E.maxX, z1: E.minZ + CH, door: 'S', he: 'לשכת העצים', en: 'Wood Chamber' },
+    { x0: E.minX, z0: E.maxZ - CH, x1: E.minX + CH, z1: E.maxZ, door: 'N', he: 'לשכת בית שמניה', en: 'Oil Chamber' },
+    { x0: E.maxX - CH, z0: E.maxZ - CH, x1: E.maxX, z1: E.maxZ, door: 'N', he: 'לשכת הנזירים', en: 'Chamber of the Nezirim' },
   ];
+  out.chambers = ch;
   for (const c of ch) {
     const h = fy + 3.6, t = 0.5;
     const cx = (c.x0 + c.x1) / 2;
@@ -295,10 +299,46 @@ function buildEzratNashim(b, scene, out) {
     b.boxMM(MAT.stoneWarm, cx - 1.2, fy + 2.8, Math.min(dz, dzIn), cx + 1.2, h, Math.max(dz, dzIn));
     addSign(scene, out, c.he, c.en, cx, fy + 3.25, dz + (c.door === 'S' ? 0.03 : -0.03), c.door === 'S' ? 0 : Math.PI, 2.6);
   }
+  // Wood chamber: the logs waiting to be checked for worms
+  const logG = new THREE.CylinderGeometry(0.17, 0.17, 2.4, 8);
+  const e = new THREE.Euler(), qq = new THREE.Quaternion(), one = new THREE.Vector3(1, 1, 1), pp = new THREE.Vector3();
+  out.woodChamberPile = new THREE.Vector3(83.5, fy, -29.5);
+  for (const [px, pz, rows] of [[83.5, -29.5, 4], [74.5, -30.5, 3]]) {
+    for (let row = 0; row < rows; row++) for (let i = 0; i < 7 - row; i++) {
+      e.set(Math.PI / 2, 0, 0); qq.setFromEuler(e);
+      m.compose(pp.set(px - 1.2 + i * 0.36 + row * 0.18, fy + 0.17 + row * 0.3, pz), qq, one);
+      b.add(MAT.wood, logG, m);
+    }
+    b.physics.addBox(px - 1.5, fy, pz - 1.3, px + 1.5, fy + rows * 0.3 + 0.1, pz + 1.3, false);
+  }
+  // Nezirim: the pot where the Nazir cooks his Shelamim, with his hair burning beneath it
+  out.nazirPot = new THREE.Vector3(83, fy, 28);
+  b.cyl(MAT.stone, 83, fy, 28, 1.1, 1.2, 0.5, 14, { collide: true });
+  b.cyl(MAT.bronze, 83, fy + 0.95, 28, 0.95, 0.7, 1.0, 16);
+  for (let k = 0; k < 3; k++) { const a = k * Math.PI * 2 / 3; b.box(MAT.dark, 83 + Math.cos(a) * 0.8, fy + 0.7, 28 + Math.sin(a) * 0.8, 0.12, 0.5, 0.12); }
+  // Metzora'im: a pool for immersing
+  b.boxMM(MAT.stoneTrim, 25, fy, -31, 31, fy + 0.45, -30.6, { collide: true });
+  b.boxMM(MAT.stoneTrim, 25, fy, -26.4, 31, fy + 0.45, -26, { collide: true });
+  b.boxMM(MAT.stoneTrim, 25, fy, -30.6, 25.4, fy + 0.45, -26.4, { collide: true });
+  b.boxMM(MAT.stoneTrim, 30.6, fy, -30.6, 31, fy + 0.45, -26.4, { collide: true });
+  b.boxMM(MAT.water, 25.4, fy + 0.3, -30.6, 30.6, fy + 0.34, -26.4, { shadow: false, collide: true });
+  out.mikveh = new THREE.Vector3(28, fy + 0.34, -28.5);
+  // Beit Shemanya: jars of wine and oil
+  for (let i = 0; i < 9; i++) {
+    const x = 24.5 + (i % 5) * 1.3, z = 31.5 - Math.floor(i / 5) * 1.3;
+    b.cyl(MAT.houseDark, x, fy, z, 0.22, 0.32, 1.0, 10, { collide: true });
+    b.cyl(MAT.houseDark, x, fy + 1.0, z, 0.12, 0.22, 0.25, 10);
+  }
+  // the Leviim's instrument rooms, under Ezrat Yisrael, open to Ezrat Nashim (Middot 2:6)
+  for (const z of [-9.5, 9.5]) {
+    b.boxMM(MAT.dark, E.minX, fy, z - 1.1, E.minX + 0.06, fy + 2.5, z + 1.1, { shadow: false });
+    b.boxMM(MAT.stoneTrim, E.minX, fy + 2.5, z - 1.5, E.minX + 0.3, fy + 2.85, z + 1.5);
+    addSign(scene, out, 'לשכות כלי השיר', 'The Leviim\'s instruments', E.minX + 0.34, fy + 3.5, z, Math.PI / 2, 2.6);
+  }
 
   // Golden lamp-towers of Simchat Beit HaShoevah (Sukkah 5:2)
   out.lampTowers = [];
-  for (const [x, z] of [[37, -7], [37, 7], [47, -7], [47, 7]]) {
+  for (const [x, z] of [[49, -8], [49, 8], [61, -8], [61, 8]]) {
     b.cyl(MAT.gold, x, fy, z, 0.28, 0.42, 21, 12, { collide: true });
     b.cyl(MAT.gold, x, fy, z, 1.1, 1.3, 0.5, 16);
     for (let k = 0; k < 4; k++) {
@@ -363,7 +403,11 @@ function buildAzara(b, scene, out) {
   b.boxMM(MAT.floorNorth, -14, 0, A.minZ, 8.5, 0.012, -12.2, { collide: true, shadow: false });
   // walls
   b.boxMM(MAT.stone, A.minX - T, -0.1, A.minZ - T, A.maxX + T, H, A.minZ, { collide: true });
-  b.boxMM(MAT.stone, A.minX - T, -0.1, A.maxZ, A.maxX + T, H, A.maxZ + T, { collide: true });
+  const gd = GAZIT.door;            // the south wall has the door of Lishkat HaGazit
+  b.boxMM(MAT.stone, A.minX - T, -0.1, A.maxZ, gd - 1.5, H, A.maxZ + T, { collide: true });
+  b.boxMM(MAT.stone, gd + 1.5, -0.1, A.maxZ, A.maxX + T, H, A.maxZ + T, { collide: true });
+  b.boxMM(MAT.stone, gd - 1.5, 4.2, A.maxZ, gd + 1.5, H, A.maxZ + T, { collide: true });
+  b.boxMM(MAT.floor, gd - 1.5, -0.5, A.maxZ, gd + 1.5, 0, A.maxZ + T, { collide: true });
   b.boxMM(MAT.stone, A.minX - T, -0.1, A.minZ, A.minX, H, A.maxZ, { collide: true });
   crenellate(b, A.minX - T, A.minZ - T, A.maxX + T, A.minZ, H);
   crenellate(b, A.minX - T, A.maxZ, A.maxX + T, A.maxZ + T, H);
@@ -410,13 +454,13 @@ function buildAzara(b, scene, out) {
     addSign(scene, out, g.he, g.en, g.x, 8, north ? zi + 0.03 : zi - 0.03, north ? 0 : Math.PI, 3.6);
   }
 
-  // Chambers (lishkot) — doorways along the walls
+  // Chambers (lishkot) — doorways along the walls: three in the north, three in the south (Middot 5:3-4)
   const lishkot = [
-    { x: 13, z: A.minZ, he: 'לשכת הגזית', en: 'Chamber of Hewn Stone' },
-    { x: -40, z: A.minZ, he: 'לשכת העץ', en: 'Wood Chamber' },
-    { x: -14, z: A.maxZ, he: 'לשכת המלח', en: 'Salt Chamber' },
-    { x: -40, z: A.maxZ, he: 'לשכת הפרוה', en: 'Parvah Chamber' },
-    { x: 15, z: A.maxZ, he: 'לשכת המדיחין', en: 'Rinsing Chamber' },
+    { x: -36, z: A.minZ, he: 'לשכת המלח', en: 'Salt Chamber' },
+    { x: -44, z: A.minZ, he: 'לשכת הפרוה', en: 'Parvah Chamber' },
+    { x: 13, z: A.minZ, he: 'לשכת המדיחין', en: 'Rinsing Chamber' },
+    { x: -40, z: A.maxZ, he: 'לשכת העץ', en: 'Wood Chamber' },
+    { x: -14, z: A.maxZ, he: 'לשכת הגולה', en: 'Chamber of the Golah' },
   ];
   for (const l of lishkot) {
     const north = l.z < 0;
@@ -425,9 +469,11 @@ function buildAzara(b, scene, out) {
     b.boxMM(MAT.stoneTrim, l.x - 1.8, 3.6, Math.min(l.z, l.z + (north ? 0.3 : -0.3)), l.x + 1.8, 4.0, Math.max(l.z, l.z + (north ? 0.3 : -0.3)));
     addSign(scene, out, l.he, l.en, l.x, 4.7, north ? l.z + 0.06 : l.z - 0.06, north ? 0 : Math.PI, 3.2);
   }
-  // Lishkat HaGazit — Sanhedrin seat, a grander portal
-  b.boxMM(MAT.stoneTrim, 10.6, 0, A.minZ, 11.2, 4.2, A.minZ + 0.6, { collide: true });
-  b.boxMM(MAT.stoneTrim, 14.8, 0, A.minZ, 15.4, 4.2, A.minZ + 0.6, { collide: true });
+  // Lishkat HaGazit — the seat of the Sanhedrin, a grander portal (its hall is built in buildGazit)
+  b.boxMM(MAT.stoneTrim, gd - 2.1, 0, A.maxZ - 0.6, gd - 1.5, 4.8, A.maxZ, { collide: true });
+  b.boxMM(MAT.stoneTrim, gd + 1.5, 0, A.maxZ - 0.6, gd + 2.1, 4.8, A.maxZ, { collide: true });
+  b.boxMM(MAT.stoneTrim, gd - 2.4, 4.2, A.maxZ - 0.7, gd + 2.4, 4.9, A.maxZ);
+  addSign(scene, out, 'לשכת הגזית', 'Chamber of Hewn Stone', gd, 5.7, A.maxZ - 0.76, Math.PI, 3.4);
 
   // Duchan — the Leviim's platform, split in two to keep the view to the Heichal open
   for (const [z0, z1] of [[-12, -3.2], [3.2, 12]]) {
@@ -476,6 +522,55 @@ function buildAzara(b, scene, out) {
 // ─────────────────────────────────────────────────────────────
 // Mizbeach HaChitzon with the Kevesh
 // ─────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// Lishkat HaGazit: a basilica, half inside the holy area and half outside, with a door
+// to each side (Yoma 25a). The 71 sages sit in half a circle (Sanhedrin 4:3).
+// ─────────────────────────────────────────────────────────────
+function buildGazit(b, scene, out) {
+  const G = GAZIT, A = AZARA, top = G.wallH, z0 = A.maxZ + A.wallT;
+  b.boxMM(MAT.stoneWarm, G.minX - 1, OUTER_Y, z0, G.maxX + 1, -0.5, G.maxZ + 1, { shadow: false });
+  b.boxMM(MAT.floor, G.minX, -0.5, z0, G.maxX, 0, G.maxZ, { collide: true });
+  // walls of hewn stone (the north side is the wall of the Azara and of Ezrat Nashim)
+  b.boxMM(MAT.stoneWarm, G.minX - 1, -0.5, z0, G.minX, top, G.maxZ + 1, { collide: true });
+  b.boxMM(MAT.stoneWarm, G.maxX, -0.5, z0, G.maxX + 1, top, G.maxZ + 1, { collide: true });
+  b.boxMM(MAT.stoneWarm, G.minX, -0.5, G.maxZ, G.maxX, top, G.maxZ + 1, { collide: true });
+  b.boxMM(MAT.stoneWarm, EZRAT_NASHIM.minX, 0, z0, G.maxX, top, z0 + 0.6, { collide: true });
+  b.boxMM(MAT.stoneWarm, G.minX, AZARA.wallH, z0 - 2, EZRAT_NASHIM.minX, top + 3, z0);
+  crenellate(b, G.minX - 1, G.maxZ, G.maxX + 1, G.maxZ + 1, top);
+  crenellate(b, G.minX - 1, z0, G.minX, G.maxZ, top, true);
+  crenellate(b, G.maxX, z0, G.maxX + 1, G.maxZ, top, true);
+  // the door to Har HaBayit (the half that is not holy)
+  for (const [z, ry] of [[G.maxZ + 1.02, 0], [G.maxZ - 0.02, Math.PI]]) {
+    b.boxMM(MAT.dark, 31.6, 0, Math.min(z, z + (ry ? -0.05 : 0.05)), 34.4, 4, Math.max(z, z + (ry ? -0.05 : 0.05)), { shadow: false });
+  }
+  // a basilica: columns around, a cedar ceiling, and the middle open to the sky
+  const colG = new THREE.CylinderGeometry(0.34, 0.4, top - 0.6, 12);
+  const m = new THREE.Matrix4();
+  const col = (x, z) => { m.makeTranslation(x, (top - 0.6) / 2, z); b.add(MAT.marble, colG, m); b.physics.addBox(x - 0.4, 0, z - 0.4, x + 0.4, top, z + 0.4, false); };
+  for (let x = G.minX + 2; x <= G.maxX - 1.5; x += 3.4) col(x, G.maxZ - 1.2);
+  for (const x of [G.minX + 1.4, G.maxX - 1.4]) for (let z = z0 + 3.6; z < G.maxZ - 2; z += 3.4) col(x, z);
+  const cy = top - 0.6;
+  b.boxMM(MAT.cedar, G.minX, cy, z0, G.maxX, cy + 0.5, z0 + 2.8, { shadow: false });
+  b.boxMM(MAT.cedar, G.minX, cy, G.maxZ - 2.6, G.maxX, cy + 0.5, G.maxZ, { shadow: false });
+  b.boxMM(MAT.cedar, G.minX, cy, z0 + 2.8, G.minX + 3, cy + 0.5, G.maxZ - 2.6, { shadow: false });
+  b.boxMM(MAT.cedar, G.maxX - 3, cy, z0 + 2.8, G.maxX, cy + 0.5, G.maxZ - 2.6, { shadow: false });
+  // 71 seats in four rows of half a circle, rising toward the back
+  out.sanhedrinSeats = [];
+  [[4.2, 13], [5.3, 17], [6.4, 19], [7.5, 22]].forEach(([r, n], k) => {
+    const seatY = 0.45 + k * 0.4;
+    for (let i = 0; i < n; i++) {
+      const a = (0.1 + 0.8 * (i / (n - 1))) * Math.PI;
+      const x = G.cx + Math.cos(a) * r, z = G.cz + Math.sin(a) * r;
+      const yaw = Math.atan2(G.cx - x, G.cz - z);
+      b.box(MAT.stoneTrim, x, seatY / 2, z, 0.95, seatY, 1.05, { ry: yaw, collide: true });
+      out.sanhedrinSeats.push({ x, y: seatY, z, yaw, row: k, i, n });
+    }
+  });
+  // the long stone desks of the two scribes (Sanhedrin 4:3)
+  for (const x of [G.cx - 3.4, G.cx + 3.4]) b.boxMM(MAT.cedar, x - 0.5, 0, G.cz + 1.6, x + 0.5, 0.8, G.cz + 2.2, { collide: true });
+  addSign(scene, out, 'לשכת הגזית', 'Chamber of Hewn Stone', G.cx, 6.8, G.maxZ - 0.06, Math.PI, 3.6);
+}
+
 function buildMizbeach(b, scene, out) {
   const M = MIZBEACH, cx = M.cx, cz = M.cz;
   const hb = M.base / 2, hbo = M.body / 2, ht = M.top / 2;

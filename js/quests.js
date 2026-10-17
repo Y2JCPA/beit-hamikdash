@@ -198,6 +198,12 @@ function takeAnimalFromOwner(owner, animal, verb = 'Take the animal') {
   };
 }
 
+// the Kohen stands on the stone step in front of the Menorah (Tamid 3:9)
+async function menorahCloseUp(g) {
+  const m = P.menorah;
+  await g.closeUp(new THREE.Vector3(m.x, 3 + 2.55, m.z - 2.05), new THREE.Vector3(m.x, 3 + 2.25, m.z), 1.9);
+}
+
 // ─────────────────────────────────────────────────────────
 // The daily avodah — follows the order of Mishnah Tamid (simplified)
 // ─────────────────────────────────────────────────────────
@@ -283,6 +289,31 @@ export const DAILY = [
     after: async (g) => { await g.barkai(); },
   },
   {
+    // Tamid 3:9 and Yoma 33a: five lamps are prepared BEFORE the dam of the Tamid; the last two after it
+    id: 'menorah', icon: '🕎', title: 'Preparing the Menorah', he: 'הֲטָבַת הַנֵּרוֹת', hour: 6.0, achievement: 'menorah',
+    intro: [{ who: 'memuneh', text: 'Now, a great honor: climb the 12 steps of the Ulam and go into the Heichal to prepare the Menorah. Only Kohanim may enter! Before the Tamid is offered, five of the lamps are prepared.' }],
+    steps: [
+      { text: 'Climb the steps of the Ulam and enter the Heichal', kind: 'go', at: { x: HEICHAL.hallMaxX - 2, y: 3, z: 0 }, r: 2.6, icon: '🚪' },
+      {
+        text: 'Go to the golden Menorah (south side) and climb its little stone step', kind: 'use', at: { x: P.menorah.x, y: 3, z: P.menorah.z - 1.7 }, r: 1.8, icon: '🕎', prompt: 'Prepare the Menorah',
+        run: async (g) => {
+          await menorahCloseUp(g);
+          const lamps = g.menorahLamps;
+          await g.minigames.hotspots({
+            title: 'The two eastern lamps are still burning — prepare the other FIVE: clean, new oil and wick, and light', small: true,
+            spots: lamps.map((p, i) => ({ pos: p.clone().setY(p.y + 0.1), icon: i >= 5 ? '🔥' : '🪔', label: i === 5 ? 'Ner Ma\'aravi' : `Lamp ${i + 1}`, idx: i, wrong: i >= 5 })),
+            onSpot: async (s) => { g.lightLamp(s.idx); g.audio.bell(880 + s.idx * 80, 0.1, 0, 1.2); },
+            onWrong: () => g.ui.toast('🕎 Leave the two eastern lamps burning for now — they are prepared later, after the dam of the Tamid!'),
+          });
+          g.player.char.pose = 'idle';
+          await g.releaseCam();
+        },
+        fact: ['The Kohen finds the two eastern lamps still burning. He prepares the other five now, and comes back for the last two later.', 'Tamid 3:9'],
+      },
+    ],
+    outroFact: ['The order of the morning: five lamps — then the dam of the Tamid — then the last two lamps — then the Ketoret.', 'Yoma 33a'],
+  },
+  {
     id: 'tamid', icon: '🐑', title: 'The Morning Tamid', he: 'קָרְבַּן תָּמִיד שֶׁל שַׁחַר', hour: 6.25, achievement: 'tamid', korban: true,
     intro: [
       { who: 'memuneh', text: 'The sun is up — it\'s time for the Korban Tamid! Every single morning, one lamb is offered for all of Am Yisrael.' },
@@ -336,29 +367,6 @@ export const DAILY = [
     outroFact: ['The Tamid was offered every day, morning and afternoon — even on Shabbat and Yom Kippur! (In the real Mikdash its parts were burned a little later, after the Ketoret and Birkat Kohanim. We kept it simple.)', 'Bamidbar 28:3-10; Tamid 7:3'],
   },
   {
-    id: 'menorah', icon: '🕎', title: 'Preparing the Menorah', he: 'הֲטָבַת הַנֵּרוֹת', hour: 7.0, achievement: 'menorah',
-    intro: [{ who: 'memuneh', text: 'Now, a great honor: climb the 12 steps of the Ulam and go into the Heichal to prepare the Menorah. Only Kohanim may enter!' }],
-    steps: [
-      { text: 'Climb the steps of the Ulam and enter the Heichal', kind: 'go', at: { x: HEICHAL.hallMaxX - 2, y: 3, z: 0 }, r: 2.6, icon: '🚪' },
-      {
-        text: 'Go to the golden Menorah (south side) and climb its little stone step', kind: 'use', at: { x: P.menorah.x, y: 3, z: P.menorah.z - 1.7 }, r: 1.8, icon: '🕎', prompt: 'Prepare the Menorah',
-        run: async (g) => {
-          const m = P.menorah;
-          await g.closeUp(new THREE.Vector3(m.x, 3 + 2.55, m.z - 2.05), new THREE.Vector3(m.x, 3 + 2.25, m.z), 1.9);
-          const lamps = g.menorahLamps;
-          await g.minigames.hotspots({
-            title: 'Clean, refill and light each lamp that went out. (The western lamp is still burning!)', small: true,
-            spots: lamps.map((p, i) => ({ pos: p.clone().setY(p.y + 0.1), icon: i === 0 ? '🔥' : '🪔', label: i === 0 ? 'Ner Ma\'aravi' : `Lamp ${i + 1}`, done: false, idx: i })).filter(s => s.idx !== 0),
-            onSpot: async (s) => { g.lightLamp(s.idx); g.audio.bell(880 + s.idx * 80, 0.1, 0, 1.2); },
-          });
-          g.miracle('ner_maaravi');
-          await g.releaseCam();
-        },
-        fact: ['In the morning the Kohen cleans the lamps, puts in fresh oil and wicks, and relights any that went out.', 'Tamid 3:9; Rambam, Temidin 3:12'],
-      },
-    ],
-  },
-  {
     id: 'ketoret', icon: '💨', title: 'The Ketoret', he: 'הַקְטָרַת הַקְּטֹרֶת', hour: 7.6, achievement: 'ketoret',
     intro: [{ who: 'memuneh', text: 'The Ketoret — the incense — is the most beloved avodah! First, take burning coals from the second fire on top of the Mizbeach.' }],
     steps: [
@@ -374,6 +382,27 @@ export const DAILY = [
         text: 'Get the Ketoret spoon (kaf) from Pinchas of Beit Avtinas, near the Ulam steps', kind: 'use', at: () => g_npcPos('avtinas'), r: 2.6, icon: '🥄', prompt: 'Receive the Ketoret',
         run: async (g) => { g.player.setHeld(['machtaGold', 'kaf']); g.audio.play('pickup'); },
         fact: ['The Ketoret is made of 11 spices. The family of Avtinas knew the secret recipe!', 'Keritot 6a; Yoma 3:11'],
+      },
+      {
+        // Tamid 6:1: the Kohen of the Menorah goes in first and finishes the last two lamps
+        text: 'Before the Ketoret, finish the Menorah: go into the Heichal to the last two lamps', kind: 'use', at: { x: P.menorah.x, y: 3, z: P.menorah.z - 1.7 }, r: 1.8, icon: '🕎', prompt: 'The last two lamps',
+        run: async (g) => {
+          await menorahCloseUp(g);
+          const lamps = g.menorahLamps;
+          g.lampOut(6);
+          await g.minigames.hotspots({
+            title: 'Prepare the eastern lamp — and leave the Ner Ma\'aravi burning!', small: true,
+            spots: [
+              { pos: lamps[6].clone().setY(lamps[6].y + 0.1), icon: '🪔', label: 'Lamp 7', idx: 6 },
+              { pos: lamps[5].clone().setY(lamps[5].y + 0.1), icon: '🔥', label: 'Ner Ma\'aravi', idx: 5, wrong: true },
+            ],
+            onSpot: async (s) => { g.lightLamp(s.idx); g.audio.bell(1320, 0.1, 0, 1.2); },
+            onWrong: () => g.ui.toast('🔥 That is the Ner Ma\'aravi — leave it burning! In the evening the Menorah is lit from it.'),
+          });
+          g.miracle('ner_maaravi');
+          await g.releaseCam();
+        },
+        fact: ['The Kohen prepares the eastern lamp and leaves the Ner Ma\'aravi burning — from it he lights the Menorah in the evening. (This Mishnah holds that the Menorah stood east to west, as it does here. The Rambam holds it stood across the Heichal, and the Ner Ma\'aravi was the middle lamp, facing the Kodesh HaKodashim.)', 'Tamid 6:1; Bartenura, Tamid 3:9; Rambam, Beit HaBechirah 3:8'],
       },
       {
         text: 'Enter the Heichal and spread the coals on the golden Mizbeach', kind: 'use', at: { x: P.goldAltar.x + 1.2, y: 3, z: P.goldAltar.z }, r: 1.9, icon: '🔥', prompt: 'Spread the coals',
@@ -848,6 +877,9 @@ export const VISITORS = [
 let _npcPos = () => ({ x: 0, y: 0, z: 0 });
 export function setNpcPosResolver(fn) { _npcPos = fn; }
 function g_npcPos(id) { return _npcPos(id); }
+
+// shared with the chamber missions (lishkot.js)
+export { at, inAzara, inNorth, TOP, kabbalahStep, partsStep, saltStep, haktarahStep, g_npcPos };
 
 export function shirForToday(dayOffset = 0) {
   const d = (new Date().getDay() + dayOffset) % 7;

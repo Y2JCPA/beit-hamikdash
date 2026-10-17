@@ -14,7 +14,7 @@ export class Minigames {
   }
 
   // ───────── Hotspots in the 3D world ─────────
-  hotspots({ title, spots, ordered = false, onSpot, allowExit = false, small = false }) {
+  hotspots({ title, spots, ordered = false, onSpot, onWrong, allowExit = false, small = false }) {
     return new Promise((resolve) => {
       const layer = $('#hs-layer');
       layer.innerHTML = '';
@@ -29,13 +29,14 @@ export class Minigames {
         el.onclick = async (e) => {
           e.stopPropagation();
           if (s.done || this.locked) return;
+          if (s.wrong) { if (s.tried) return; s.tried = true; el.classList.add('tried'); audio.play('error'); el.animate([{ transform: 'translate(-50%,-50%) translateX(-6px)' }, { transform: 'translate(-50%,-50%) translateX(6px)' }, { transform: 'translate(-50%,-50%)' }], { duration: 250 }); onWrong?.(s); return; }
           if (ordered && i !== next) { audio.play('error'); el.animate([{ transform: 'translate(-50%,-50%) translateX(-6px)' }, { transform: 'translate(-50%,-50%) translateX(6px)' }, { transform: 'translate(-50%,-50%)' }], { duration: 250 }); return; }
           this.locked = true;
           s.done = true; el.classList.add('done'); next++;
           audio.play('pickup');
           try { await onSpot?.(s, i); } finally { this.locked = false; }
           refresh();
-          if (spots.every(x => x.done)) finish(true);
+          if (spots.every(x => x.done || x.wrong)) finish(true);
         };
         layer.appendChild(el);
         return el;
@@ -316,6 +317,71 @@ export class Minigames {
       $('#tally').classList.remove('hidden');
       show();
       this.active = { key: (code) => { if (code === 'Enter' || code === 'KeyE') check(); } };
+    });
+  }
+
+  // ───────── Echo: a Levi plays a little tune, you play it back ─────────
+  // pads: [{ icon, label, play: () => {} }]; rounds: lengths of the tunes
+  echo({ title, pads, rounds = [3, 4, 5] }) {
+    return new Promise((resolve) => {
+      const box = $('#echo'), status = $('#ec-status'), padBox = $('#ec-pads');
+      $('#ec-title').textContent = title;
+      padBox.innerHTML = '';
+      let tries = 0, round = 0, seq = [], pos = 0, listening = false, over = false;
+      const els = pads.map((pd, i) => {
+        const el = document.createElement('button');
+        el.className = 'ec-pad';
+        el.innerHTML = `<div class="ec-icon">${pd.icon}</div><div class="ec-label"></div>`;
+        el.querySelector('.ec-label').textContent = pd.label;
+        el.onclick = () => tap(i);
+        padBox.appendChild(el);
+        return el;
+      });
+      const flash = (i) => { pd(i).play(); els[i].classList.add('lit'); setTimeout(() => els[i].classList.remove('lit'), 380); };
+      const pd = (i) => pads[i];
+      const wait = (ms) => new Promise(r => setTimeout(r, ms));
+      const playSeq = async () => {
+        listening = false;
+        box.dataset.seq = '';
+        status.textContent = '👂 Listen to the Levi…';
+        await wait(700);
+        for (const i of seq) { if (over) return; flash(i); await wait(620); }
+        pos = 0; listening = true;
+        box.dataset.seq = seq.join(',');
+        status.textContent = '🎵 Now you play it!';
+      };
+      const next = () => {
+        if (round >= rounds.length) return finish();
+        // each tune grows from the one before, so it can be remembered
+        while (seq.length < rounds[round]) seq.push(Math.floor(Math.random() * pads.length));
+        playSeq();
+      };
+      const finish = () => {
+        over = true; listening = false;
+        status.textContent = '✨ Beautiful!';
+        audio.play('success');
+        setTimeout(() => { box.classList.add('hidden'); this.active = null; resolve({ tries }); }, 1000);
+      };
+      const tap = (i) => {
+        if (!listening || over) return;
+        flash(i);
+        if (i !== seq[pos]) {
+          tries++;
+          audio.play('error');
+          els[i].classList.add('bad'); setTimeout(() => els[i].classList.remove('bad'), 400);
+          // after a few slips, move on to the next tune so nobody gets stuck
+          if (tries % 3 === 0) round++;
+          else status.textContent = 'Almost! Listen again…';
+          listening = false;
+          setTimeout(() => (tries % 3 === 0 ? next() : playSeq()), 900);
+          return;
+        }
+        pos++;
+        if (pos >= seq.length) { listening = false; round++; status.textContent = '👏 Yes!'; setTimeout(next, 900); }
+      };
+      box.classList.remove('hidden');
+      this.active = { key: (code) => { const k = { Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3 }[code]; if (k !== undefined && k < pads.length) tap(k); } };
+      next();
     });
   }
 

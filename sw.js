@@ -1,7 +1,7 @@
 // Offline support: every file the game loads is kept in a cache, so the installed
 // app opens without internet (in the car, on a trip). Online, the newest files are
 // always fetched first, so updates arrive as soon as they are published.
-const CACHE = 'avodah-v2';
+const CACHE = 'avodah-v3';
 const FONT_CACHE = 'avodah-fonts-v1';
 const CORE = [
   './', './index.html', './manifest.json', './css/style.css',
@@ -27,6 +27,7 @@ const CORE = [
   './js/he.js',
   './js/i18n.js',
   './js/input.js',
+  './js/lishkot.js',
   './js/main.js',
   './js/materials.js',
   './js/minigames.js',

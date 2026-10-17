@@ -2,9 +2,9 @@
 // Every fact carries a source. Written for kids (ages ~5-14).
 
 export const PLACES = [
-  { id: 'ezrat_nashim', name: 'Ezrat Nashim', he: 'עזרת נשים', x: 44, z: 0, r: 9, y: -3,
+  { id: 'ezrat_nashim', name: 'Ezrat Nashim', he: 'עזרת נשים', x: 55, z: 0, r: 12, y: -3,
     text: 'The big courtyard where everyone — men, women and children — gathered. It was 135 by 135 amot!', src: 'Middot 2:5' },
-  { id: 'lamp_towers', name: 'Lamps of Simchat Beit HaShoevah', he: 'שמחת בית השואבה', x: 42, z: 0, r: 7, y: -3,
+  { id: 'lamp_towers', name: 'Lamps of Simchat Beit HaShoevah', he: 'שמחת בית השואבה', x: 55, z: 0, r: 8, y: -3,
     text: 'On Sukkot, giant golden lamps 50 amot tall lit up all of Yerushalayim. "Whoever has not seen Simchat Beit HaShoevah has never seen joy!"', src: 'Sukkah 5:1-3' },
   { id: 'steps15', name: 'The 15 Steps', he: 'חמש עשרה מעלות', x: 24.5, z: 0, r: 3.5, y: -2,
     text: 'Fifteen half-round steps lead up to Nikanor Gate. The Leviim stood on them and sang the 15 "Shir HaMa\'alot" songs in Tehillim.', src: 'Middot 2:5; Sukkah 5:4' },
@@ -22,8 +22,18 @@ export const PLACES = [
     text: 'The copper laver. Ben Katin made it 12 spouts so 12 Kohanim could wash at the same time!', src: 'Yoma 3:10' },
   { id: 'mitbachayim', name: 'Beit HaMitbachayim', he: 'בית המטבחיים', x: 0, z: -22, r: 6, y: 0,
     text: 'The place of shechita, north of the Mizbeach: 24 rings, 8 pillars with hooks and 8 marble tables.', src: 'Middot 3:5' },
-  { id: 'gazit', name: 'Lishkat HaGazit', he: 'לשכת הגזית', x: 13, z: -32, r: 3, y: 0,
-    text: 'The Chamber of Hewn Stone — where the great Sanhedrin of 71 sages sat and judged.', src: 'Middot 5:4' },
+  { id: 'gazit', name: 'Lishkat HaGazit', he: 'לשכת הגזית', x: 27, z: 40.4, r: 4.2, y: 0,
+    text: 'The Chamber of Hewn Stone, in the south of the Azara — where the great Sanhedrin of 71 sages sat in half a circle, so they could all see each other.', src: 'Middot 5:4; Sanhedrin 4:3' },
+  { id: 'etzim', name: 'Lishkat HaEtzim', he: 'לשכת העצים', x: 79, z: -24, r: 5, y: -3,
+    text: 'The wood chamber of Ezrat Nashim. Kohanim with a mum (blemish), who could not serve at the Mizbeach, checked every log for worms.', src: 'Middot 2:5' },
+  { id: 'nezirim', name: 'Lishkat HaNezirim', he: 'לשכת הנזירים', x: 79, z: 24, r: 5, y: -3,
+    text: 'Here a Nazir who finished his nezirut cooked his Shelamim, cut his hair, and threw the hair into the fire under the pot.', src: 'Middot 2:5; Nazir 6:8' },
+  { id: 'metzoraim', name: 'Lishkat HaMetzora\'im', he: 'לשכת המצורעים', x: 31.5, z: -24, r: 5, y: -3,
+    text: 'A metzora who was healed immersed here, and then went to stand at Nikanor Gate.', src: 'Middot 2:5; Negaim 14:8' },
+  { id: 'shemanya', name: 'Lishkat Beit Shemanya', he: 'לשכת בית שמניה', x: 31.5, z: 24, r: 5, y: -3,
+    text: 'The chamber of oil — Abba Shaul says the wine and oil for the korbanot were kept here.', src: 'Middot 2:5' },
+  { id: 'klei_shir', name: 'The Instrument Rooms', he: 'לשכות כלי השיר', x: 23.5, z: -9.5, r: 2.6, y: -3,
+    text: 'Rooms under Ezrat Yisrael, opening into Ezrat Nashim, where the Leviim kept their kinorot, nevalim, cymbals and all their instruments.', src: 'Middot 2:6' },
   { id: 'lamb_chamber', name: 'Lishkat HaTla\'im', he: 'לשכת הטלאים', x: -13, z: -29, r: 3, y: 0,
     text: 'There were always at least 6 checked lambs ready for the Korban Tamid.', src: 'Arachin 2:5' },
   { id: 'ulam', name: 'The Ulam & the Golden Vine', he: 'האולם', x: -16, z: 0, r: 5, y: 2,
@@ -75,6 +85,9 @@ export const ACHIEVEMENTS = [
   { id: 'fire7', icon: '🔥', name: 'Esh Tamid', desc: 'Keep the fire burning 7 days' },
   { id: 'fire30', icon: '🔥', name: 'A Month of Fire', desc: 'Keep the fire burning 30 days' },
   { id: 'appointed', icon: '📜', name: 'Appointed!', desc: 'Become a helper to one of the Memunim' },
+  { id: 'lishka', icon: '🗝️', name: 'Secret Chamber', desc: 'Finish a mission in one of the chambers' },
+  { id: 'lishkot', icon: '🏛️', name: 'Every Chamber', desc: 'Finish all six chamber missions' },
+  { id: 'sanhedrin', icon: '⚖️', name: 'Before the Sanhedrin', desc: 'Help bring the Par He\'elem Davar' },
 ];
 
 // Shir Shel Yom — Tamid 7:4
@@ -107,4 +120,6 @@ export const NPC_NAMES = {
   avtinas: { name: 'Pinchas of Beit Avtinas', he: 'פנחס', icon: '🧔' },
   winekohen: { name: 'Yosef the Kohen', he: 'יוסף', icon: '🧔' },
   levi: { name: 'Asaf the Levi', he: 'אסף', icon: '🎶' },
+  zaken: { name: 'A sage of the Sanhedrin', he: 'זקן הסנהדרין', icon: '👴' },
+  kohenGadol: { name: 'The Kohen Gadol', he: 'הכהן הגדול', icon: '👑' },
 };

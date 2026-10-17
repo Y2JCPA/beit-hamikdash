@@ -5,14 +5,14 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
-import { P, MIZBEACH, HEICHAL, AZARA, EZRAT_NASHIM, HORNS, CORNERS, SAVE_KEY, SAVE_PREFIX, SETTINGS_KEY, VISITOR_SLOTS, VISITORS_PER_DAY } from './config.js';
+import { P, MIZBEACH, HEICHAL, AZARA, EZRAT_NASHIM, GAZIT, HORNS, CORNERS, SAVE_KEY, SAVE_PREFIX, SETTINGS_KEY, VISITOR_SLOTS, VISITORS_PER_DAY } from './config.js';
 import { buildMaterials, MAT } from './materials.js';
 import { Physics } from './physics.js';
 import { buildWorld } from './world.js';
 import { Environment } from './sky.js';
 import { Fire, SmokeColumn, Particles, Marker, lightShaft } from './fx.js';
 import { makeCharacter, makeAnimal, makeItem, makeInstrument, setBakedEnvMap, disposeBaked, SKIN_TONES, HAIR_COLORS } from './characters.js';
-import { Crowd, crowdLayout, Doves } from './crowd.js';
+import { Crowd, crowdLayout, sanhedrinLayout, Doves } from './crowd.js';
 import { Player, CameraRig } from './player.js';
 import { Input } from './input.js';
 import { UI } from './ui.js';
@@ -21,6 +21,7 @@ import { Minigames } from './minigames.js';
 import { QuestRunner } from './questRunner.js';
 import { Nav } from './nav.js';
 import { DAILY, VISITORS, ROSH_CHODESH, CHAVITIN, LECHEM_HAPANIM, GATES, setNpcPosResolver, shirForToday } from './quests.js';
+import { LISHKOT, LISHKA_NPCS, LISHKA_FACTS } from './lishkot.js';
 import { roshChodesh, hebrewDate } from './calendar.js';
 import { TRIBES, JOBS, KG_DAYS, tendFire, fireLevel, kgActive, assignTribes, tribe } from './progress.js';
 import { lang, nikud } from './i18n.js';
@@ -123,6 +124,9 @@ export class Game {
     setBakedEnvMap(this.env.envRT.texture);
     const people = crowdLayout();
     this.crowd = new Crowd(scene, people);
+    // the 71 sages of the Sanhedrin (one of them is a real character who talks with you)
+    const seats = this.world.sanhedrinSeats;
+    this.sanhedrin = new Crowd(scene, sanhedrinLayout(seats, seats.find(x => x.row === 0 && x.i === (x.n - 1) / 2)));
     // people and standing NPCs are solid (but don't block the camera)
     for (const pp of people) this.physics.addBox(pp.x - 0.28, pp.y, pp.z - 0.28, pp.x + 0.28, pp.y + 1.5, pp.z + 0.28, false);
     for (const id in this.npcs) { const n = this.npcs[id]; if (!n.path) this.physics.addBox(n.x - 0.3, n.y, n.z - 0.3, n.x + 0.3, n.y + 1.6, n.z + 0.3, false); }
@@ -157,6 +161,7 @@ export class Game {
     ui.hideLoading();
     this.loop();
     window.__game = this;
+    window.__lishkot = { LISHKA_NPCS, LISHKOT };      // for automated play-tests
   }
 
   setupPost() {
@@ -272,12 +277,15 @@ export class Game {
     this.lampFires = this.world.menorahLamps.map((p, i) => {
       const f = new Fire(scene, p.clone().setY(p.y - 0.06), 0.085, 3, false);
       f.uniforms.uIntensity.value = 0.45;
-      f.setVisible(i === 0);
+      f.setVisible(i >= 5);           // at dawn the two eastern lamps are still burning (Tamid 3:9)
       return f;
     });
-    this.lampsLit = 1;
+    this.lampsLit = 2;
     // lamp towers of Simchat Beit HaShoevah (night only)
     this.towerFires = this.world.lampTowers.map(p => new Fire(scene, p, 0.6, 5));
+    // the fire under the Nezirim's pot (Middot 2:5)
+    this.potFire = new Fire(scene, this.world.nazirPot.clone().setY(EZRAT_NASHIM.floorY + 0.5), 0.32, 3);
+    this.fires.push(this.potFire);
     // Light shafts through the Heichal windows
     this.shafts = [];
     for (const x of [-42, -37.5, -33]) {
@@ -347,6 +355,12 @@ export class Game {
       n.y = pts[0][1];
       this.walkers.push(n);
     });
+    // the people of the chambers, each with a mission (lishkot.js)
+    for (const d of LISHKA_NPCS) {
+      const n = this.addNPC(d.id, { role: d.role, skin: SKIN_TONES[(d.id.length * 3) % 5], hair: d.hair ?? HAIR_COLORS[d.id.length % 5], beard: true, robe: d.robe, accent: d.accent }, d.x, d.z, d.facing, { name: d.name, icon: d.icon, lishka: d });
+      if (d.instrument) n.char.setHeld(makeInstrument(d.instrument));
+      n.home = { x: d.x, z: d.z, facing: d.facing };
+    }
     // lambs in the pen
     this.penLambObjs = [];
     for (let i = 0; i < 4; i++) {
@@ -385,9 +399,10 @@ export class Game {
         n.char.group.rotation.y = n.facing;
         n.char.update(dt, d < 0.2 ? 0 : n.speed);
       } else {
-        n.char.update(dt, 0);
+        n.char.update(dt, n.walkSpeed || 0);
       }
     }
+    if (this.extras) for (const e of this.extras) e.char.update(dt, e.walkSpeed || 0);
     // pen lambs wander
     for (const a of this.penLambObjs) {
       if (!a.group.visible) continue;
@@ -537,7 +552,7 @@ export class Game {
 
   newState(name, skin, hair) {
     return {
-      name, skin, hair, stars: 0, dailyIndex: 0, dayDone: false, days: 0, dayOffset: 0,
+      name, skin, hair, stars: 0, dailyIndex: 0, dailyOrder: 2, dayDone: false, days: 0, dayOffset: 0,
       visitorsDone: [], visitorsEver: [], achievements: [], discovered: [], miracles: [], facts: [],
       kg: false, wearKG: false, questStars: {}, intro: false, night: false,
       stones: [], kgUntil: null, kgTimes: 0, jobs: [], fire: null, visitorTribes: {},
@@ -563,6 +578,7 @@ export class Game {
     const fire = tendFire(st);
     // on Rosh Chodesh the day gets the Musaf at the end (worked out when the day begins)
     if (st.extra === undefined || (st.dailyIndex === 0 && !st.dayDone)) this.planDay(st, st.dailyIndex === 0 && !st.dayDone);
+    this.migrateDailyOrder(st);
     if (!this.dailyList(st)[st.dailyIndex]) st.dailyIndex = 0;
     // saves from before visitors changed daily: that day had the original six
     if (st.dayDone && !st.todayVisitors) st.todayVisitors = ['reuven', 'miriam', 'yehuda', 'family', 'chana', 'bikkurim'];
@@ -593,7 +609,6 @@ export class Game {
       const dq = this.dailyList(st)[st.dailyIndex];
       this.setHourNow(dq?.hour ?? 5.2);
       if (st.dailyIndex > 2) this.setHourNow(Math.max(6.4, dq.hour));
-      if (st.dailyIndex > 4) this.lightAllLamps();
     }
     this.ui.fade(false);
     if (!st.intro) {
@@ -612,6 +627,7 @@ export class Game {
     if (!st.dayDone) this.startDaily(st.dailyIndex);
     else {
       this.ui.toast(st.night ? '🌙 Imagine it\'s Sukkot — the Simchat Beit HaShoevah lamps are lit! Explore, or talk to Elazar for a new day.' : '❗ Visitors are waiting in Ezrat Yisrael!');
+      this.lishkaHint();
     }
     this.save();
   }
@@ -629,17 +645,42 @@ export class Game {
   resetDayProps() {
     // restore the courtyard to match how far through the day this Kohen is
     const st = this.state || { dailyIndex: 0, dayDone: false };
-    const idx = st.dayDone ? 99 : st.dailyIndex;
+    const done = this.doneToday(st);
     this.bloodMarks.forEach(m => { this.scene.remove(m); m.geometry.dispose(); });
     this.bloodMarks = [];
-    this.props.ashPile.visible = idx > 1;
+    this.props.ashPile.visible = done('deshen');
     this.props.machta.visible = true;
-    this.props.altarCoals.visible = idx > 5;
+    this.props.altarCoals.visible = done('ketoret');
     if (this.props.basket) { this.scene.remove(this.props.basket); disposeBaked(this.props.basket); this.props.basket = null; }
-    this.penLambs(idx > 3 ? 3 : 4);
-    const lit = idx > 4;
-    this.lampFires.forEach((f, i) => f.setVisible(lit || i === 0));
-    this.lampsLit = lit ? 7 : 1;
+    this.penVisible = 0;
+    this.penLambs(done('tamid') ? 3 : 4);      // the Tamid lamb has been taken
+    const lit = done('menorah');
+    this.lampFires.forEach((f, i) => f.setVisible(lit || i >= 5));
+    this.lampsLit = lit ? 7 : 2;
+  }
+
+  // done('tamid') → has today's Tamid been finished (or the whole day)?
+  doneToday(st = this.state) {
+    const list = this.dailyList(st);
+    return (id) => {
+      if (st.dayDone) return true;
+      const i = list.findIndex(q => q.id === id);
+      return i >= 0 && i < st.dailyIndex;
+    };
+  }
+
+  // The Menorah used to come after the Tamid. A save from the middle of a day
+  // continues at the same avodah in the new order.
+  migrateDailyOrder(st) {
+    if (st.dailyOrder === 2) return;
+    st.dailyOrder = 2;
+    if (st.dayDone || !st.dailyIndex) return;
+    const old = this.dailyList(st).filter(q => q.id !== 'menorah');
+    old.splice(old.findIndex(q => q.id === (st.dayKG ? 'chavitin' : 'tamid')) + 1, 0, { id: 'menorah' });
+    let id = old[st.dailyIndex]?.id;
+    if (id === 'menorah') id = 'ketoret';          // the last two lamps are now part of the Ketoret
+    const i = this.dailyList(st).findIndex(q => q.id === id);
+    st.dailyIndex = i >= 0 ? i : 0;
   }
 
   refreshCard() {
@@ -664,8 +705,9 @@ export class Game {
     const q = this.dailyList()[i];
     if (!q) return;
     this.state.dailyIndex = i;
+    this.state.dailyId = q.id;
     if (q.hour && Math.abs(this.hour - q.hour) > 0.05) this.setHour(Math.max(this.hour, q.hour), 2.5);
-    if (q.id === 'menorah') { this.lampFires.forEach((f, k) => f.setVisible(k === 0)); this.lampsLit = 1; }
+    if (q.id === 'menorah') { this.lampFires.forEach((f, k) => f.setVisible(k >= 5)); this.lampsLit = 2; }
     if (i === 0 && (this.state.jobs || []).includes('gevini')) await this.geviniCall();
     if (q.id === 'deshen') { this.props.machta.visible = true; await this.runPayis(); }
     if (q.id === 'bracha' && this.isKG()) this.fact('As Kohen Gadol, you raise your hands for Birkat Kohanim only up to the Tzitz — because Hashem\'s Name is written on it.', 'Sotah 7:6', '👑 The Kohen Gadol');
@@ -996,6 +1038,7 @@ export class Game {
 
     if (q.id === 'shir') await this.awardStone('levi');
     if (q.visitor) return this.finishVisitor(q);
+    if (q.lishka) return this.finishLishka(q);
     if (q.practice) return;             // played from the 📅 calendar: not part of today's list
     const list = this.dailyList();
     const idx = list.findIndex(d => d.id === q.id);
@@ -1158,6 +1201,194 @@ export class Game {
     if (this.todaysVisitors().every(d => st.visitorsDone.includes(d.id))) await this.allVisitorsDone();
   }
 
+  // ───────────────────────── The missions in the chambers (lishkot.js) ─────────────────────────
+  // A mission can start when the day's Avodah is done — or right between two avodot
+  // (the next one waits, and goes on when the mission is finished).
+  canPause() {
+    const r = this.runner;
+    return r.active && !r.q.lishka && r.i === 0 && r.k === 0 && !r.busy && !this.player.followers.length && !this.minigames.busy;
+  }
+
+  async talkLishka(d) {
+    const q = LISHKOT.find(x => x.id === d.quest), st = this.state;
+    st.lishkot = st.lishkot || [];
+    if (this.runner.q?.lishka) { await this.say(d.id, `First let's finish: ${this.runner.step.text}.`); return; }
+    if (this.runner.active && !this.canPause()) { await this.say(d.id, 'Come back when you finish the avodah you are doing now — I will be right here!'); return; }
+    const done = st.lishkot.includes(q.id);
+    let lines = q.intro;
+    if (done) {
+      const fs = LISHKA_FACTS[d.id] || [];
+      st.lishkaFact = (st.lishkaFact || 0) + 1;
+      const f = fs[st.lishkaFact % fs.length];
+      if (f) this.fact(f[0], f[1], `${d.icon} ${d.name}`);
+      lines = [{ who: d.id, text: 'Shalom again! Would you like to do it once more?' }];
+    }
+    for (const line of lines.slice(0, -1)) await this.say(line.who, line.text);
+    const last = lines[lines.length - 1];
+    const ok = await this.ui.dialog({ icon: d.icon, name: d.name, text: last.text, buttons: [{ label: 'Not now', value: false }, { label: 'Yes, I\'ll help! ▶', value: true }] });
+    if (!ok) return;
+    if (this.runner.active) {
+      if (!this.canPause()) return;
+      this.pausedQuest = this.runner.q;
+      this.runner.stop();
+    }
+    if (q.id === 'parHelem') this.parBull(true);
+    this.runner.start({ ...q, lishka: true, steps: q.steps(this) });
+  }
+
+  // a gentle hint that the chambers hide missions, until they are all found
+  lishkaHint() {
+    const done = (this.state.lishkot || []).length;
+    if (done >= LISHKOT.length) return;
+    setTimeout(() => this.ui.toast(done ? `🗝️ You found ${done} of the ${LISHKOT.length} chamber missions — keep exploring!` : '🗝️ A secret: people in the chambers of Ezrat Nashim, and in Lishkat HaGazit, need your help — go exploring!'), 4500);
+  }
+
+  async finishLishka(q) {
+    const st = this.state;
+    if (q.thanks) await this.say(q.thanks.who, q.thanks.text);
+    st.lishkot = st.lishkot || [];
+    if (!st.lishkot.includes(q.id)) st.lishkot.push(q.id);
+    this.achieve('lishka');
+    if (LISHKOT.every(x => st.lishkot.includes(x.id))) this.achieve('lishkot');
+    this.save();
+    const pq = this.pausedQuest;
+    this.pausedQuest = null;
+    if (pq && !this.runner.active) {
+      this.ui.toast(`▶ Back to the avodah: ${pq.title}`);
+      this.runner.start(pq);
+    }
+  }
+
+  // walk a character (an NPC) along a few points
+  async walkNpcPath(n, pts, endFacing) {
+    for (let i = 0; i < pts.length; i++) await this.walkVisitor(n, pts[i], i === pts.length - 1 ? endFacing : undefined);
+    n.walkSpeed = 0;
+  }
+  npcHome(id) {
+    const n = this.npcs[id];
+    if (!n?.home) return;
+    n.x = n.home.x; n.z = n.home.z; n.facing = n.home.facing;
+    n.char.group.position.set(n.x, n.y, n.z);
+    n.char.group.rotation.y = n.facing;
+  }
+
+  // someone who appears for a moment (a sage, the Kohen Gadol)
+  tempChar(opts, x, y, z, facing) {
+    const ch = makeCharacter(opts);
+    ch.group.position.set(x, y, z);
+    ch.group.rotation.y = facing;
+    ch.group.traverse(o => { if (o.isMesh) o.castShadow = true; });
+    this.scene.add(ch.group);
+    const e = { char: ch, x, z, walkSpeed: 0 };
+    (this.extras = this.extras || []).push(e);
+    return e;
+  }
+  removeTemp(e) {
+    this.scene.remove(e.char.group); disposeBaked(e.char.group);
+    this.extras = (this.extras || []).filter(x => x !== e);
+  }
+  placeTemp(e, x, y, z, facing) {
+    e.x = x; e.z = z; e.char.group.position.set(x, y, z); e.char.group.rotation.y = facing;
+  }
+
+  // the bull of the Sanhedrin waits by the door of Lishkat HaGazit
+  parBull(on) {
+    if (this.parModel) { this.scene.remove(this.parModel.group); disposeBaked(this.parModel.group); this.parModel = null; }
+    if (!on) return;
+    this.parModel = makeAnimal('par');
+    this.parModel.group.position.set(P.parSpot.x, 0, P.parSpot.z);
+    this.parModel.group.rotation.y = Math.PI;
+    this.scene.add(this.parModel.group);
+  }
+
+  // Semicha by three sages of the Sanhedrin (Sanhedrin 1:3; Rambam, Maaseh HaKorbanot 3:10)
+  async sagesSemicha(pos) {
+    // they come from the south, from Lishkat HaGazit
+    const door = { x: pos.x + 6, z: pos.z + 5 };
+    const sages = [0, 1, 2].map(i => this.tempChar({ role: 'yisrael', beard: true, robe: [0xf2ece0, 0xe4d9c2, 0x6b7a8f][i], skin: SKIN_TONES[(i * 2 + 1) % 5], hair: [0xd8d4cc, 0xb8b2a8, 0xe8e4dc][i] }, door.x + (i - 1) * 0.9, 0, door.z + (i % 2) * 0.8, Math.PI));
+    const spots = [[1.0, 0.6], [0.1, 1.2], [-0.8, 0.9]];
+    await Promise.all(sages.map((sg, i) => this.walkVisitor(sg, { x: pos.x + spots[i][0], z: pos.z + spots[i][1] })));
+    sages.forEach(sg => { sg.walkSpeed = 0; sg.char.group.lookAt(pos.x, sg.char.group.position.y, pos.z); sg.char.pose = 'work'; });
+    this.ui.cine(true, 'Three sages of the Sanhedrin lean their hands with all their strength on the bull\'s head — semicha, for all of Israel.', 'וְסָמְכוּ זִקְנֵי הָעֵדָה אֶת יְדֵיהֶם עַל רֹאשׁ הַפָּר');
+    await this.wait(3.6);
+    this.ui.cine(false);
+    sages.forEach(sg => { sg.char.pose = 'idle'; });
+    Promise.all(sages.map((sg, i) => this.walkVisitor(sg, { x: door.x + 3 + (i - 1) * 0.9, z: door.z + 4 }))).then(() => sages.forEach(sg => this.removeTemp(sg)));
+  }
+
+  goldHorn(id) {
+    const t = this.world.goldAltarTop;
+    return new THREE.Vector3(t.x + (id.includes('E') ? 0.26 : -0.26), t.y + 0.06, t.z + (id.includes('N') ? -0.26 : 0.26));
+  }
+  goldAltarMark(id) {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.06, 0.1), MAT.blood);
+    m.position.copy(this.goldHorn(id));
+    this.scene.add(m); this.bloodMarks.push(m);
+  }
+  sprinkleParoches() {
+    for (let i = 0; i < 7; i++) setTimeout(() => this.fx.sparkle(P.paroches.x + 1.6, 3.9 - i * 0.05, (i - 3) * 0.12, { count: 10, color: 0x9a0d18, speed: 0.8, up: 0.2, size: 0.1 }), i * 160);
+    this.audio.play('pour');
+  }
+  async pourYesod(p) {
+    this.player.char.pose = 'work';
+    this.audio.play('pour');
+    this.fx.dust.emit(p.x + 0.3, 0.6, p.z, { count: 12, color: 0x6e0a12, speed: 0.6, up: 0.2, gravity: -6, life: 0.6, size: 0.12 });
+    await this.wait(0.8);
+    this.player.char.pose = 'idle';
+  }
+  potFlare() { this.potFire.flare(2.6, 3); this.audio.play('whoosh'); }
+
+  // When you are not the Kohen Gadol, you watch him do the avodah of the dam (Vayikra 4:16-18)
+  async kgParAvodah() {
+    this.player.frozen = true;
+    this.beginSkippable();
+    const R = P.slaughterRing;
+    const kg = this.tempChar({ role: 'kohenGadol', skin: SKIN_TONES[2], hair: HAIR_COLORS[1], beard: true }, R.x + 1.1, 0, R.z + 0.6, -Math.PI / 2);
+    kg.char.setHeld(makeItem('mizrak'));
+    kg.char.pose = 'work';
+    await this.closeUp(new THREE.Vector3(R.x + 4, 2.4, R.z + 3.2), new THREE.Vector3(R.x + 1.1, 1, R.z + 0.6));
+    this.ui.cine(true, 'The Kohen Gadol catches the dam of the bull in a golden mizrak, and carries it into the Heichal.', 'הַכֹּהֵן הַמָּשִׁיחַ');
+    await this.cineWait(3);
+    await this.ui.fade(true);
+    // before the Paroches
+    this.placeTemp(kg, -40.6, 3, 0, -Math.PI / 2);
+    await this.tweenCam(new THREE.Vector3(-36.6, 5, 2.4), new THREE.Vector3(-44, 3.8, 0), 0.05);
+    this.ui.fade(false);
+    this.ui.cine(true, 'He dips his finger in the dam and sprinkles it toward the Paroches — seven times.', 'וְהִזָּה שֶׁבַע פְּעָמִים');
+    for (let i = 0; i < 7 && !this.cineSkip; i++) {
+      kg.char.pose = i % 2 ? 'idle' : 'work';
+      this.fx.sparkle(P.paroches.x + 1.6, 3.9, (i - 3) * 0.12, { count: 10, color: 0x9a0d18, speed: 0.8, up: 0.2, size: 0.1 });
+      this.ui.toast(`💧 ${i + 1}`);
+      await this.cineWait(0.55);
+    }
+    // the horns of the golden Mizbeach
+    const t = this.world.goldAltarTop;
+    this.placeTemp(kg, t.x, 3, t.z + 1.1, Math.PI);
+    kg.char.pose = 'work';
+    await this.tweenCam(new THREE.Vector3(t.x - 1.8, t.y + 1.4, t.z + 2.2), t.clone(), 0.9);
+    this.ui.cine(true, 'Then he puts the dam on the four horns of the golden Mizbeach: North-East, North-West, South-West, South-East.', 'עַל קַרְנוֹת מִזְבַּח הַזָּהָב');
+    for (const id of ['NE', 'NW', 'SW', 'SE']) { this.goldAltarMark(id); this.audio.play('pour'); await this.cineWait(0.7); }
+    await this.ui.fade(true);
+    // the western yesod of the outer Mizbeach
+    const w = P.westYesod;
+    this.placeTemp(kg, w.x - 0.9, 0, w.z, Math.PI / 2);
+    await this.tweenCam(new THREE.Vector3(w.x - 5, 2.6, w.z + 3.5), new THREE.Vector3(w.x, 0.8, w.z), 0.05);
+    this.ui.fade(false);
+    this.ui.cine(true, 'He pours the rest of the dam on the western yesod of the outer Mizbeach — the side facing the Heichal.', 'אֶל יְסוֹד מִזְבַּח הָעֹלָה');
+    this.audio.play('pour');
+    this.fx.dust.emit(w.x + 0.3, 0.6, w.z, { count: 14, color: 0x6e0a12, speed: 0.6, up: 0.2, gravity: -6, life: 0.6, size: 0.12 });
+    await this.cineWait(2.6);
+    this.ui.cine(false);
+    this.endSkippable();
+    this.removeTemp(kg);
+    await this.releaseCam();
+  }
+
+  // The bull is carried out of Yerushalayim and burned (Vayikra 4:21; Zevachim 5:2)
+  async burnOutside() {
+    await this.cinematicOrbit(5, 'Kohanim carry the bull on poles out of the Azara and outside Yerushalayim, to the place of the ashes — and burn all of it there.', 'וְהוֹצִיא אֶת הַפָּר אֶל מִחוּץ לַמַּחֲנֶה');
+  }
+
   walkAway(v) {
     this.ui.removeLabel('v_' + v.def.id);
     v.leaving = true;
@@ -1196,6 +1427,7 @@ export class Game {
     st.night = true;
     this.save();
     await this.say('memuneh', 'What a day! Explore the Mikdash at night — look at the lamps in Ezrat Nashim! (They were lit on the nights of Sukkot.) When you\'re ready for a new day, come talk to me.');
+    this.lishkaHint();
     this.fact('On the nights of Sukkot, young Kohanim climbed ladders to fill the giant golden lamps, and the light shone into every courtyard in Yerushalayim!', 'Sukkah 5:2-3', '🏮 Simchat Beit HaShoevah');
     if (st.jobs.includes('bengever') && !this.runner.active) {
       for (const line of GATES.intro) await this.say(line.who, line.text);
@@ -1296,6 +1528,10 @@ export class Game {
     this.lampsLit = this.lampFires.filter(f => f.mesh.visible).length;
     const p = this.world.menorahLamps[i];
     this.fx.sparkle(p.x, p.y, p.z, { count: 14, color: 0xffd36e, speed: 0.6, up: 0.5, size: 0.08 });
+  }
+  lampOut(i) {
+    this.lampFires[i].setVisible(false);
+    this.lampsLit = this.lampFires.filter(f => f.mesh.visible).length;
   }
   lightAllLamps() { this.lampFires.forEach(f => f.setVisible(true)); this.lampsLit = 7; }
 
@@ -1571,6 +1807,11 @@ export class Game {
     consider(near(this.npcs.winekohen.x, this.npcs.winekohen.z), { type: 'chat', who: 'winekohen', text: 'Talk to Yosef', icon: '💬' });
     if (p.x < HEICHAL.hallMinX + 2.5 && p.y > 2) consider(Math.abs(p.x - HEICHAL.hallMinX) , { type: 'paroches', text: 'The Paroches', icon: '🚫' });
     if (Math.hypot(p.x - P.lambPen.x, p.z - P.lambPen.z) < 2.6 && !this.runner.active) consider(2, { type: 'lamb', text: 'Pet the lambs', icon: '🐑' });
+    for (const d of LISHKA_NPCS) {
+      const n = this.npcs[d.id];
+      if (this.runner.q?.npc === d.id) continue;            // in the middle of his own mission
+      consider(near(n.x, n.z, n.y), { type: 'lishka', d, text: `Talk to ${d.name}`, icon: d.icon });
+    }
     return best;
   }
 
@@ -1610,6 +1851,7 @@ export class Game {
         this.fact('The Chatzotzrot were silver trumpets, blown by Kohanim. They blew tekiah-teruah-tekiah!', 'Bamidbar 10:2; Sukkah 5:5', 'Chatzotzrot');
         break;
       case 'visitor': await this.talkVisitor(it.v); break;
+      case 'lishka': await this.talkLishka(it.d); break;
       case 'chat':
         await this.say(it.who, it.who === 'avtinas'
           ? 'Our family, Beit Avtinas, prepares the Ketoret. We never wore perfume, so no one could say we used the Ketoret for ourselves!'
@@ -1849,6 +2091,7 @@ export class Game {
     for (const m of this.markers) m.update(t);
     for (const m of this.optMarkers) m.update(t);
     this.crowd.update(t, dt);
+    if (this.mode !== 'play' || Math.hypot(this.player.pos.x - GAZIT.cx, this.player.pos.z - GAZIT.cz) < 60 || !this.sanhedrin.frame) this.sanhedrin.update(t, dt);
     this.doves.update(t, dt);
     this.updateNPCs(dt);
     this.updateLocalLight(night);
