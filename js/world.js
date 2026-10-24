@@ -882,61 +882,70 @@ function buildHeichal(b, scene, out) {
   const mz = P.menorah.z, mx = P.menorah.x;
   // the stone with 3 steps in front of it (Tamid 3:9)
   for (let i = 0; i < 3; i++) b.boxMM(MAT.marble, mx - 0.6, fy, mz - 1.5 + i * 0.3, mx + 0.6, fy + 0.18 * (i + 1), mz - 0.6, { collide: true });
-  const baseY = fy;
-  for (let k = 0; k < 3; k++) {
-    const a = k * Math.PI * 2 / 3;
-    b.box(MAT.goldBright, mx + Math.cos(a) * 0.22, baseY + 0.18, mz + Math.sin(a) * 0.22, 0.12, 0.36, 0.12, { ry: -a });
-  }
-  b.cyl(MAT.goldBright, mx, baseY + 0.3, mz, 0.06, 0.16, 0.25, 12);
-  const shaftTop = baseY + 2.2;
-  b.cyl(MAT.goldBright, mx, baseY + 0.5, mz, 0.06, 0.06, shaftTop - baseY - 0.5, 12);
+  // The Menorah is built twice, and the game shows the one of the player's tradition:
+  //  • lamps from east to west (Mishnah Tamid; Rashi), with rounded branches, as it is usually drawn
+  //  • for Chabad, as the Rambam holds: lamps across the Heichal from north to south
+  //    (Beit HaBechirah 3:12), with straight diagonal branches as he drew them in his own hand
+  //    (and Rashi: "באלכסון", Shemot 25:32)
+  const shaftTop = fy + 2.2;
+  const lampXs = [-0.72, -0.48, -0.24, 0, 0.24, 0.48, 0.72];
+  const radii = [0.24, 0.48, 0.72];
   const knob = new THREE.SphereGeometry(0.1, 10, 8);
   const cup = new THREE.ConeGeometry(0.075, 0.16, 10); cup.rotateX(Math.PI);
-  for (const y of [0.9, 1.35, 1.65, 1.95]) { m.makeTranslation(mx, baseY + y, mz); b.add(MAT.goldBright, knob, m, { uv: 'keep' }); }
-  // The branches: two shapes, and the game shows the one of the player's tradition.
-  // Rounded branches, as the Menorah is usually drawn — or straight diagonal branches,
-  // as the Rambam drew it in his own hand (and Rashi: "באלכסון", Shemot 25:32), as Chabad holds.
-  const radii = [0.24, 0.48, 0.72];
-  const bArc = new StaticBuilder(b.physics), bStraight = new StaticBuilder(b.physics);
+  const leg = new THREE.BoxGeometry(0.12, 0.36, 0.12);
+  const foot = new THREE.CylinderGeometry(0.06, 0.16, 0.25, 12);
+  const shaft = new THREE.CylinderGeometry(0.06, 0.06, shaftTop - fy - 0.5, 12);
+  const holder = new THREE.CylinderGeometry(0.09, 0.05, 0.07, 12);
   const rod = new THREE.CylinderGeometry(0.045, 0.045, 1, 8);
-  for (const r of radii) {
-    const arc = new THREE.TorusGeometry(r, 0.045, 8, 28, Math.PI);
-    arc.rotateZ(Math.PI);
-    m.makeTranslation(mx, shaftTop, mz);
-    bArc.add(MAT.goldBright, arc, m, { uv: 'keep' });
-    arc.dispose();
-    for (const s of [-1, 1]) {
-      m.makeTranslation(mx + s * r * 0.71, shaftTop - r * 0.71, mz);
-      bArc.add(MAT.goldBright, knob, m, { uv: 'keep' });
-      // straight: from the shaft, diagonally up to the height of the lamps
-      const len = r * Math.SQRT2;
-      m.compose(new THREE.Vector3(mx + s * r / 2, shaftTop - r / 2, mz), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, -s * Math.PI / 4)), new THREE.Vector3(1, len, 1));
-      bStraight.add(MAT.goldBright, rod, m, { uv: 'keep' });
-      m.makeTranslation(mx + s * r / 2, shaftTop - r / 2, mz);
-      bStraight.add(MAT.goldBright, knob, m, { uv: 'keep' });
-      m.makeTranslation(mx, shaftTop - r, mz);
-      bStraight.add(MAT.goldBright, knob, m, { uv: 'keep' });
-    }
-  }
-  rod.dispose();
+  const MR = new THREE.Matrix4(), ML = new THREE.Matrix4(), v3 = new THREE.Vector3();
   out.menorahStyles = {};
-  for (const [k, sb] of [['arc', bArc], ['straight', bStraight]]) {
+  out.menorahLampSets = {};
+  const buildMenorah = (key, straight, turn) => {
+    const sb = new StaticBuilder(b.physics);
+    // built around (0, 0), then turned and moved into place
+    MR.makeRotationY(turn).premultiply(new THREE.Matrix4().makeTranslation(mx, 0, mz));
+    const put = (geo, x, y, z, ry = 0, rz = 0, sy = 1) => {
+      ML.compose(v3.set(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, ry, rz)), new THREE.Vector3(1, sy, 1)).premultiply(MR);
+      sb.add(MAT.goldBright, geo, ML, { uv: 'keep' });
+    };
+    for (let k = 0; k < 3; k++) { const a = k * Math.PI * 2 / 3; put(leg, Math.cos(a) * 0.22, fy + 0.18, Math.sin(a) * 0.22, -a); }
+    put(foot, 0, fy + 0.425, 0);
+    put(shaft, 0, fy + 0.5 + (shaftTop - fy - 0.5) / 2, 0);
+    for (const y of [0.9, 1.35, 1.65, 1.95]) put(knob, 0, fy + y, 0);
+    for (const r of radii) {
+      if (!straight) {
+        const arc = new THREE.TorusGeometry(r, 0.045, 8, 28, Math.PI);
+        arc.rotateZ(Math.PI);
+        put(arc, 0, shaftTop, 0);
+        arc.dispose();
+      }
+      for (const s of [-1, 1]) {
+        if (straight) {
+          // from the shaft, diagonally up to the height of the lamps
+          put(rod, s * r / 2, shaftTop - r / 2, 0, 0, -s * Math.PI / 4, r * Math.SQRT2);
+          put(knob, s * r / 2, shaftTop - r / 2, 0);
+        } else put(knob, s * r * 0.71, shaftTop - r * 0.71, 0);
+      }
+    }
+    const lamps = [];
+    for (let i = 0; i < 7; i++) {
+      put(cup, lampXs[i], shaftTop + 0.1, 0);
+      put(holder, lampXs[i], shaftTop + 0.195, 0);
+      lamps.push(new THREE.Vector3(lampXs[i], shaftTop + 0.3, 0).applyMatrix4(MR));
+    }
     const g = new THREE.Group();
     sb.build(g);
     scene.add(g);
-    out.menorahStyles[k] = g;
-  }
+    out.menorahStyles[key] = g;
+    out.menorahLampSets[key] = lamps;
+  };
+  buildMenorah('arc', false, 0);
+  buildMenorah('straight', true, Math.PI / 2);
   out.menorahStyles.straight.visible = false;
-  out.menorahLamps = [];
-  const lampXs = [-0.72, -0.48, -0.24, 0, 0.24, 0.48, 0.72];
-  for (let i = 0; i < 7; i++) {
-    const lx = mx + lampXs[i];
-    m.makeTranslation(lx, shaftTop + 0.1, mz); b.add(MAT.goldBright, cup, m, { uv: 'keep' });
-    b.cyl(MAT.goldBright, lx, shaftTop + 0.16, mz, 0.09, 0.05, 0.07, 12);
-    out.menorahLamps.push(new THREE.Vector3(lx, shaftTop + 0.3, mz));
-  }
-  knob.dispose(); cup.dispose();
+  out.menorahLamps = out.menorahLampSets.arc;
+  [knob, cup, leg, foot, shaft, holder, rod].forEach(gm => gm.dispose());
   b.physics.addBox(mx - 0.85, fy, mz - 0.4, mx + 0.85, fy + 2.6, mz + 0.4, false);
+  b.physics.addBox(mx - 0.4, fy, mz - 0.85, mx + 0.4, fy + 2.6, mz + 0.85, false);
 
   // Shulchan — gold table with 12 loaves (Menachot 11)
   const sx = P.shulchan.x, sz = P.shulchan.z, tY = fy + 0.95;

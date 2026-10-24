@@ -186,7 +186,8 @@ export class QuestRunner {
     const g = this.g;
     if (!s) return;
     g.ui.setPrompt(null);
-    if (s.fact) g.fact(s.fact[0], s.fact[1], s.fact[2]);
+    const f = typeof s.fact === 'function' ? s.fact(g) : s.fact;       // a fact can depend on the Kohen's tradition
+    if (f) g.fact(f[0], f[1], f[2]);
     g.audio.play('step');
     g.buzz?.(18);
     const p = g.player.pos;

@@ -226,8 +226,11 @@ async function ketoretQuiz(g) {
 // the Kohen stands on the stone step in front of the Menorah (Tamid 3:9)
 async function menorahCloseUp(g) {
   const m = P.menorah;
-  await g.closeUp(new THREE.Vector3(m.x, 3 + 2.55, m.z - 2.05), new THREE.Vector3(m.x, 3 + 2.25, m.z), 1.9);
+  // as the Rambam sets it (Chabad), the lamps run north to south: look at them from the east
+  if (g.isChabad()) await g.closeUp(new THREE.Vector3(m.x + 2.05, 3 + 2.55, m.z), new THREE.Vector3(m.x, 3 + 2.25, m.z), 1.9);
+  else await g.closeUp(new THREE.Vector3(m.x, 3 + 2.55, m.z - 2.05), new THREE.Vector3(m.x, 3 + 2.25, m.z), 1.9);
 }
+const lampSpot = (lamps, i, extra) => ({ pos: lamps[i].clone().setY(lamps[i].y + 0.1), idx: i, ...extra });
 
 // ─────────────────────────────────────────────────────────
 // The daily avodah — follows the order of Mishnah Tamid (simplified)
@@ -324,6 +327,19 @@ export const DAILY = [
         run: async (g) => {
           await menorahCloseUp(g);
           const lamps = g.menorahLamps;
+          if (g.isChabad()) {
+            // the Rambam: five lamps now, beginning with the Ner Ma'aravi in the middle, from which the others are lit
+            await g.minigames.hotspots({
+              title: 'Prepare FIVE lamps: clean, new oil and wick, and light. Begin with the Ner Ma\'aravi in the middle — the others are lit from it', small: true, first: 3, limit: 5,
+              spots: lamps.map((p, i) => lampSpot(lamps, i, { icon: i === 3 ? '🔥' : '🪔', label: i === 3 ? 'Ner Ma\'aravi' : `Lamp ${i + 1}` })),
+              onSpot: async (s) => { g.lightLamp(s.idx); g.audio.bell(880 + s.idx * 80, 0.1, 0, 1.2); },
+              onWrong: () => g.ui.toast('🔥 Begin with the Ner Ma\'aravi — the middle lamp, facing the Kodesh HaKodashim!'),
+            });
+            g.miracle('ner_maaravi');
+            g.player.char.pose = 'idle';
+            await g.releaseCam();
+            return;
+          }
           await g.minigames.hotspots({
             title: 'The two eastern lamps are still burning — prepare the other FIVE: clean, new oil and wick, and light', small: true,
             spots: lamps.map((p, i) => ({ pos: p.clone().setY(p.y + 0.1), icon: i >= 5 ? '🔥' : '🪔', label: i === 5 ? 'Ner Ma\'aravi' : `Lamp ${i + 1}`, idx: i, wrong: i >= 5 })),
@@ -333,7 +349,9 @@ export const DAILY = [
           g.player.char.pose = 'idle';
           await g.releaseCam();
         },
-        fact: ['The Kohen finds the two eastern lamps still burning. He prepares the other five now, and comes back for the last two later.', 'Tamid 3:9'],
+        fact: (g) => g.isChabad()
+          ? ['As the Rambam rules, the Menorah stands across the Heichal, from north to south. The middle lamp faces the Kodesh HaKodashim — it is the Ner Ma\'aravi. Five lamps are prepared now, and the last two later.', 'Rambam, Beit HaBechirah 3:8, 3:12; Rambam, Temidin 3:16']
+          : ['The Kohen finds the two eastern lamps still burning. He prepares the other five now, and comes back for the last two later.', 'Tamid 3:9'],
       },
     ],
     outroFact: ['The order of the morning: five lamps — then the dam of the Tamid — then the last two lamps — then the Ketoret.', 'Yoma 33a'],
@@ -419,6 +437,17 @@ export const DAILY = [
         run: async (g) => {
           await menorahCloseUp(g);
           const lamps = g.menorahLamps;
+          if (g.isChabad()) {
+            let left = [0, 1, 2, 3, 4, 5, 6].filter(i => !g.lampFires[i].mesh.visible);
+            if (left.length < 2) { left = [0, 6]; left.forEach(i => g.lampOut(i)); }
+            await g.minigames.hotspots({
+              title: 'Now prepare the last two lamps', small: true,
+              spots: left.map(i => lampSpot(lamps, i, { icon: '🪔', label: `Lamp ${i + 1}` })),
+              onSpot: async (s) => { g.lightLamp(s.idx); g.audio.bell(1320, 0.1, 0, 1.2); },
+            });
+            await g.releaseCam();
+            return;
+          }
           g.lampOut(6);
           await g.minigames.hotspots({
             title: 'Prepare the eastern lamp — and leave the Ner Ma\'aravi burning!', small: true,
@@ -432,7 +461,9 @@ export const DAILY = [
           g.miracle('ner_maaravi');
           await g.releaseCam();
         },
-        fact: ['The Kohen prepares the eastern lamp and leaves the Ner Ma\'aravi burning — from it he lights the Menorah in the evening. (This Mishnah holds that the Menorah stood east to west, as it does here. The Rambam holds it stood across the Heichal, and the Ner Ma\'aravi was the middle lamp, facing the Kodesh HaKodashim.)', 'Tamid 6:1; Bartenura, Tamid 3:9; Rambam, Beit HaBechirah 3:8'],
+        fact: (g) => g.isChabad()
+          ? ['The Kohen does not prepare all seven lamps at once: five, then another avodah, and then he comes back for the last two.', 'Rambam, Temidin 3:16-17']
+          : ['The Kohen prepares the eastern lamp and leaves the Ner Ma\'aravi burning — from it he lights the Menorah in the evening. (This Mishnah holds that the Menorah stood east to west, as it does here. The Rambam holds it stood across the Heichal, and the Ner Ma\'aravi was the middle lamp, facing the Kodesh HaKodashim.)', 'Tamid 6:1; Bartenura, Tamid 3:9; Rambam, Beit HaBechirah 3:8'],
       },
       {
         text: 'Enter the Heichal and spread the coals on the golden Mizbeach', kind: 'use', at: { x: P.goldAltar.x + 1.2, y: 3, z: P.goldAltar.z }, r: 1.9, icon: '🔥', prompt: 'Spread the coals',
