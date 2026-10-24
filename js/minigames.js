@@ -14,7 +14,8 @@ export class Minigames {
   }
 
   // ───────── Hotspots in the 3D world ─────────
-  hotspots({ title, spots, ordered = false, onSpot, onWrong, allowExit = false, small = false }) {
+  // first: a spot that must be tapped before the others; limit: finish after this many
+  hotspots({ title, spots, ordered = false, first, limit, onSpot, onWrong, allowExit = false, small = false }) {
     return new Promise((resolve) => {
       const layer = $('#hs-layer');
       layer.innerHTML = '';
@@ -30,18 +31,19 @@ export class Minigames {
           e.stopPropagation();
           if (s.done || this.locked) return;
           if (s.wrong) { if (s.tried) return; s.tried = true; el.classList.add('tried'); audio.play('error'); el.animate([{ transform: 'translate(-50%,-50%) translateX(-6px)' }, { transform: 'translate(-50%,-50%) translateX(6px)' }, { transform: 'translate(-50%,-50%)' }], { duration: 250 }); onWrong?.(s); return; }
+          if (first !== undefined && i !== first && !spots[first].done) { audio.play('error'); el.animate([{ transform: 'translate(-50%,-50%) translateX(-6px)' }, { transform: 'translate(-50%,-50%) translateX(6px)' }, { transform: 'translate(-50%,-50%)' }], { duration: 250 }); onWrong?.(s); return; }
           if (ordered && i !== next) { audio.play('error'); el.animate([{ transform: 'translate(-50%,-50%) translateX(-6px)' }, { transform: 'translate(-50%,-50%) translateX(6px)' }, { transform: 'translate(-50%,-50%)' }], { duration: 250 }); return; }
           this.locked = true;
           s.done = true; el.classList.add('done'); next++;
           audio.play('pickup');
           try { await onSpot?.(s, i); } finally { this.locked = false; }
           refresh();
-          if (spots.every(x => x.done || x.wrong)) finish(true);
+          if (spots.every(x => x.done || x.wrong) || (limit && spots.filter(x => x.done).length >= limit)) finish(true);
         };
         layer.appendChild(el);
         return el;
       });
-      const refresh = () => els.forEach((el, i) => el.classList.toggle('next', ordered && i === next));
+      const refresh = () => els.forEach((el, i) => el.classList.toggle('next', (ordered && i === next) || (first === i && !spots[i].done)));
       refresh();
       const finish = (ok) => {
         this.active = null;

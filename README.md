@@ -74,7 +74,12 @@ Explore and you'll find people in the chambers who need help. A mission can be d
 ### 🕍 Your tradition
 When you make a new Kohen you choose a tradition: **Sefardi / Israeli**, **Ashkenazi** or **Chabad**. It can be changed later in ⚙️ Settings.
 - **Ashkenazi and Chabad:** English words are spelled the Ashkenazi way: *Beis HaMikdash*, *Shabbos*, *korbanos*, *Ketores*.
-- **Chabad:** the Menorah has **straight diagonal branches**, as the Rambam drew it in his own hand (and Rashi on Shemot 25:32: "באלכסון"). The other traditions show the rounded branches.
+- **Chabad:** the Menorah follows the Rambam:
+  - **straight diagonal branches**, as he drew it in his own hand (and Rashi on Shemot 25:32: "באלכסון")
+  - it stands **across the Heichal, from north to south** (Beit HaBechirah 3:12), and the **middle lamp**, facing the Kodesh HaKodashim, is the Ner Ma'aravi (3:8)
+  - in the morning you prepare five lamps **beginning with the Ner Ma'aravi**, and the last two before the Ketoret (Temidin 3:16-17)
+
+  The other traditions follow the Mishnah in Tamid: rounded branches, the Menorah east to west, and the two eastern lamps left burning until after the Tamid.
 
 ### Coming back every day
 - **🔥 Esh Tamid.** "The fire on the Mizbeach shall never go out" (Vayikra 6:6). Every day you play, the fire on the Mizbeach grows. Shabbat and Yom Tov never break the streak, and a missed day only makes the fire smaller; it never goes out.

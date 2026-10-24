@@ -277,10 +277,9 @@ export class Game {
     this.lampFires = this.world.menorahLamps.map((p, i) => {
       const f = new Fire(scene, p.clone().setY(p.y - 0.06), 0.085, 3, false);
       f.uniforms.uIntensity.value = 0.45;
-      f.setVisible(i >= 5);           // at dawn the two eastern lamps are still burning (Tamid 3:9)
       return f;
     });
-    this.lampsLit = 2;
+    this.setLamps(this.dawnLamps());
     // lamp towers of Simchat Beit HaShoevah (night only)
     this.towerFires = this.world.lampTowers.map(p => new Fire(scene, p, 0.6, 5));
     // the fire under the Nezirim's pot (Middot 2:5)
@@ -674,8 +673,8 @@ export class Game {
     this.penVisible = 0;
     this.penLambs(done('tamid') ? 3 : 4);      // the Tamid lamb has been taken
     const lit = done('menorah');
-    this.lampFires.forEach((f, i) => f.setVisible(lit || i >= 5));
-    this.lampsLit = lit ? 7 : 2;
+    // after the five lamps and before the Ketoret, the Rambam's way leaves the two outer lamps for later
+    this.setLamps(!lit ? this.dawnLamps() : this.isChabad() && !done('ketoret') ? [1, 2, 3, 4, 5] : [0, 1, 2, 3, 4, 5, 6]);
   }
 
   // done('tamid') → has today's Tamid been finished (or the whole day)?
@@ -726,7 +725,7 @@ export class Game {
     this.state.dailyIndex = i;
     this.state.dailyId = q.id;
     if (q.hour && Math.abs(this.hour - q.hour) > 0.05) this.setHour(Math.max(this.hour, q.hour), 2.5);
-    if (q.id === 'menorah') { this.lampFires.forEach((f, k) => f.setVisible(k >= 5)); this.lampsLit = 2; }
+    if (q.id === 'menorah') this.setLamps(this.dawnLamps());
     if (i === 0 && (this.state.jobs || []).includes('gevini')) await this.geviniCall();
     if (q.id === 'deshen') { this.props.machta.visible = true; await this.runPayis(); }
     if (q.id === 'bracha' && this.isKG()) this.fact('As Kohen Gadol, you raise your hands for Birkat Kohanim only up to the Tzitz — because Hashem\'s Name is written on it.', 'Sotah 7:6', '👑 The Kohen Gadol');
@@ -766,6 +765,8 @@ export class Game {
     const S = this.world.menorahStyles;
     S.straight.visible = m === 'chabad';
     S.arc.visible = m !== 'chabad';
+    // the flames sit on the lamps of whichever Menorah is shown
+    this.menorahLamps.forEach((p, i) => this.lampFires[i].mesh.position.copy(p).setY(p.y - 0.06));
     setSpelling(m === 'sefard' ? 'sefard' : 'ashkenaz');
   }
 
@@ -1551,11 +1552,19 @@ export class Game {
     return best;
   }
 
-  get menorahLamps() { return this.world.menorahLamps; }
+  get menorahLamps() { return this.world.menorahLampSets[this.isChabad() ? 'straight' : 'arc']; }
+  isChabad() { return this.state?.minhag === 'chabad'; }
+  // At dawn: the two eastern lamps are still burning (Tamid 3:9) — or, as the Rambam sets the
+  // Menorah, the Ner Ma'aravi in the middle, which burned longer than the others (Shabbat 22b)
+  dawnLamps() { return this.isChabad() ? [3] : [5, 6]; }
+  setLamps(on) {
+    this.lampFires.forEach((f, i) => f.setVisible(on.includes(i)));
+    this.lampsLit = on.length;
+  }
   lightLamp(i) {
     this.lampFires[i].setVisible(true);
     this.lampsLit = this.lampFires.filter(f => f.mesh.visible).length;
-    const p = this.world.menorahLamps[i];
+    const p = this.menorahLamps[i];
     this.fx.sparkle(p.x, p.y, p.z, { count: 14, color: 0xffd36e, speed: 0.6, up: 0.5, size: 0.08 });
   }
   lampOut(i) {
