@@ -67,7 +67,7 @@ export const ACHIEVEMENTS = [
   { id: 'deshen', icon: '🌅', name: 'Early Riser', desc: 'Perform Terumat HaDeshen' },
   { id: 'wood', icon: '🪵', name: 'Fire Keeper', desc: 'Arrange the wood on the Mizbeach' },
   { id: 'tamid', icon: '🐑', name: 'Tamid', desc: 'Bring the morning Korban Tamid' },
-  { id: 'menorah', icon: '🕎', name: 'Light of the World', desc: 'Prepare the Menorah' },
+  { id: 'menorah', icon: '🪔', name: 'Light of the World', desc: 'Prepare the Menorah' },
   { id: 'ketoret', icon: '💨', name: 'Sweet Smell', desc: 'Offer the Ketoret' },
   { id: 'bracha', icon: '🙌', name: 'Bless the People', desc: 'Say Birkat Kohanim' },
   { id: 'shir', icon: '🎵', name: 'Shir Shel Yom', desc: 'Play music with the Leviim' },

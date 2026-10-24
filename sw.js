@@ -1,11 +1,11 @@
 // Offline support: every file the game loads is kept in a cache, so the installed
 // app opens without internet (in the car, on a trip). Online, the newest files are
 // always fetched first, so updates arrive as soon as they are published.
-const CACHE = 'avodah-v3';
+const CACHE = 'avodah-v4';
 const FONT_CACHE = 'avodah-fonts-v1';
 const CORE = [
   './', './index.html', './manifest.json', './css/style.css',
-  './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png',
+  './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png',
   './vendor/three/three.module.min.js',
   './vendor/three/addons/objects/Sky.js',
   './vendor/three/addons/postprocessing/EffectComposer.js', './vendor/three/addons/postprocessing/MaskPass.js',

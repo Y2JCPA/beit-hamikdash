@@ -893,18 +893,40 @@ function buildHeichal(b, scene, out) {
   const knob = new THREE.SphereGeometry(0.1, 10, 8);
   const cup = new THREE.ConeGeometry(0.075, 0.16, 10); cup.rotateX(Math.PI);
   for (const y of [0.9, 1.35, 1.65, 1.95]) { m.makeTranslation(mx, baseY + y, mz); b.add(MAT.goldBright, knob, m, { uv: 'keep' }); }
+  // The branches: two shapes, and the game shows the one of the player's tradition.
+  // Rounded branches, as the Menorah is usually drawn — or straight diagonal branches,
+  // as the Rambam drew it in his own hand (and Rashi: "באלכסון", Shemot 25:32), as Chabad holds.
   const radii = [0.24, 0.48, 0.72];
+  const bArc = new StaticBuilder(b.physics), bStraight = new StaticBuilder(b.physics);
+  const rod = new THREE.CylinderGeometry(0.045, 0.045, 1, 8);
   for (const r of radii) {
     const arc = new THREE.TorusGeometry(r, 0.045, 8, 28, Math.PI);
     arc.rotateZ(Math.PI);
     m.makeTranslation(mx, shaftTop, mz);
-    b.add(MAT.goldBright, arc, m, { uv: 'keep' });
+    bArc.add(MAT.goldBright, arc, m, { uv: 'keep' });
     arc.dispose();
     for (const s of [-1, 1]) {
       m.makeTranslation(mx + s * r * 0.71, shaftTop - r * 0.71, mz);
-      b.add(MAT.goldBright, knob, m, { uv: 'keep' });
+      bArc.add(MAT.goldBright, knob, m, { uv: 'keep' });
+      // straight: from the shaft, diagonally up to the height of the lamps
+      const len = r * Math.SQRT2;
+      m.compose(new THREE.Vector3(mx + s * r / 2, shaftTop - r / 2, mz), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, -s * Math.PI / 4)), new THREE.Vector3(1, len, 1));
+      bStraight.add(MAT.goldBright, rod, m, { uv: 'keep' });
+      m.makeTranslation(mx + s * r / 2, shaftTop - r / 2, mz);
+      bStraight.add(MAT.goldBright, knob, m, { uv: 'keep' });
+      m.makeTranslation(mx, shaftTop - r, mz);
+      bStraight.add(MAT.goldBright, knob, m, { uv: 'keep' });
     }
   }
+  rod.dispose();
+  out.menorahStyles = {};
+  for (const [k, sb] of [['arc', bArc], ['straight', bStraight]]) {
+    const g = new THREE.Group();
+    sb.build(g);
+    scene.add(g);
+    out.menorahStyles[k] = g;
+  }
+  out.menorahStyles.straight.visible = false;
   out.menorahLamps = [];
   const lampXs = [-0.72, -0.48, -0.24, 0, 0.24, 0.48, 0.72];
   for (let i = 0; i < 7; i++) {

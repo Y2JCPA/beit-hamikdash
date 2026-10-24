@@ -4,6 +4,8 @@ import { AZARA, EZRAT_NASHIM, MIZBEACH, KEVESH, ULAM, HEICHAL, P } from './confi
 import { audio } from './audio.js';
 import { hebrewDate, roshChodesh, upcoming, calendarSupported } from './calendar.js';
 import { lang, nikud, trPlain } from './i18n.js';
+
+export const MINHAGIM = [['sefard', 'Sefardi / Israeli'], ['ashkenaz', 'Ashkenazi'], ['chabad', 'Chabad']];
 import { TRIBES, JOBS, kgActive } from './progress.js';
 import { cleanForSpeech, playRecorded, stopRecorded } from './voice.js';
 
@@ -429,12 +431,19 @@ export class UI {
     });
   }
 
+  // the traditions a Kohen can follow (see Game.applyMinhag)
+  minhagButtons(el, sel, onPick) {
+    el.innerHTML = MINHAGIM.map(([v, l]) => `<button data-v="${v}" class="${v === sel ? 'sel' : ''}">${l}</button>`).join('');
+    el.querySelectorAll('button').forEach(b => b.onclick = () => { el.querySelectorAll('button').forEach(x => x.classList.toggle('sel', x === b)); onPick(b.dataset.v); });
+  }
+
   openSettings(settings, onChange, extra) {
     this.openPanel('⚙️ Settings', [], (tab, body) => {
       const seg = (key, opts) => `<div class="seg" data-key="${key}">${opts.map(([v, l]) => `<button data-v="${v}" class="${settings[key] === v ? 'sel' : ''}">${l}</button>`).join('')}</div>`;
       body.innerHTML = `
         <div class="set-row"><span>🌐 Language</span>${seg('lang', [['en', 'English'], ['he', 'עברית']])}</div>
         ${lang === 'he' ? `<div class="set-row"><span>🔤 ניקוד</span>${seg('nikud', [[true, 'עם ניקוד'], [false, 'בלי ניקוד']])}</div>` : ''}
+        ${settings.minhag ? `<div class="set-row"><span>🕍 Tradition (this Kohen)</span>${seg('minhag', MINHAGIM)}</div>` : ''}
         <div class="set-row"><span>🎨 Graphics</span>${seg('quality', [['low', 'Fast'], ['medium', 'Nice'], ['high', 'Beautiful']])}</div>
         <div class="set-row"><span>🎶 Music</span><input type="range" min="0" max="1" step="0.05" value="${settings.music}" data-key="music"></div>
         <div class="set-row"><span>🔔 Sounds</span><input type="range" min="0" max="1" step="0.05" value="${settings.sfx}" data-key="sfx"></div>

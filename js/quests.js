@@ -198,6 +198,31 @@ function takeAnimalFromOwner(owner, animal, verb = 'Take the animal') {
   };
 }
 
+// The 11 spices of the Ketoret and their weights in maneh (Keritot 6a; Rambam, Klei HaMikdash 2:3)
+const KETORET_SPICES = [
+  { icon: '🌳', label: 'Tzori — balsam sap', answer: 70 },
+  { icon: '🐚', label: 'Tziporen — onycha', answer: 70 },
+  { icon: '🌿', label: 'Chelbenah — galbanum', answer: 70 },
+  { icon: '🤍', label: 'Levonah — frankincense', answer: 70 },
+  { icon: '🟤', label: 'Mor — myrrh', answer: 16 },
+  { icon: '🪵', label: 'Ketziah — cassia', answer: 16 },
+  { icon: '🌾', label: 'Shibolet nerd — spikenard', answer: 16 },
+  { icon: '🌸', label: 'Karkom — saffron', answer: 16 },
+  { icon: '🌱', label: 'Kosht — costus root', answer: 12 },
+  { icon: '🍂', label: 'Kilufah — fragrant bark', answer: 3 },
+  { icon: '🟫', label: 'Kinamon — cinnamon', answer: 9 },
+];
+async function ketoretQuiz(g) {
+  // the first time all eleven; after that, four of them
+  const first = g.state?.questStars?.ketoret === undefined;
+  const items = first ? KETORET_SPICES : KETORET_SPICES.map(x => [Math.random(), x]).sort((a, b) => a[0] - b[0]).slice(0, 4).map(x => x[1]);
+  const a = await g.minigames.quiz({ title: 'Help Pinchas weigh the spices of the Ketoret!', hint: 'How much of each one? (a maneh is 100 dinars of weight)', items, choices: [70, 16, 12, 9, 3], unit: 'maneh' });
+  const b = await g.minigames.quiz({ title: 'And the whole Ketoret for the year?', hint: 'Add them up: 4 × 70, 4 × 16, and 12, 9 and 3', items: [{ icon: '⚖️', label: 'All 11 spices together', answer: 368 }], choices: [11, 365, 368], unit: 'maneh' });
+  const c = await g.minigames.quiz({ title: 'One more question from Pinchas', items: [{ icon: '🍯', label: 'May we add honey, to make it smell sweet?', answer: 'No — never!' }], choices: ['Yes, a little', 'No — never!'] });
+  if (a.tries + b.tries + c.tries > 2) g.mistakeSoft();
+  g.fact('Chelbenah smells bad — and still it is one of the spices! So too, a fast is not complete unless all of Israel joins in, even those who sinned.', 'Keritot 6b', '💨 The Ketoret');
+}
+
 // the Kohen stands on the stone step in front of the Menorah (Tamid 3:9)
 async function menorahCloseUp(g) {
   const m = P.menorah;
@@ -290,12 +315,12 @@ export const DAILY = [
   },
   {
     // Tamid 3:9 and Yoma 33a: five lamps are prepared BEFORE the dam of the Tamid; the last two after it
-    id: 'menorah', icon: '🕎', title: 'Preparing the Menorah', he: 'הֲטָבַת הַנֵּרוֹת', hour: 6.0, achievement: 'menorah',
+    id: 'menorah', icon: '🪔', title: 'Preparing the Menorah', he: 'הֲטָבַת הַנֵּרוֹת', hour: 6.0, achievement: 'menorah',
     intro: [{ who: 'memuneh', text: 'Now, a great honor: climb the 12 steps of the Ulam and go into the Heichal to prepare the Menorah. Only Kohanim may enter! Before the Tamid is offered, five of the lamps are prepared.' }],
     steps: [
       { text: 'Climb the steps of the Ulam and enter the Heichal', kind: 'go', at: { x: HEICHAL.hallMaxX - 2, y: 3, z: 0 }, r: 2.6, icon: '🚪' },
       {
-        text: 'Go to the golden Menorah (south side) and climb its little stone step', kind: 'use', at: { x: P.menorah.x, y: 3, z: P.menorah.z - 1.7 }, r: 1.8, icon: '🕎', prompt: 'Prepare the Menorah',
+        text: 'Go to the golden Menorah (south side) and climb its little stone step', kind: 'use', at: { x: P.menorah.x, y: 3, z: P.menorah.z - 1.7 }, r: 1.8, icon: '🪔', prompt: 'Prepare the Menorah',
         run: async (g) => {
           await menorahCloseUp(g);
           const lamps = g.menorahLamps;
@@ -303,7 +328,7 @@ export const DAILY = [
             title: 'The two eastern lamps are still burning — prepare the other FIVE: clean, new oil and wick, and light', small: true,
             spots: lamps.map((p, i) => ({ pos: p.clone().setY(p.y + 0.1), icon: i >= 5 ? '🔥' : '🪔', label: i === 5 ? 'Ner Ma\'aravi' : `Lamp ${i + 1}`, idx: i, wrong: i >= 5 })),
             onSpot: async (s) => { g.lightLamp(s.idx); g.audio.bell(880 + s.idx * 80, 0.1, 0, 1.2); },
-            onWrong: () => g.ui.toast('🕎 Leave the two eastern lamps burning for now — they are prepared later, after the dam of the Tamid!'),
+            onWrong: () => g.ui.toast('🪔 Leave the two eastern lamps burning for now — they are prepared later, after the dam of the Tamid!'),
           });
           g.player.char.pose = 'idle';
           await g.releaseCam();
@@ -384,8 +409,13 @@ export const DAILY = [
         fact: ['The Ketoret is made of 11 spices. The family of Avtinas knew the secret recipe!', 'Keritot 6a; Yoma 3:11'],
       },
       {
+        text: 'Pinchas asks: do you know what is in the Ketoret?', kind: 'auto',
+        run: async (g) => { await ketoretQuiz(g); },
+        fact: ['The Ketoret has 11 spices, 368 maneh in all: one maneh for each day of the year — half in the morning and half in the afternoon — and 3 more for the Kohen Gadol on Yom Kippur.', 'Keritot 6a; Rambam, Klei HaMikdash 2:3'],
+      },
+      {
         // Tamid 6:1: the Kohen of the Menorah goes in first and finishes the last two lamps
-        text: 'Before the Ketoret, finish the Menorah: go into the Heichal to the last two lamps', kind: 'use', at: { x: P.menorah.x, y: 3, z: P.menorah.z - 1.7 }, r: 1.8, icon: '🕎', prompt: 'The last two lamps',
+        text: 'Before the Ketoret, finish the Menorah: go into the Heichal to the last two lamps', kind: 'use', at: { x: P.menorah.x, y: 3, z: P.menorah.z - 1.7 }, r: 1.8, icon: '🪔', prompt: 'The last two lamps',
         run: async (g) => {
           await menorahCloseUp(g);
           const lamps = g.menorahLamps;

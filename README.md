@@ -1,4 +1,4 @@
-# 🕎 Avodah — Beit HaMikdash
+# <img src="icons/icon-192.png" width="48" align="top" alt=""> Avodah — Beit HaMikdash
 
 A 3D educational game for kids. You play a young Kohen in the Beit HaMikdash and do a full day of the Avodah, in the order of Mishnah Tamid, from before sunrise to the golden lamps of Simchat Beit HaShoevah at night.
 
@@ -28,9 +28,11 @@ The quests follow Mishnah Tamid, simplified for kids:
    - 🎲 Then the **Payis**, the morning lottery (Yoma 2). The Kohanim stand in a circle and hold up one finger each (we count fingers, never people). The Memuneh calls out a number and counts around the circle. If it lands on you, you win that day's honor (Terumat HaDeshen, the Tamid, the Menorah, the Ketoret or the Nesachim), worth 2 bonus stars.
 2. 🌅 **Terumat HaDeshen**: take the silver machta, scoop the ashes, and place them east of the ramp
 3. 🪵 **Siddur Ma'arachah**: bring wood up to the fire. Then the watchman calls ***"Barkai!"*** and the sun rises.
-4. 🕎 **Hatavat HaNerot**, in the Mishnah's order: before the Tamid, prepare five lamps. The two eastern lamps are still burning, and you leave them for now (Tamid 3:9; Yoma 33a).
+4. 🪔 **Hatavat HaNerot**, in the Mishnah's order: before the Tamid, prepare five lamps. The two eastern lamps are still burning, and you leave them for now (Tamid 3:9; Yoma 33a).
 5. 🐑 **Korban Tamid**: take a lamb from the lamb chamber, check it for blemishes, and give it water from the golden cup. Then do shechita in the north, kabbalah, holacha, zerika (two placements that are four: NE then SW), shirayim on the southern yesod, salting, and haktarah.
-6. 💨 **Ketoret** on the golden altar (the goats of Yericho sneeze 🐐). First you go back in for the last two lamps: prepare the eastern one and leave the **Ner Ma'aravi** burning (Tamid 6:1).
+6. 💨 **Ketoret** on the golden altar (the goats of Yericho sneeze 🐐).
+   - First Pinchas of Beit Avtinas asks what is in it: weigh the 11 spices (70, 16, 12, 9 or 3 maneh each), add up the whole year's 368 maneh, and say whether honey may go in (Keritot 6a; Rambam, Klei HaMikdash 2:3). The first time it's all eleven, after that four of them.
+   - Then you go back in for the last two lamps: prepare the eastern one and leave the **Ner Ma'aravi** burning (Tamid 6:1).
 7. 🙌 **Birkat Kohanim** from the steps of the Ulam. The crowd bows and answers *Baruch Shem*.
 8. 🎵 **Nesachim and the Shir Shel Yom**: pour the wine, then play the real weekday's song with the Leviim in a rhythm game. At each pause the trumpets sound and everyone bows.
 9. 🌙 **On Rosh Chodesh, the Musaf**: count out the right animals (2 bulls, a ram, 7 lambs and a goat), blow the chatzotzrot over the korbanot (Bamidbar 10:10), and bring the parts to the fire.
@@ -68,6 +70,11 @@ Explore and you'll find people in the chambers who need help. A mission can be d
   - the dam is sprinkled seven times toward the Paroches and put on the horns of the golden Mizbeach. As Kohen Gadol you do this yourself; otherwise you watch the Kohen Gadol.
   - the rest of the dam goes on the western yesod
   - the emurim go on the fire, and the bull is burned outside Yerushalayim (Zevachim 5:2)
+
+### 🕍 Your tradition
+When you make a new Kohen you choose a tradition: **Sefardi / Israeli**, **Ashkenazi** or **Chabad**. It can be changed later in ⚙️ Settings.
+- **Ashkenazi and Chabad:** English words are spelled the Ashkenazi way: *Beis HaMikdash*, *Shabbos*, *korbanos*, *Ketores*.
+- **Chabad:** the Menorah has **straight diagonal branches**, as the Rambam drew it in his own hand (and Rashi on Shemot 25:32: "באלכסון"). The other traditions show the rounded branches.
 
 ### Coming back every day
 - **🔥 Esh Tamid.** "The fire on the Mizbeach shall never go out" (Vayikra 6:6). Every day you play, the fire on the Mizbeach grows. Shabbat and Yom Tov never break the streak, and a missed day only makes the fire smaller; it never goes out.
@@ -150,7 +157,7 @@ js/calendar.js        Hebrew date, Rosh Chodesh and upcoming holidays (built-in 
 js/i18n.js, he.js     Hebrew: the translation engine and the Hebrew text (he-nikud.js: the same with nikud)
 sw.js                 offline play (service worker)
 js/voice.js, voice/   recorded voices for read-aloud (see voice/README.md); tools/voice-lines.mjs lists the lines
-js/minigames.js       hotspots, rhythm game, kemitzah meter, tenufah, verses, tally (counting), echo (play a tune back)
+js/minigames.js       hotspots, rhythm game, kemitzah meter, tenufah, verses, tally (counting), echo (play a tune back), quiz
 js/audio.js           synthesized music and sound effects
 js/ui.js, input.js    HUD, dialogs, journal, minimap, keyboard, mouse and touch
 js/textures.js, materials.js, builder.js   procedural textures, materials, geometry merging

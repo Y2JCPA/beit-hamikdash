@@ -385,6 +385,54 @@ export class Minigames {
     });
   }
 
+  // ───────── Quiz: one card at a time, tap the right answer ─────────
+  // items: [{ icon, label, answer, choices? }] — choices default to the shared list
+  quiz({ title, hint = '', items, choices = [], unit = '' }) {
+    return new Promise((resolve) => {
+      const box = $('#quiz');
+      $('#qz-title').textContent = title;
+      $('#qz-hint').textContent = hint;
+      let i = 0, tries = 0, wrongHere = 0, busy = false;
+      const show = () => {
+        const it = items[i];
+        wrongHere = 0; busy = false;
+        $('#qz-icon').textContent = it.icon;
+        $('#qz-label').textContent = it.label;
+        $('#qz-dots').textContent = items.map((_, k) => (k < i ? '●' : k === i ? '◉' : '○')).join(' ');
+        const ch = $('#qz-choices');
+        ch.innerHTML = '';
+        for (const c of it.choices || choices) {
+          const b = document.createElement('button');
+          b.className = 'qz-choice';
+          b.textContent = unit ? `${c} ${unit}` : c;
+          b.onclick = () => pick(b, c);
+          ch.appendChild(b);
+        }
+      };
+      const next = () => { i++; if (i < items.length) show(); else { box.classList.add('hidden'); this.active = null; resolve({ tries }); } };
+      const pick = (b, c) => {
+        if (busy) return;
+        const it = items[i];
+        if (String(c) === String(it.answer)) {
+          busy = true; b.classList.add('good'); audio.bell(noteFreq(i % 8, 1), 0.12, 0, 0.7);
+          setTimeout(next, 650);
+          return;
+        }
+        tries++; wrongHere++;
+        audio.play('error'); b.classList.add('bad'); b.disabled = true;
+        if (wrongHere >= 2) {
+          // show the answer so nobody gets stuck
+          busy = true;
+          [...$('#qz-choices').children].forEach((x, k) => { if (String((it.choices || choices)[k]) === String(it.answer)) x.classList.add('good', 'hint'); });
+          setTimeout(next, 1500);
+        }
+      };
+      box.classList.remove('hidden');
+      this.active = { key: (code) => { const n = { Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3, Digit5: 4 }[code]; const b = $('#qz-choices').children[n]; if (b && !b.disabled) b.click(); } };
+      show();
+    });
+  }
+
   key(code) { this.active?.key?.(code); }
 }
 

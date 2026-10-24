@@ -24,7 +24,7 @@ import { DAILY, VISITORS, ROSH_CHODESH, CHAVITIN, LECHEM_HAPANIM, GATES, setNpcP
 import { LISHKOT, LISHKA_NPCS, LISHKA_FACTS } from './lishkot.js';
 import { roshChodesh, hebrewDate } from './calendar.js';
 import { TRIBES, JOBS, KG_DAYS, tendFire, fireLevel, kgActive, assignTribes, tribe } from './progress.js';
-import { lang, nikud } from './i18n.js';
+import { lang, nikud, spelling, setSpelling } from './i18n.js';
 import { PLACES, MIRACLES, ACHIEVEMENTS, TITLES, NPC_NAMES } from './data.js';
 
 const $ = (s) => document.querySelector(s);
@@ -473,10 +473,10 @@ export class Game {
     ls.textContent = lang === 'he' ? '🌐 English' : '🌐 עברית';
     ls.onclick = () => {
       this.settings.lang = lang === 'he' ? 'en' : 'he';
-      try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(this.settings)); } catch { }
+      this.saveSettings();
       location.reload();
     };
-    let skin = 1, hair = 0;
+    let skin = 1, hair = 0, minhag = 'sefard';
     const sw = (el, colors, sel, set) => {
       el.innerHTML = '';
       colors.forEach((c, i) => {
@@ -492,6 +492,8 @@ export class Game {
       $('#np-name').value = '';
       sw($('#np-skin'), SKIN_TONES, skin, (i) => skin = i);
       sw($('#np-hair'), HAIR_COLORS, hair, (i) => hair = i);
+      minhag = this.settings.lastMinhag || 'sefard';
+      this.ui.minhagButtons($('#np-minhag'), minhag, (v) => { minhag = v; audio.play('click'); });
       this.ui.show('#new-profile', true);
       setTimeout(() => $('#np-name').focus(), 50);
     };
@@ -503,7 +505,9 @@ export class Game {
       const id = 'k' + Date.now();
       ps.push({ id, name, stars: 0, title: 'Young Kohen' });
       this.saveProfiles(ps);
-      try { localStorage.setItem(SAVE_PREFIX + id, JSON.stringify(this.newState(name, skin, hair))); } catch { }
+      this.settings.lastMinhag = minhag;
+      this.saveSettings();
+      try { localStorage.setItem(SAVE_PREFIX + id, JSON.stringify({ ...this.newState(name, skin, hair), minhag })); } catch { }
       this.ui.show('#new-profile', false);
       this.startProfile(id);
     };
@@ -526,10 +530,24 @@ export class Game {
   }
 
   openJournal(tab = 0) { audio.play('click'); this.ui.openJournal(this.state, { practiceRC: () => this.practiceRoshChodesh() }, tab); }
+  saveSettings() {
+    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...this.settings, minhag: undefined })); } catch { }
+  }
   openSettings() {
     audio.play('click');
+    this.settings.minhag = this.mode === 'play' ? this.state?.minhag || 'sefard' : undefined;
     this.ui.openSettings(this.settings, (k, v) => {
-      try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(this.settings)); } catch { }
+      if (k === 'minhag') {
+        this.state.minhag = v;
+        this.settings.lastMinhag = v;
+        this.saveSettings();
+        this.save();
+        // Ashkenazi spelling can be switched on at once; switching it off needs a fresh start
+        if (spelling === 'ashkenaz' && v === 'sefard') setTimeout(() => location.reload(), 150);
+        else this.applyMinhag();
+        return;
+      }
+      this.saveSettings();
       if (k === 'music' || k === 'sfx') audio.setVolumes(this.settings.music, this.settings.sfx);
       if (k === 'camSpeed') this.rig.sens = v;
       if (k === 'readAloud') { this.ui.readAloud = v; if (!v) this.ui.stopSpeaking(); }
@@ -589,6 +607,7 @@ export class Game {
     await this.ui.fade(true);
     this.ui.show('#title', false);
     this.player.setLook({ skin: SKIN_TONES[st.skin ?? 1], hair: HAIR_COLORS[st.hair ?? 0], kohenGadol: this.isKG() });
+    this.applyMinhag();
     this.applyFire();
     // where to begin
     if (st.dailyIndex === 0 && !st.dayDone) this.player.teleport(P.spawn.x, EZRAT_NASHIM.floorY, P.spawn.z, -Math.PI / 2);
@@ -739,6 +758,16 @@ export class Game {
 
   // ───────────────────────── Coming back each day ─────────────────────────
   isKG() { return kgActive(this.state) && this.state.wearKG !== false; }
+
+  // The Kohen's tradition: Ashkenazi spelling in English (Beis, Shabbos), and for Chabad the
+  // Menorah with straight branches, as the Rambam drew it (and Rashi on Shemot 25:32)
+  applyMinhag() {
+    const m = this.state?.minhag || 'sefard';
+    const S = this.world.menorahStyles;
+    S.straight.visible = m === 'chabad';
+    S.arc.visible = m !== 'chabad';
+    setSpelling(m === 'sefard' ? 'sefard' : 'ashkenaz');
+  }
 
   // the fire on the Mizbeach grows with the streak (and never goes out)
   applyFire() {
