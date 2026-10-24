@@ -85,8 +85,39 @@ const looksLikeSource = (s) => books.some(([en]) => s.startsWith(en)) && /\d/.te
 export const tr = (s) => trWith(shown, s);
 export const trPlain = (s) => trWith(plain, s);       // without nikud, for read-aloud
 
+// ── Ashkenazi spelling in English: Beis HaMikdash, Shabbos, korbanos ──
+// (a ת without a dagesh is written "s"). Chosen with the Kohen's tradition.
+const ASHKENAZ = {
+  Beit: 'Beis', Bet: 'Beis', Shabbat: 'Shabbos', Sukkot: 'Sukkos', Shavuot: 'Shavuos', Atzeret: 'Atzeres', Tevet: 'Teves',
+  Lishkat: 'Lishkas', Ezrat: 'Ezras', Simchat: 'Simchas', Birkat: 'Birkas', Minchat: 'Minchas', Terumat: 'Terumas',
+  Hatavat: 'Hatavas', HaNerot: 'HaNeros', Ketoret: 'Ketores', Chatat: 'Chatas', korbanot: 'korbanos', HaKorbanot: 'HaKorbanos',
+  Olot: 'Olos', Solet: 'Soles', amot: 'amos', kranot: 'kranos', challot: 'challos', kinorot: 'kinoros', Kinorot: 'Kinoros',
+  chatzotzrot: 'chatzotzros', Chatzotzrot: 'Chatzotzros', nezirut: 'nezirus', techelet: 'techeles', Bareket: 'Barekes',
+  HaBayit: 'HaBayis', HaGazit: 'HaGazis', HaShetiyah: 'HaShesiyah', "HaMa'alot": "HaMa'alos", "parsa'ot": "parsa'os", mitzvot: 'mitzvos', Mitzvot: 'Mitzvos',
+  // the books in the sources
+  Shemot: 'Shemos', Middot: 'Middos', Menachot: 'Menachos', menachot: 'menachos', Berachot: 'Berachos', Avot: 'Avos',
+  "Ta'anit": "Ta'anis", Horayot: 'Horayos', Keritot: 'Kerisos',
+};
+const ASH_RE = new RegExp(`(?<![A-Za-z'])(${Object.keys(ASHKENAZ).sort((a, b) => b.length - a.length).join('|')})(?![A-Za-z])`, 'g');
+export let spelling = 'sefard';
+const spellMemo = new Map();
+const spell = (s) => {
+  let r = spellMemo.get(s);
+  if (r === undefined) { r = s.replace(ASH_RE, (w) => ASHKENAZ[w]); spellMemo.set(s, r); }
+  return r;
+};
+// switch on Ashkenazi spelling (switching it off again needs a reload, see Game)
+export function setSpelling(mode) {
+  if (lang !== 'en' || mode === spelling) return;
+  spelling = mode;
+  if (mode !== 'ashkenaz') return;
+  document.title = spell(document.title);
+  if (!watching) watch(); else trTree(document.body);
+}
+
 function trWith(T, s) {
-  if (lang !== 'he' || typeof s !== 'string' || !hasLatin(s)) return s;
+  if (lang !== 'he') return spelling === 'ashkenaz' && typeof s === 'string' ? spell(s) : s;
+  if (typeof s !== 'string' || !hasLatin(s)) return s;
   const hit = T.memo.get(s);
   if (hit !== undefined) return hit;
   const lead = s.match(/^\s*/)[0], trail = s.match(/\s*$/)[0];
@@ -150,7 +181,9 @@ function trTree(root) {
   const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
   for (let n = w.nextNode(); n; n = w.nextNode()) n.nodeType === 3 ? trText(n) : trAttrs(n);
 }
+let watching = false;
 function watch() {
+  watching = true;
   trTree(document.body);
   new MutationObserver((muts) => {
     for (const m of muts) {

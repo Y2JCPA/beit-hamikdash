@@ -12,7 +12,7 @@
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <meta name="description" content="Avodah — walk through the Beit HaMikdash and perform the daily avodah as a young Kohen. A 3D educational game for kids, sourced from Mishnah Tamid, Middot and Zevachim.">
   <title>Avodah — Beit HaMikdash</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🕎</text></svg>">
+  <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Frank+Ruhl+Libre:wght@500;700;900&display=swap" rel="stylesheet">
@@ -34,7 +34,7 @@
   <!-- Loading -->
   <div id="loading">
     <div class="load-inner">
-      <div class="load-logo">🕎</div>
+      <img class="load-logo" src="icons/icon.svg" alt="">
       <div class="load-title">Avodah</div>
       <div class="load-he">בֵּית הַמִּקְדָּשׁ</div>
       <div class="load-bar"><div id="load-fill"></div></div>
@@ -50,7 +50,7 @@
       <h1 class="title-en">Avodah</h1>
       <div class="title-sub">Serve as a young Kohen in the Beit HaMikdash</div>
       <div id="title-date"></div>
-      <div id="app-version" data-noi18n>v2026.10.17</div>
+      <div id="app-version" data-noi18n>v2026.10.24</div>
     </div>
     <div class="title-card">
       <div class="title-card-head">Choose your Kohen</div>
@@ -69,6 +69,9 @@
       <div id="np-skin" class="swatches"></div>
       <label class="field-label">Hair</label>
       <div id="np-hair" class="swatches"></div>
+      <label class="field-label">Which tradition do you follow?</label>
+      <div id="np-minhag" class="seg"></div>
+      <div class="np-hint">It changes how words are spelled (Beit or Beis), and for Chabad the shape of the Menorah: straight branches, as the Rambam drew it. You can change it later in ⚙️ Settings.</div>
       <div class="modal-actions">
         <button id="np-cancel" class="btn btn-stone">Cancel</button>
         <button id="np-go" class="btn btn-gold">Begin! ▶</button>
@@ -160,6 +163,7 @@
   <div id="meter" class="hidden"><div id="mt-title"></div><div id="mt-bar"><div id="mt-zone"></div><div id="mt-needle"></div></div><div id="mt-hint"></div><button id="mt-btn" class="btn btn-gold btn-big">Kemitzah!</button></div>
   <div id="arrows" class="hidden"><div id="ar-title"></div><div id="ar-seq"></div><div id="ar-pad"></div></div>
   <div id="payis" class="hidden"><div id="py-title">🎲 The Payis</div><div id="py-text"></div><div id="py-count"></div><button id="py-btn" class="btn btn-gold btn-big">☝️ Raise one finger!</button></div>
+  <div id="quiz" class="hidden"><div id="qz-title"></div><div id="qz-hint"></div><div id="qz-card"><div id="qz-icon"></div><div id="qz-label"></div></div><div id="qz-choices"></div><div id="qz-dots"></div></div>
   <div id="echo" class="hidden"><div id="ec-title"></div><div id="ec-status"></div><div id="ec-pads"></div></div>
   <div id="tally" class="hidden"><div id="tl-title"></div><div id="tl-hint"></div><div id="tl-items"></div><div id="tl-actions"><button id="tl-reset" class="btn btn-stone">↺ Start over</button><button id="tl-done" class="btn btn-gold">Done ✓</button></div></div>
   <div id="verses" class="hidden"><div id="vs-he"></div><div id="vs-en"></div><div id="vs-tap">Tap to continue ▶</div></div>
