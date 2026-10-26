@@ -1,7 +1,7 @@
 // Offline support: every file the game loads is kept in a cache, so the installed
 // app opens without internet (in the car, on a trip). Online, the newest files are
 // always fetched first, so updates arrive as soon as they are published.
-const CACHE = 'avodah-v5';
+const CACHE = 'avodah-v6';
 const FONT_CACHE = 'avodah-fonts-v1';
 const CORE = [
   './', './index.html', './manifest.json', './css/style.css',
@@ -14,6 +14,7 @@ const CORE = [
   './vendor/three/addons/postprocessing/UnrealBloomPass.js',
   './vendor/three/addons/shaders/CopyShader.js', './vendor/three/addons/shaders/LuminosityHighPassShader.js',
   './vendor/three/addons/shaders/OutputShader.js', './vendor/three/addons/utils/BufferGeometryUtils.js',
+  './js/analytics.js',
   './js/audio.js',
   './js/builder.js',
   './js/calendar.js',

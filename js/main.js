@@ -1,4 +1,5 @@
 // Entry point
+import { track } from './analytics.js';
 import { Game } from './game.js';
 import { initLanguage } from './i18n.js';
 import { loadVoices } from './voice.js';
@@ -14,10 +15,12 @@ function webglOK() {
 }
 
 if (!webglOK()) {
+  track('game_load_error', { error_type: 'webgl_unavailable' });
   document.getElementById('load-text').textContent = 'Sorry — this game needs WebGL. Please try a newer browser or device.';
 } else {
   const game = new Game();
   game.init().catch((e) => {
+    track('game_load_error', { error_type: 'initialization_failed' });
     console.error(e);
     document.getElementById('load-text').textContent = 'Something went wrong while building the Mikdash: ' + e.message;
   });

@@ -1,5 +1,6 @@
 // Avodah — the game orchestrator.
 import * as THREE from 'three';
+import { track, startPlay, taskComplete, tickPlay } from './analytics.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
@@ -160,6 +161,7 @@ export class Game {
     this.showTitle();
     ui.hideLoading();
     this.loop();
+    track('game_ready');
     window.__game = this;
     window.__lishkot = { LISHKA_NPCS, LISHKOT };      // for automated play-tests
   }
@@ -616,6 +618,7 @@ export class Game {
     this.rig.snap(this.player);
     this.resetDayProps();
     this.mode = 'play';
+    startPlay(!!st.intro);
     this.ui.show('#hud', true);
     this.ui.show('#mobile', this.ui.touch);
     this.refreshCard();
@@ -1039,6 +1042,7 @@ export class Game {
   }
 
   async onQuestComplete(q, stars, mistakes) {
+    taskComplete(q);
     const st = this.state;
     if (q.id === 'shir' && this.shirResult) stars = this.shirResult.stars;
     const prev = st.questStars[q.id];
@@ -1081,6 +1085,7 @@ export class Game {
   async dayComplete() {
     const st = this.state;
     st.dayDone = true; st.days++; st.dailyIndex = 0;
+    track('game_complete', { completion_type: 'avodah_day' });
     st.todayVisitors = this.pickVisitors();
     this.achieve('day');
     this.save();
@@ -2070,6 +2075,7 @@ export class Game {
   loop() {
     requestAnimationFrame(() => this.loop());
     const raw = this.clock.getDelta();
+    tickPlay(raw, this.mode === 'play');
     const dt = Math.min(raw, 0.05);
     this.realDt = Math.min(raw, 0.25);   // cinematics & tweens follow real time even on slow devices
     this.frames = (this.frames || 0) + 1;

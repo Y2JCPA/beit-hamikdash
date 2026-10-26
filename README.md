@@ -175,3 +175,35 @@ Mishnah **Tamid**, **Middot**, **Zevachim** (ch. 5–6), **Menachot**, **Yoma**,
 
 ---
 *By Y2JCPA*
+
+## Gameplay analytics (26 10 2026)
+
+GA4 stream `G-MRMZPQXR3B` is on the game itself, not just a separate landing page.
+The Jacob Bros catalogue links to this same GitHub Pages URL; starting a profile
+stays on the same document. No cross-domain handoff is present on this route.
+
+Events:
+- `game_ready`: 3D world successfully loaded.
+- `game_load_error`: WebGL unavailable or initialization failed (category only).
+- `game_start`: profile enters play, with `entry_type` new/resume and display mode.
+- `task_complete`: an actual quest finishes; static `task_id` and `task_type` only.
+- `first_task_complete`: first quest completed in each play entry, not lifetime first.
+- `game_complete`: the daily Avodah sequence finishes (`completion_type=avodah_day`),
+  not all optional visitors/chambers or the entire open-ended game.
+- `active_play_60s`, `active_play_300s`, `active_play_600s`, `active_play_1200s`:
+  cumulative foreground play with input in the last 60 seconds. Hidden/idle time
+  is excluded; reading/cinematics can be undercounted. Resets on profile entry.
+
+Funnel: game_start → first_task_complete → game_complete. Compare users, not raw
+completion event totals (quests/days can repeat). Resumed saves can finish a day
+without replaying its earlier tasks. The ready/start gap measures title-screen
+conversion; milestones help distinguish exploration from quest progression.
+Use GA4 Events/Realtime or a funnel exploration with those event names. Standard
+reports need processing time. These events begin with this deployment: historical
+starts/completions cannot be reconstructed. Offline/ad-blocked play remains
+unmeasured; no attempt is made to upload saved profiles later. No names, profile
+IDs or saved-game files are sent. Privacy disclosure updated alongside the code.
+
+Check: `node tests/analytics.test.mjs`. Browser integration was checked with a new
+profile and the real quest/day completion handlers (presentation stubbed). Local
+tests block the GA script to avoid polluting production data.
